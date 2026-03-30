@@ -1,0 +1,235 @@
+/**
+ * 块配置面板 - 右侧边栏
+ *
+ * 根据块类型显示不同配置项:
+ * - Input: 输入字段定义
+ * - AI: 提示词 + 模型选择 + JSON输出key（高级选项）
+ * - Tool: 工具选择 + 参数
+ * - Output: 无需配置
+ */
+import { X, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState } from 'react'
+import { useWorkflowStore } from '@/stores/workflow'
+import type { Block, OutputSchema } from '@/types/workflow'
+
+export function BlockConfigPanel() {
+  const { workflow, selectedBlockId, selectBlock, updateBlock } = useWorkflowStore()
+
+  // 找到选中的块
+  let block: Block | null = null
+  for (const col of workflow.columns) {
+    for (const b of col.blocks) {
+      if (b.id === selectedBlockId) block = b
+    }
+  }
+
+  if (!block) return null
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* 头部 */}
+      <div className="px-4 py-3 border-b flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700">配置: {block.name}</h3>
+        <button onClick={() => selectBlock(null)} className="text-gray-400 hover:text-gray-600">
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* 配置内容 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* 块名称 */}
+        <Field label="名称">
+          <input
+            className="input-field"
+            value={block.name}
+            onChange={(e) => updateBlock(block!.id, { name: e.target.value })}
+          />
+        </Field>
+
+        {/* 按类型渲染不同配置 */}
+        {block.type === 'ai' && <AIConfig block={block} />}
+        {block.type === 'tool' && <ToolConfig block={block} />}
+        {block.type === 'input' && <InputConfig block={block} />}
+        {block.type === 'output' && (
+          <p className="text-sm text-gray-400">输出块自动展示上一栏的结果，无需额外配置。</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ===== AI 块配置 =====
+
+function AIConfig({ block }: { block: Block }) {
+  const { updateBlock } = useWorkflowStore()
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  return (
+    <>
+      <Field label="提示词">
+        <textarea
+          className="input-field min-h-[120px] resize-y"
+          value={block.config.prompt || ''}
+          onChange={(e) =>
+            updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })
+          }
+          placeholder="告诉 AI 你想让它做什么..."
+        />
+      </Field>
+
+      <Field label="模型（可选）">
+        <input
+          className="input-field"
+          value={block.config.model || ''}
+          onChange={(e) =>
+            updateBlock(block.id, {
+              config: { ...block.config, model: e.target.value || null },
+            })
+          }
+          placeholder="默认: gpt-4o-mini"
+        />
+      </Field>
+
+      {/* 高级选项: JSON 输出 key */}
+      <div>
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+        >
+          {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          高级选项
+        </button>
+
+        {showAdvanced && (
+          <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-2">
+            <p className="text-xs text-gray-500">
+              定义输出的 JSON key，让下游块可以精确引用。
+            </p>
+            <OutputSchemaEditor
+              schema={block.output_schema || null}
+              onChange={(schema) => updateBlock(block.id, { output_schema: schema })}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ===== JSON 输出 Key 编辑器 =====
+
+function OutputSchemaEditor({
+  schema,
+  onChange,
+}: {
+  schema: OutputSchema | null
+  onChange: (schema: OutputSchema | null) => void
+}) {
+  const keys = schema?.keys || []
+
+  const addKey = () => {
+    const key = prompt('输入 JSON key 名称:')
+    if (key) {
+      onChange({
+        keys: [...keys, key],
+        descriptions: schema?.descriptions || {},
+      })
+    }
+  }
+
+  const removeKey = (index: number) => {
+    const newKeys = keys.filter((_, i) => i !== index)
+    if (newKeys.length === 0) {
+      onChange(null)
+    } else {
+      onChange({ keys: newKeys, descriptions: schema?.descriptions || {} })
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      {keys.map((key, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-xs font-mono bg-white px-2 py-1 rounded border flex-1">{key}</span>
+          <button onClick={() => removeKey(i)} className="text-red-400 text-xs hover:text-red-600">
+            删除
+          </button>
+        </div>
+      ))}
+      <button onClick={addKey} className="text-xs text-indigo-500 hover:text-indigo-700">
+        + 添加 Key
+      </button>
+    </div>
+  )
+}
+
+// ===== Tool 块配置 =====
+
+function ToolConfig({ block }: { block: Block }) {
+  const { updateBlock } = useWorkflowStore()
+
+  return (
+    <>
+      <Field label="工具">
+        <select
+          className="input-field"
+          value={block.config.tool_id || ''}
+          onChange={(e) =>
+            updateBlock(block.id, { config: { ...block.config, tool_id: e.target.value } })
+          }
+        >
+          <option value="">选择工具...</option>
+          <option value="web_fetch">获取网页内容</option>
+          <option value="web_search">网页搜索</option>
+          <option value="http_request">HTTP 请求</option>
+          <option value="text_process">文本处理</option>
+        </select>
+      </Field>
+    </>
+  )
+}
+
+// ===== Input 块配置 =====
+
+function InputConfig({ block }: { block: Block }) {
+  const { updateBlock } = useWorkflowStore()
+  const fields = block.config.fields || []
+
+  const addField = () => {
+    const name = prompt('字段名称:')
+    if (name) {
+      updateBlock(block.id, {
+        config: {
+          ...block.config,
+          fields: [...fields, { name, label: name, field_type: 'text' as const, required: true }],
+        },
+      })
+    }
+  }
+
+  return (
+    <>
+      <p className="text-xs text-gray-500">定义用户需要填写的输入字段</p>
+      {fields.map((field, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-sm text-gray-600 flex-1">{field.label || field.name}</span>
+          <span className="text-xs text-gray-400">{field.field_type}</span>
+        </div>
+      ))}
+      <button onClick={addField} className="text-xs text-indigo-500 hover:text-indigo-700">
+        + 添加字段
+      </button>
+    </>
+  )
+}
+
+// ===== 通用组件 =====
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      {children}
+    </div>
+  )
+}

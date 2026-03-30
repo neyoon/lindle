@@ -1,0 +1,125 @@
+{
+  "id": "demo_stock_analysis",
+  "name": "股票分析",
+  "description": "输入股票地址，自动获取数据并分析趋势",
+  "columns": [
+    {
+      "id": "col_input",
+      "order": 0,
+      "blocks": [
+        {
+          "id": "blk_input",
+          "type": "input",
+          "name": "股票信息",
+          "config": {
+            "fields": [
+              {
+                "name": "stock_url",
+                "label": "股票地址",
+                "field_type": "text",
+                "required": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "col_fetch",
+      "order": 1,
+      "blocks": [
+        {
+          "id": "blk_kline",
+          "type": "tool",
+          "name": "获取K线数据",
+          "config": {
+            "tool_id": "web_fetch",
+            "tool_params": {}
+          }
+        },
+        {
+          "id": "blk_news",
+          "type": "tool",
+          "name": "获取相关新闻",
+          "config": {
+            "tool_id": "web_search",
+            "tool_params": {}
+          }
+        }
+      ]
+    },
+    {
+      "id": "col_analyze",
+      "order": 2,
+      "blocks": [
+        {
+          "id": "blk_trend",
+          "type": "ai",
+          "name": "分析K线趋势",
+          "config": {
+            "prompt": "你是一个专业的股票技术分析师。请根据以下K线数据，分析股票的短期和中期趋势。",
+            "model": "gpt-4o-mini"
+          },
+          "output_schema": {
+            "keys": ["trend", "support_level", "resistance_level", "suggestion"],
+            "descriptions": {
+              "trend": "趋势判断（上涨/下跌/震荡）",
+              "support_level": "支撑位",
+              "resistance_level": "阻力位",
+              "suggestion": "操作建议"
+            }
+          },
+          "connections": [
+            {"from_block_id": "blk_kline"}
+          ]
+        },
+        {
+          "id": "blk_sentiment",
+          "type": "ai",
+          "name": "分析新闻情绪",
+          "config": {
+            "prompt": "你是一个市场情绪分析师。请根据以下新闻，分析市场对这只股票的情绪倾向。",
+            "model": "gpt-4o-mini"
+          },
+          "output_schema": {
+            "keys": ["sentiment", "confidence", "key_events"],
+            "descriptions": {
+              "sentiment": "情绪倾向（乐观/悲观/中性）",
+              "confidence": "置信度 0-1",
+              "key_events": "关键事件列表"
+            }
+          },
+          "connections": [
+            {"from_block_id": "blk_news"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "col_report",
+      "order": 3,
+      "blocks": [
+        {
+          "id": "blk_report",
+          "type": "ai",
+          "name": "生成综合分析报告",
+          "config": {
+            "prompt": "你是一个资深投资顾问。请综合以上的技术分析和情绪分析结果，生成一份简洁的投资分析报告，包含明确的操作建议。",
+            "model": "gpt-4o-mini"
+          }
+        }
+      ]
+    },
+    {
+      "id": "col_output",
+      "order": 4,
+      "blocks": [
+        {
+          "id": "blk_output",
+          "type": "output",
+          "name": "分析报告"
+        }
+      ]
+    }
+  ]
+}

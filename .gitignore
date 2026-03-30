@@ -1,0 +1,42 @@
+# ===== MiniFlow 项目 =====
+
+# ----- 通用 -----
+.DS_Store
+*.swp
+*.swo
+*~
+.env
+.env.local
+.env.*.local
+
+# ----- PID 与日志 -----
+.pids/
+
+# ----- Python / 后端 -----
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+*.egg
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# uv
+backend/.python-version
+
+# 工作流 JSON 存储（运行时生成）
+backend/data/
+
+# ----- Node / 前端 -----
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ----- IDE -----
+.idea/
+.vscode/
+*.code-workspace
