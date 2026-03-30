@@ -63,7 +63,7 @@ async def health():
 # 生产模式: 前端 build 产物放在 /app/static 目录
 # 开发模式: 该目录不存在，由 Vite dev server + proxy 处理
 
-STATIC_DIR = Path(__file__).parent.parent.parent / "static"
+STATIC_DIR = Path(__file__).parent.parent / "static"
 
 if STATIC_DIR.is_dir():
     # 托管 JS/CSS/图片等静态资源

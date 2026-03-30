@@ -12,13 +12,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# 安装 Python 依赖（先装依赖再复制代码，利用 Docker 缓存）
-RUN pip install --no-cache-dir \
-    "fastapi>=0.115.0" \
-    "uvicorn[standard]>=0.30.0" \
-    "httpx>=0.27.0" \
-    "pydantic>=2.0.0" \
-    "pyyaml>=6.0"
+# 升级 pip 并安装依赖
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+        "fastapi>=0.115.0" \
+        "uvicorn[standard]>=0.30.0" \
+        "httpx>=0.27.0" \
+        "pydantic>=2.0.0" \
+        "pyyaml>=6.0"
 
 # 复制后端代码
 COPY backend/ ./

@@ -20,7 +20,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 // ===== Workflow (Pipeline) =====
 
 export async function listWorkflows() {
-  return request<{ id: string; name: string; description: string }[]>('/workflows/')
+  return request<{ id: string; name: string; description: string; column_count: number }[]>('/workflows/')
 }
 
 export async function getWorkflow(id: string) {
