@@ -1,20 +1,32 @@
 /**
  * 顶部工具栏
  */
-import { Play, Download, Code, Save, Puzzle } from 'lucide-react'
+import { Play, Save, Puzzle, Factory } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
-import { saveWorkflow, runWorkflow, previewCode, downloadCode } from '@/api/client'
+import { saveWorkflow, updateWorkflow, runWorkflow } from '@/api/client'
 
 interface ToolbarProps {
   onOpenPlugins?: () => void
+  onOpenManufacture?: () => void
 }
 
-export function Toolbar({ onOpenPlugins }: ToolbarProps) {
-  const { workflow, setRunResult, setIsRunning, isRunning } = useWorkflowStore()
+function generateId(): string {
+  return `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+export function Toolbar({ onOpenPlugins, onOpenManufacture }: ToolbarProps) {
+  const { workflow, setWorkflow, setRunResult, setIsRunning, isRunning } = useWorkflowStore()
 
   const handleSave = async () => {
     try {
-      await saveWorkflow(workflow)
+      let saved: typeof workflow
+      if (!workflow.id) {
+        const toSave = { ...workflow, id: generateId() }
+        saved = await saveWorkflow(toSave)
+      } else {
+        saved = await updateWorkflow(workflow.id, workflow)
+      }
+      setWorkflow(saved)
       alert('保存成功')
     } catch (e) {
       alert(`保存失败: ${e}`)
@@ -34,32 +46,6 @@ export function Toolbar({ onOpenPlugins }: ToolbarProps) {
       alert(`运行失败: ${e}`)
     } finally {
       setIsRunning(false)
-    }
-  }
-
-  const handlePreview = async () => {
-    if (!workflow.id) {
-      alert('请先保存工作流')
-      return
-    }
-    try {
-      const result = await previewCode(workflow.id)
-      console.log('Generated code:', result)
-      alert(`代码生成成功! 包含 ${Object.keys(result.files).length} 个文件`)
-    } catch (e) {
-      alert(`生成失败: ${e}`)
-    }
-  }
-
-  const handleDownload = async () => {
-    if (!workflow.id) {
-      alert('请先保存工作流')
-      return
-    }
-    try {
-      await downloadCode(workflow.id)
-    } catch (e) {
-      alert(`下载失败: ${e}`)
     }
   }
 
@@ -86,6 +72,13 @@ export function Toolbar({ onOpenPlugins }: ToolbarProps) {
           <Puzzle size={16} />
           插件
         </button>
+        <button
+          onClick={onOpenManufacture}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-sky-50 hover:text-sky-600 rounded-lg transition"
+        >
+          <Factory size={16} />
+          制造
+        </button>
         <span className="text-gray-200">|</span>
         <button
           onClick={handleSave}
@@ -93,20 +86,6 @@ export function Toolbar({ onOpenPlugins }: ToolbarProps) {
         >
           <Save size={16} />
           保存
-        </button>
-        <button
-          onClick={handlePreview}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
-        >
-          <Code size={16} />
-          预览代码
-        </button>
-        <button
-          onClick={handleDownload}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
-        >
-          <Download size={16} />
-          导出
         </button>
         <button
           onClick={handleRun}

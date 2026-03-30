@@ -5,24 +5,29 @@
  * - Input: 输入字段定义
  * - AI: 提示词 + 模型选择 + JSON输出key（高级选项）
  * - Output: 无需配置
+ * - 连接通过端口管理，此处仅只读展示
  */
-import { X, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, Link } from 'lucide-react'
 import { useState } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
-import type { Block, OutputSchema } from '@/types/workflow'
+import type { Block, Column, OutputSchema } from '@/types/workflow'
 
 export function BlockConfigPanel() {
-  const { workflow, selectedBlockId, selectBlock, updateBlock } = useWorkflowStore()
+  const { workflow, selectedBlockId, selectBlock, updateBlock, removeConnection } = useWorkflowStore()
 
-  // 找到选中的块
+  // 找到选中的块及其所在栏
   let block: Block | null = null
+  let blockColumn: Column | null = null
   for (const col of workflow.columns) {
     for (const b of col.blocks) {
-      if (b.id === selectedBlockId) block = b
+      if (b.id === selectedBlockId) {
+        block = b
+        blockColumn = col
+      }
     }
   }
 
-  if (!block) return null
+  if (!block || !blockColumn) return null
 
   return (
     <div className="h-full flex flex-col">
@@ -45,6 +50,11 @@ export function BlockConfigPanel() {
           />
         </Field>
 
+        {/* 连接信息（只读展示 + 可删除） */}
+        {block.connections.length > 0 && (
+          <ConnectionDisplay block={block} workflow={workflow} onRemove={removeConnection} />
+        )}
+
         {/* 按类型渲染不同配置 */}
         {block.type === 'ai' && <AIConfig block={block} />}
         {block.type === 'input' && <InputConfig block={block} />}
@@ -53,6 +63,62 @@ export function BlockConfigPanel() {
           <p className="text-sm text-gray-400">输出块自动展示上一栏的结果，无需额外配置。</p>
         )}
       </div>
+    </div>
+  )
+}
+
+// ===== 连接只读展示 =====
+
+function ConnectionDisplay({
+  block,
+  workflow,
+  onRemove,
+}: {
+  block: Block
+  workflow: { columns: Column[] }
+  onRemove: (blockId: string, fromBlockId: string) => void
+}) {
+  // 查找源块名称
+  const findBlockName = (id: string): string => {
+    for (const col of workflow.columns) {
+      for (const b of col.blocks) {
+        if (b.id === id) return b.name
+      }
+    }
+    return id
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+        <span className="flex items-center gap-1">
+          <Link size={12} />
+          已连接的上游块
+        </span>
+      </label>
+      <div className="space-y-1.5">
+        {block.connections.map((conn) => (
+          <div
+            key={conn.from_block_id}
+            className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-sky-50 border border-sky-200 text-xs text-sky-700"
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="text-sky-400">←</span>
+              <span className="font-medium">{findBlockName(conn.from_block_id)}</span>
+            </span>
+            <button
+              onClick={() => onRemove(block.id, conn.from_block_id)}
+              className="text-sky-400 hover:text-red-500 transition"
+              title="断开连接"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1.5">
+        💡 通过端口连接：点击源块右侧圆点 → 目标块左侧圆点
+      </p>
     </div>
   )
 }

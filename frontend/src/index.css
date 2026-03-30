@@ -7,3 +7,10 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #f8fafc;
 }
+
+@layer components {
+  .input-field {
+    @apply w-full px-3 py-2 text-sm border border-gray-200 rounded-lg
+           focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-300 bg-white;
+  }
+}

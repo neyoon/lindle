@@ -1,10 +1,12 @@
 """
 FastAPI 应用入口
 
-极简配置:
-- 注册所有 API 路由
-- CORS 支持开发环境
-- Tool 已移除，将以插件方式引入
+注册所有 API 路由:
+- workflow: 工作流 CRUD
+- execution: 工作流执行
+- codegen: 代码生成
+- plugins: 插件管理
+- workspace: 块模板（制造工坊）
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import codegen, execution, plugins, workflow
+from api.routes import codegen, execution, plugins, workflow, workspace
 
 app = FastAPI(
     title="MiniFlow",
@@ -34,6 +36,7 @@ app.include_router(workflow.router)
 app.include_router(execution.router)
 app.include_router(codegen.router)
 app.include_router(plugins.router)
+app.include_router(workspace.router)
 
 
 @app.get("/api/health")

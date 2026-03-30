@@ -1,12 +1,12 @@
 /**
- * MiniFlow 工作流类型定义
+ * MiniFlow 类型定义
  *
  * 核心概念:
  * - Workflow: 工作流，由有序的 Column 组成
  * - Column: 栏（竖条），代表一个执行步骤，内含并行执行的 Block
  * - Block: 块，最小执行单元（输入/AI/输出/插件）
  * - Connection: 连接，可选的精确数据流指定
- * - 插件通过独立页面管理，启用后可作为块添加到工作流
+ * - BlockTemplate: 可复用块模板，制造工坊的产物
  */
 
 export type BlockType = 'input' | 'ai' | 'output' | 'plugin'
@@ -57,6 +57,19 @@ export interface Workflow {
   name: string
   description: string
   columns: Column[]
+}
+
+// ===== 块模板 (制造工坊) =====
+
+export interface BlockTemplate {
+  id: string
+  type: BlockType
+  name: string
+  description: string
+  icon: string
+  config: BlockConfig
+  output_schema?: OutputSchema | null
+  created_at?: string
 }
 
 // ===== 执行相关 =====

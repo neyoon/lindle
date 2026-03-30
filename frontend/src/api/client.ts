@@ -1,7 +1,7 @@
 /**
  * API 客户端
  */
-import type { EnabledPlugin, PluginInfo, RunResult, Workflow } from '@/types/workflow'
+import type { BlockTemplate, EnabledPlugin, PluginInfo, RunResult, Workflow } from '@/types/workflow'
 
 const BASE = '/api'
 
@@ -17,7 +17,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json()
 }
 
-// ===== Workflow =====
+// ===== Workflow (Pipeline) =====
 
 export async function listWorkflows() {
   return request<{ id: string; name: string; description: string }[]>('/workflows/')
@@ -96,4 +96,28 @@ export async function updatePluginConfig(pluginId: string, config: Record<string
     method: 'PUT',
     body: JSON.stringify({ config }),
   })
+}
+
+// ===== Workspace (块模板) =====
+
+export async function listTemplates() {
+  return request<BlockTemplate[]>('/workspace/')
+}
+
+export async function createTemplate(template: BlockTemplate) {
+  return request<BlockTemplate>('/workspace/', {
+    method: 'POST',
+    body: JSON.stringify(template),
+  })
+}
+
+export async function updateTemplate(id: string, template: BlockTemplate) {
+  return request<BlockTemplate>(`/workspace/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(template),
+  })
+}
+
+export async function deleteTemplate(id: string) {
+  return request<{ ok: boolean }>(`/workspace/${id}`, { method: 'DELETE' })
 }

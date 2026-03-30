@@ -3,16 +3,16 @@
  *
  * 每栏从上到下占满整个屏幕高度，
  * 栏内垂直居中排列正方形块（Block），底部有添加块按钮。
- * 启用的插件会自动出现在"添加块"菜单中。
+ * 添加块菜单包含: 核心块 + 制造的模板 + 启用的插件。
  */
 import { Plus, Trash2, Repeat } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { Column, BlockType, EnabledPlugin } from '@/types/workflow'
+import type { BlockTemplate, BlockType, Column, EnabledPlugin } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
-import { getEnabledPlugins } from '@/api/client'
-import { BlockView } from './Block'
+import { getEnabledPlugins, listTemplates } from '@/api/client'
+import { BlockView } from '../blocks/Block'
 
-const CORE_BLOCK_OPTIONS: { type: BlockType; label: string; icon: string; pluginId?: string }[] = [
+const CORE_BLOCK_OPTIONS: { type: BlockType; label: string; icon: string }[] = [
   { type: 'input', label: '输入', icon: '📥' },
   { type: 'ai', label: 'AI', icon: '🤖' },
   { type: 'output', label: '输出', icon: '📤' },
@@ -20,17 +20,21 @@ const CORE_BLOCK_OPTIONS: { type: BlockType; label: string; icon: string; plugin
 
 interface Props {
   column: Column
+  isFirstColumn: boolean
+  isLastColumn: boolean
 }
 
-export function ColumnView({ column }: Props) {
-  const { removeColumn, addBlock, setColumnRepeat } = useWorkflowStore()
+export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
+  const { removeColumn, addBlock, addBlockFromTemplate, setColumnRepeat } = useWorkflowStore()
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [enabledPlugins, setEnabledPlugins] = useState<EnabledPlugin[]>([])
+  const [templates, setTemplates] = useState<BlockTemplate[]>([])
 
-  // 每次打开菜单时加载已启用插件
+  // 每次打开菜单时加载已启用插件和制造模板
   useEffect(() => {
     if (showAddMenu) {
       getEnabledPlugins().then(setEnabledPlugins).catch(() => {})
+      listTemplates().then(setTemplates).catch(() => {})
     }
   }, [showAddMenu])
 
@@ -39,6 +43,11 @@ export function ColumnView({ column }: Props) {
     if (name) {
       addBlock(column.id, type, name, pluginId)
     }
+    setShowAddMenu(false)
+  }
+
+  const handleAddFromTemplate = (template: BlockTemplate) => {
+    addBlockFromTemplate(column.id, template)
     setShowAddMenu(false)
   }
 
@@ -79,7 +88,14 @@ export function ColumnView({ column }: Props) {
       {/* 块列表 - 居中排列正方形块 */}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col items-center gap-3">
         {column.blocks.map((block) => (
-          <BlockView key={block.id} block={block} columnId={column.id} />
+          <BlockView
+            key={block.id}
+            block={block}
+            columnId={column.id}
+            columnOrder={column.order}
+            isFirstColumn={isFirstColumn}
+            isLastColumn={isLastColumn}
+          />
         ))}
       </div>
 
@@ -94,7 +110,7 @@ export function ColumnView({ column }: Props) {
         </button>
 
         {showAddMenu && (
-          <div className="absolute bottom-full left-3 right-3 mb-1 bg-white rounded-xl shadow-lg border border-sky-100 z-10 overflow-hidden max-h-64 overflow-y-auto">
+          <div className="absolute bottom-full left-3 right-3 mb-1 bg-white rounded-xl shadow-lg border border-sky-100 z-10 overflow-hidden max-h-80 overflow-y-auto">
             {/* 核心块 */}
             {CORE_BLOCK_OPTIONS.map((opt) => (
               <button
@@ -107,11 +123,35 @@ export function ColumnView({ column }: Props) {
               </button>
             ))}
 
+            {/* 制造的模板 */}
+            {templates.length > 0 && (
+              <>
+                <div className="border-t border-sky-50 px-3 py-1.5">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">🏭 制造模板</span>
+                </div>
+                {templates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => handleAddFromTemplate(tpl)}
+                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-sky-50 flex items-center gap-2 transition"
+                  >
+                    <span className="text-base">{tpl.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-gray-700 font-medium">{tpl.name}</span>
+                      {tpl.description && (
+                        <p className="text-[10px] text-gray-400 truncate">{tpl.description}</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
+
             {/* 已启用的插件 */}
             {enabledPlugins.length > 0 && (
               <>
                 <div className="border-t border-sky-50 px-3 py-1.5">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">插件</span>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">🔌 插件</span>
                 </div>
                 {enabledPlugins.map((plugin) => (
                   <button

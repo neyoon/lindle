@@ -1,21 +1,21 @@
 /**
  * MiniFlow 主应用
  *
- * 两个页面:
+ * 三个页面:
  * 1. 工作流编辑器（默认）
  * 2. 插件管理页面
- *
- * 通过简单的 state 切换页面，无需路由库。
+ * 3. 制造工坊（块模板管理）
  */
 import { useState } from 'react'
-import { Canvas } from './components/Canvas'
-import { Toolbar } from './components/Toolbar'
-import { RunPanel } from './components/RunPanel'
-import { BlockConfigPanel } from './components/BlockConfigPanel'
+import { Canvas } from './components/pipeline/Canvas'
+import { Toolbar } from './components/pipeline/Toolbar'
+import { RunPanel } from './components/pipeline/RunPanel'
+import { BlockConfigPanel } from './components/blocks/BlockConfigPanel'
 import { PluginsPage } from './components/PluginsPage'
+import { ManufacturePage } from './components/blocks/ManufacturePage'
 import { useWorkflowStore } from './stores/workflow'
 
-type Page = 'editor' | 'plugins'
+type Page = 'editor' | 'plugins' | 'manufacture'
 
 export default function App() {
   const [page, setPage] = useState<Page>('editor')
@@ -25,9 +25,16 @@ export default function App() {
     return <PluginsPage onBack={() => setPage('editor')} />
   }
 
+  if (page === 'manufacture') {
+    return <ManufacturePage onBack={() => setPage('editor')} />
+  }
+
   return (
     <div className="h-screen flex flex-col bg-slate-50">
-      <Toolbar onOpenPlugins={() => setPage('plugins')} />
+      <Toolbar
+        onOpenPlugins={() => setPage('plugins')}
+        onOpenManufacture={() => setPage('manufacture')}
+      />
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 overflow-x-auto">
           <Canvas />
