@@ -14,6 +14,8 @@ BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 PID_DIR="$ROOT_DIR/.pids"
 
+export UV_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
+
 mkdir -p "$PID_DIR"
 
 BACKEND_PID_FILE="$PID_DIR/backend.pid"
