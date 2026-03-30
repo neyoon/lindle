@@ -39,10 +39,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   }, [showAddMenu])
 
   const handleAddBlock = (type: BlockType, label: string, pluginId?: string) => {
-    const name = prompt(`输入${label}块的名称:`, `${label}块`)
-    if (name) {
-      addBlock(column.id, type, name, pluginId)
-    }
+    addBlock(column.id, type, `${label}块`, pluginId)
     setShowAddMenu(false)
   }
 

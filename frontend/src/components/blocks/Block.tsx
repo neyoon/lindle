@@ -7,7 +7,7 @@
  * - 点击右端口 → 进入连接模式
  * - 连接模式下点击左端口 → 完成连接
  */
-import { Trash2 } from 'lucide-react'
+import { Trash2, Pencil } from 'lucide-react'
 import type { Block } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
 
@@ -29,6 +29,7 @@ interface Props {
 export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastColumn }: Props) {
   const selectBlock = useWorkflowStore((s) => s.selectBlock)
   const removeBlock = useWorkflowStore((s) => s.removeBlock)
+  const updateBlock = useWorkflowStore((s) => s.updateBlock)
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
   const connectingFrom = useWorkflowStore((s) => s.connectingFrom)
   const startConnecting = useWorkflowStore((s) => s.startConnecting)
@@ -58,7 +59,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
       data-block-id={block.id}
       onClick={() => selectBlock(block.id)}
       className={`
-        relative w-[140px] h-[140px] rounded-xl border-2 cursor-pointer transition flex flex-col items-center justify-center gap-1.5 p-3
+        group relative w-[140px] h-[140px] rounded-xl border-2 cursor-pointer transition flex flex-col items-center justify-center gap-1.5 p-3
         ${style.bg} ${style.border}
         ${isSelected ? 'ring-2 ring-sky-400 shadow-lg scale-[1.03]' : 'hover:shadow-md hover:scale-[1.01]'}
         ${isConnectingSource ? 'ring-2 ring-amber-400 shadow-amber-100' : ''}
@@ -114,9 +115,22 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         <button
           onClick={(e) => {
             e.stopPropagation()
+            const newName = prompt('重命名:', block.name)
+            if (newName?.trim()) {
+              updateBlock(block.id, { name: newName.trim() })
+            }
+          }}
+          className="p-0.5 text-gray-300 hover:text-sky-500 rounded opacity-0 group-hover:opacity-100 transition"
+          title="重命名"
+        >
+          <Pencil size={11} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
             removeBlock(columnId, block.id)
           }}
-          className="p-0.5 text-gray-300 hover:text-red-500 rounded"
+          className="p-0.5 text-gray-300 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition"
         >
           <Trash2 size={11} />
         </button>

@@ -3,10 +3,10 @@
  *
  * 特性:
  * - 相邻栏连接: 平滑贝塞尔曲线
- * - 跨栏连接 (如 1→3): 通过顶部路由，避开中间栏的块
+ * - 跨栏连接 (如 1→3): 通过底部路由，避开中间栏的块
+ * - 与板块重叠时自动变为虚线
  * - 无箭头: 顺序由左到右自然表达
- * - 连接模式: 拖拽时显示临时虚线
- * - 端口圆点: 连接线两端显示小圆点
+ * - 连接模式: 临时虚线跟随鼠标
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
@@ -21,10 +21,112 @@ interface LineData {
   toBlockId: string
   skipDistance: number
   skipIndex: number
+  isOverlapping: boolean
+  routeY?: number
+}
+
+interface BlockRect {
+  id: string
+  left: number
+  top: number
+  right: number
+  bottom: number
 }
 
 interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>
+}
+
+// ===== 贝塞尔曲线采样 =====
+
+function cubicBezierPoint(
+  t: number,
+  p0: [number, number],
+  p1: [number, number],
+  p2: [number, number],
+  p3: [number, number],
+): [number, number] {
+  const u = 1 - t
+  return [
+    u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+    u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+  ]
+}
+
+/** 沿路径采样点，用于碰撞检测 */
+function getSamplePoints(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  skipDistance: number,
+  routeY?: number,
+): [number, number][] {
+  const points: [number, number][] = []
+
+  if (skipDistance <= 1 || routeY === undefined) {
+    // 相邻连接: 简单贝塞尔
+    const dx = toX - fromX
+    const cp = Math.max(dx * 0.4, 40)
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12
+      points.push(
+        cubicBezierPoint(t, [fromX, fromY], [fromX + cp, fromY], [toX - cp, toY], [toX, toY]),
+      )
+    }
+  } else {
+    // 跨栏连接: 入口曲线 + 水平段 + 出口曲线
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8
+      points.push(
+        cubicBezierPoint(
+          t,
+          [fromX, fromY],
+          [fromX + 25, fromY],
+          [fromX + 25, routeY],
+          [fromX + 50, routeY],
+        ),
+      )
+    }
+    for (let i = 1; i <= 4; i++) {
+      const t = i / 5
+      points.push([(fromX + 50) + t * (toX - 50 - (fromX + 50)), routeY])
+    }
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8
+      points.push(
+        cubicBezierPoint(
+          t,
+          [toX - 50, routeY],
+          [toX - 25, routeY],
+          [toX - 25, toY],
+          [toX, toY],
+        ),
+      )
+    }
+  }
+
+  return points
+}
+
+/** 检测采样点是否与任意板块重叠（排除源/目标块） */
+function checkOverlap(
+  samplePoints: [number, number][],
+  blockRects: BlockRect[],
+  fromBlockId: string,
+  toBlockId: string,
+): boolean {
+  return samplePoints.some(([px, py]) =>
+    blockRects.some(
+      (br) =>
+        br.id !== fromBlockId &&
+        br.id !== toBlockId &&
+        px >= br.left &&
+        px <= br.right &&
+        py >= br.top &&
+        py <= br.bottom,
+    ),
+  )
 }
 
 export function ConnectionLines({ containerRef }: Props) {
@@ -57,7 +159,6 @@ export function ConnectionLines({ containerRef }: Props) {
     const container = containerRef.current
     const containerRect = container.getBoundingClientRect()
 
-    // 找到源块的右侧端口位置
     const sourceEl = container.querySelector<HTMLElement>(
       `[data-block-id="${connectingFrom.blockId}"]`,
     )
@@ -78,12 +179,33 @@ export function ConnectionLines({ containerRef }: Props) {
     return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [connectingFrom, containerRef])
 
-  // 计算所有连接线位置
+  // 计算所有连接线位置 + 碰撞检测
   const computeLines = useCallback(() => {
     const container = containerRef.current
     if (!container) return
 
     const containerRect = container.getBoundingClientRect()
+
+    // 1) 收集所有板块矩形，找最低点
+    const blockElements = container.querySelectorAll<HTMLElement>('[data-block-id]')
+    const blockRects: BlockRect[] = []
+    let maxBlockBottom = 0
+
+    blockElements.forEach((el) => {
+      const id = el.getAttribute('data-block-id') || ''
+      const rect = el.getBoundingClientRect()
+      const relRect: BlockRect = {
+        id,
+        left: rect.left - containerRect.left,
+        top: rect.top - containerRect.top,
+        right: rect.right - containerRect.left,
+        bottom: rect.bottom - containerRect.top,
+      }
+      blockRects.push(relRect)
+      if (relRect.bottom > maxBlockBottom) maxBlockBottom = relRect.bottom
+    })
+
+    // 2) 计算连线
     const newLines: LineData[] = []
     let skipCounter = 0
 
@@ -91,9 +213,7 @@ export function ConnectionLines({ containerRef }: Props) {
       for (const block of col.blocks) {
         if (block.connections.length === 0) continue
 
-        const toEl = container.querySelector<HTMLElement>(
-          `[data-block-id="${block.id}"]`,
-        )
+        const toEl = container.querySelector<HTMLElement>(`[data-block-id="${block.id}"]`)
         if (!toEl) continue
         const toRect = toEl.getBoundingClientRect()
 
@@ -107,17 +227,32 @@ export function ConnectionLines({ containerRef }: Props) {
           const sourceColOrder = blockColumnMap.get(conn.from_block_id) ?? 0
           const targetColOrder = blockColumnMap.get(block.id) ?? 0
           const skipDistance = targetColOrder - sourceColOrder
+          const skipIdx = skipDistance > 1 ? skipCounter++ : 0
+
+          const fromX = fromRect.right - containerRect.left
+          const fromY = fromRect.top + fromRect.height / 2 - containerRect.top
+          const toX = toRect.left - containerRect.left
+          const toY = toRect.top + toRect.height / 2 - containerRect.top
+
+          // 跨栏路由走下方
+          const routeY = skipDistance > 1 ? maxBlockBottom + 25 + skipIdx * 14 : undefined
+
+          // 3) 采样 + 碰撞检测
+          const samplePoints = getSamplePoints(fromX, fromY, toX, toY, skipDistance, routeY)
+          const isOverlapping = checkOverlap(samplePoints, blockRects, conn.from_block_id, block.id)
 
           newLines.push({
             id: `${conn.from_block_id}->${block.id}`,
-            fromX: fromRect.right - containerRect.left,
-            fromY: fromRect.top + fromRect.height / 2 - containerRect.top,
-            toX: toRect.left - containerRect.left,
-            toY: toRect.top + toRect.height / 2 - containerRect.top,
+            fromX,
+            fromY,
+            toX,
+            toY,
             fromBlockId: conn.from_block_id,
             toBlockId: block.id,
             skipDistance,
-            skipIndex: skipDistance > 1 ? skipCounter++ : 0,
+            skipIndex: skipIdx,
+            isOverlapping,
+            routeY,
           })
         }
       }
@@ -152,18 +287,16 @@ export function ConnectionLines({ containerRef }: Props) {
     return () => cancelAnimationFrame(frame)
   }, [workflow, computeLines])
 
-  // 生成连接线路径
+  // 生成 SVG 路径
   const getPath = (line: LineData): string => {
-    const { fromX, fromY, toX, toY, skipDistance, skipIndex } = line
+    const { fromX, fromY, toX, toY, skipDistance, routeY } = line
 
-    if (skipDistance <= 1) {
-      // 相邻栏: 简单贝塞尔曲线
+    if (skipDistance <= 1 || routeY === undefined) {
       const dx = toX - fromX
       const cp = Math.max(dx * 0.4, 40)
       return `M ${fromX},${fromY} C ${fromX + cp},${fromY} ${toX - cp},${toY} ${toX},${toY}`
     } else {
-      // 跨栏: 通过顶部路由，避开中间栏的块
-      const routeY = 18 + skipIndex * 14
+      // 跨栏: 通过底部路由
       return [
         `M ${fromX},${fromY}`,
         `C ${fromX + 25},${fromY}, ${fromX + 25},${routeY}, ${fromX + 50},${routeY}`,
@@ -174,7 +307,6 @@ export function ConnectionLines({ containerRef }: Props) {
   }
 
   const hasContent = lines.length > 0 || (connectingFrom && sourcePortPos && mousePos)
-
   if (!hasContent) return null
 
   return (
@@ -201,13 +333,14 @@ export function ConnectionLines({ containerRef }: Props) {
                 opacity={0.5}
               />
             )}
-            {/* 主线 */}
+            {/* 主线 — 与板块重叠时变虚线 */}
             <path
               d={path}
               fill="none"
               stroke={isHighlighted ? '#38bdf8' : '#7dd3fc'}
               strokeWidth={isHighlighted ? 2.5 : 1.8}
               strokeLinecap="round"
+              strokeDasharray={line.isOverlapping ? '6 4' : 'none'}
               style={{ transition: 'stroke 0.2s, stroke-width 0.2s' }}
             />
             {/* 源端点 */}
