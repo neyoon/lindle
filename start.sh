@@ -60,7 +60,7 @@ start_backend() {
   uv sync --quiet 2>/dev/null || true
 
   echo "[后端] 启动 (http://localhost:8000)..."
-  uv run python main.py > "$BACKEND_LOG" 2>&1 &
+  DEV=1 uv run python main.py > "$BACKEND_LOG" 2>&1 &
   local pid=$!
   echo "$pid" > "$BACKEND_PID_FILE"
   echo "[后端] 已启动 (PID: $pid, 日志: .pids/backend.log)"

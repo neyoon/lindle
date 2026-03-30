@@ -1,0 +1,12 @@
+services:
+  miniflow:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # 持久化数据（工作流、设置、插件配置）
+      - miniflow-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  miniflow-data:
