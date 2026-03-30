@@ -55,6 +55,7 @@ interface WorkflowState {
   // 连接操作
   addConnection: (blockId: string, fromBlockId: string, fromKey?: string) => void
   removeConnection: (blockId: string, fromBlockId: string) => void
+  updateConnectionKey: (blockId: string, fromBlockId: string, fromKey: string | null) => void
   startConnecting: (blockId: string, columnOrder: number) => void
   finishConnecting: (targetBlockId: string) => void
   cancelConnecting: () => void
@@ -221,6 +222,28 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           blocks: c.blocks.map((b) =>
             b.id === blockId
               ? { ...b, connections: b.connections.filter((conn) => conn.from_block_id !== fromBlockId) }
+              : b,
+          ),
+        })),
+      },
+    })),
+
+  updateConnectionKey: (blockId, fromBlockId, fromKey) =>
+    set((state) => ({
+      workflow: {
+        ...state.workflow,
+        columns: state.workflow.columns.map((c) => ({
+          ...c,
+          blocks: c.blocks.map((b) =>
+            b.id === blockId
+              ? {
+                  ...b,
+                  connections: b.connections.map((conn) =>
+                    conn.from_block_id === fromBlockId
+                      ? { ...conn, from_key: fromKey }
+                      : conn,
+                  ),
+                }
               : b,
           ),
         })),

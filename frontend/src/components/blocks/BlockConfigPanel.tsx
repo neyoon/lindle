@@ -67,7 +67,7 @@ export function BlockConfigPanel() {
   )
 }
 
-// ===== 连接只读展示 =====
+// ===== 连接展示 + 输出 Key 选择 =====
 
 function ConnectionDisplay({
   block,
@@ -78,14 +78,16 @@ function ConnectionDisplay({
   workflow: { columns: Column[] }
   onRemove: (blockId: string, fromBlockId: string) => void
 }) {
-  // 查找源块名称
-  const findBlockName = (id: string): string => {
+  const { updateConnectionKey } = useWorkflowStore()
+
+  // 通过 ID 查找完整的源块对象
+  const findBlock = (id: string): Block | null => {
     for (const col of workflow.columns) {
       for (const b of col.blocks) {
-        if (b.id === id) return b.name
+        if (b.id === id) return b
       }
     }
-    return id
+    return null
   }
 
   return (
@@ -96,25 +98,62 @@ function ConnectionDisplay({
           已连接的上游块
         </span>
       </label>
-      <div className="space-y-1.5">
-        {block.connections.map((conn) => (
-          <div
-            key={conn.from_block_id}
-            className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-sky-50 border border-sky-200 text-xs text-sky-700"
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="text-sky-400">←</span>
-              <span className="font-medium">{findBlockName(conn.from_block_id)}</span>
-            </span>
-            <button
-              onClick={() => onRemove(block.id, conn.from_block_id)}
-              className="text-sky-400 hover:text-red-500 transition"
-              title="断开连接"
+      <div className="space-y-2">
+        {block.connections.map((conn) => {
+          const sourceBlock = findBlock(conn.from_block_id)
+          const outputKeys = sourceBlock?.output_schema?.keys
+          const hasKeys = outputKeys && outputKeys.length > 0
+
+          return (
+            <div
+              key={conn.from_block_id}
+              className="px-2.5 py-2 rounded-lg bg-sky-50 border border-sky-200 text-xs"
             >
-              <X size={12} />
-            </button>
-          </div>
-        ))}
+              {/* 连接头: 名称 + 删除 */}
+              <div className="flex items-center justify-between text-sky-700">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-sky-400">←</span>
+                  <span className="font-medium">{sourceBlock?.name || conn.from_block_id}</span>
+                </span>
+                <button
+                  onClick={() => onRemove(block.id, conn.from_block_id)}
+                  className="text-sky-400 hover:text-red-500 transition"
+                  title="断开连接"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+
+              {/* 输出 Key 选择器 — 仅当源块定义了 output_schema 时显示 */}
+              {hasKeys && (
+                <div className="mt-1.5">
+                  <label className="block text-[10px] text-gray-400 mb-0.5">选择接收的输出字段</label>
+                  <select
+                    className="w-full px-2 py-1 text-xs border border-sky-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-300"
+                    value={conn.from_key || ''}
+                    onChange={(e) => {
+                      updateConnectionKey(block.id, conn.from_block_id, e.target.value || null)
+                    }}
+                  >
+                    <option value="">全部输出</option>
+                    {outputKeys.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* 已选 key 提示 */}
+              {conn.from_key && (
+                <p className="mt-1 text-[10px] text-sky-500">
+                  📌 仅接收: <span className="font-mono font-medium">{conn.from_key}</span>
+                </p>
+              )}
+            </div>
+          )
+        })}
       </div>
       <p className="text-[10px] text-gray-400 mt-1.5">
         💡 通过端口连接：点击源块右侧圆点 → 目标块左侧圆点
