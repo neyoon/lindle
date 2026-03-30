@@ -32,6 +32,7 @@ interface WorkflowState {
   selectedBlockId: string | null
   runResult: RunResult | null
   isRunning: boolean
+  userInputs: Record<string, string>
 
   // 端口连接交互
   connectingFrom: ConnectingState | null
@@ -60,9 +61,11 @@ interface WorkflowState {
   finishConnecting: (targetBlockId: string) => void
   cancelConnecting: () => void
 
-  // 执行
+  // 执行 & 用户输入
   setRunResult: (result: RunResult | null) => void
   setIsRunning: (running: boolean) => void
+  setUserInput: (key: string, value: string) => void
+  clearUserInputs: () => void
 }
 
 const defaultWorkflow: Workflow = {
@@ -77,6 +80,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedBlockId: null,
   runResult: null,
   isRunning: false,
+  userInputs: {},
   connectingFrom: null,
 
   setWorkflow: (workflow) => set({ workflow }),
@@ -132,7 +136,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       connections: [],
     }
     if (type === 'input') {
-      newBlock.config.fields = [{ name: 'input', label: '输入', field_type: 'text', required: true }]
+      newBlock.config.fields = []
     } else if (type === 'ai') {
       newBlock.config.prompt = ''
       newBlock.config.model = null
@@ -270,4 +274,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setRunResult: (result) => set({ runResult: result }),
   setIsRunning: (running) => set({ isRunning: running }),
+  setUserInput: (key, value) =>
+    set((state) => ({ userInputs: { ...state.userInputs, [key]: value } })),
+  clearUserInputs: () => set({ userInputs: {} }),
 }))

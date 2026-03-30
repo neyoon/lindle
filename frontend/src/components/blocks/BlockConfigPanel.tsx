@@ -11,7 +11,7 @@ import { X, ChevronDown, ChevronUp, Link, Variable } from 'lucide-react'
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { listProviders, type ProviderResponse } from '@/api/client'
-import type { Block, Column, OutputSchema } from '@/types/workflow'
+import type { Block, Column, InputField, OutputSchema } from '@/types/workflow'
 
 export function BlockConfigPanel() {
   const { workflow, selectedBlockId, selectBlock, updateBlock, removeConnection } = useWorkflowStore()
@@ -475,33 +475,109 @@ function PluginBlockConfig({ block }: { block: Block }) {
 
 // ===== Input 块配置 =====
 
+const FIELD_TYPE_OPTIONS: { value: InputField['field_type']; label: string }[] = [
+  { value: 'text', label: '单行文本' },
+  { value: 'textarea', label: '多行文本' },
+  { value: 'number', label: '数字' },
+  { value: 'file', label: '文件' },
+]
+
 function InputConfig({ block }: { block: Block }) {
   const { updateBlock } = useWorkflowStore()
-  const fields = block.config.fields || []
+  const fields: InputField[] = block.config.fields || []
+
+  const setFields = (newFields: InputField[]) => {
+    updateBlock(block.id, { config: { ...block.config, fields: newFields } })
+  }
 
   const addField = () => {
-    const name = prompt('字段名称:')
-    if (name) {
-      updateBlock(block.id, {
-        config: {
-          ...block.config,
-          fields: [...fields, { name, label: name, field_type: 'text' as const, required: true }],
-        },
-      })
+    const idx = fields.length + 1
+    setFields([...fields, { name: `field_${idx}`, label: `字段${idx}`, field_type: 'text', required: true }])
+  }
+
+  const updateField = (index: number, updates: Partial<InputField>) => {
+    const newFields = fields.map((f, i) => (i === index ? { ...f, ...updates } : f))
+    // name 跟 label 同步（保持简洁，用户改 label 自动同步 name）
+    if (updates.label !== undefined) {
+      newFields[index].name = updates.label.replace(/\s+/g, '_').toLowerCase() || `field_${index + 1}`
     }
+    setFields(newFields)
+  }
+
+  const removeField = (index: number) => {
+    setFields(fields.filter((_, i) => i !== index))
   }
 
   return (
     <>
-      <p className="text-xs text-gray-500">定义用户需要填写的输入字段</p>
-      {fields.map((field, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="text-sm text-gray-600 flex-1">{field.label || field.name}</span>
-          <span className="text-xs text-gray-400">{field.field_type}</span>
+      <p className="text-xs text-gray-500">
+        定义运行时用户需要填写的输入字段。
+        AI 块的提示词中可以用 <code className="bg-gray-100 px-1 rounded">{'{{input.字段名}}'}</code> 引用。
+      </p>
+
+      {fields.length === 0 ? (
+        <div className="py-4 text-center">
+          <p className="text-sm text-gray-400 mb-3">暂无字段，点击下方添加</p>
         </div>
-      ))}
-      <button onClick={addField} className="text-xs text-sky-500 hover:text-sky-700">
-        + 添加字段
+      ) : (
+        <div className="space-y-2">
+          {fields.map((field, i) => (
+            <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
+              {/* 第一行: 标签 + 删除 */}
+              <div className="flex items-center gap-2">
+                <input
+                  className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-sky-300 focus:border-sky-400"
+                  value={field.label}
+                  onChange={(e) => updateField(i, { label: e.target.value })}
+                  placeholder="字段标签"
+                />
+                <button
+                  onClick={() => removeField(i)}
+                  className="p-1 text-gray-400 hover:text-red-500 transition"
+                  title="删除字段"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* 第二行: 类型 + 必填 */}
+              <div className="flex items-center gap-2">
+                <select
+                  className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-300"
+                  value={field.field_type}
+                  onChange={(e) => updateField(i, { field_type: e.target.value as InputField['field_type'] })}
+                >
+                  {FIELD_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={field.required}
+                    onChange={(e) => updateField(i, { required: e.target.checked })}
+                    className="rounded border-gray-300 text-sky-500 focus:ring-sky-300"
+                  />
+                  必填
+                </label>
+              </div>
+
+              {/* 变量名提示 */}
+              <p className="text-[10px] text-gray-400 font-mono">
+                变量名: {'{{'}<span className="text-sky-500">input.{field.name}</span>{'}}'}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={addField}
+        className="w-full py-2 text-xs text-sky-500 hover:text-sky-700 hover:bg-sky-50 border border-dashed border-sky-200 rounded-lg transition"
+      >
+        + 添加输入字段
       </button>
     </>
   )

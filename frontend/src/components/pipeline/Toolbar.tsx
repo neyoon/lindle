@@ -44,9 +44,10 @@ export function Toolbar({ onOpenPlugins, onOpenManufacture, onBackToList, onOpen
       alert('请先保存工作流')
       return
     }
+    const userInputs = useWorkflowStore.getState().userInputs
     setIsRunning(true)
     try {
-      const result = await runWorkflow(workflow.id, {})
+      const result = await runWorkflow(workflow.id, userInputs)
       setRunResult(result)
     } catch (e) {
       alert(`运行失败: ${e}`)
