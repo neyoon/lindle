@@ -21,7 +21,7 @@ export function Canvas() {
       {/* 添加新栏按钮 */}
       <button
         onClick={() => addColumn()}
-        className="min-w-[56px] h-full border-l border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/30 transition cursor-pointer"
+        className="min-w-[56px] h-full border-l border-dashed border-sky-200 flex flex-col items-center justify-center gap-2 text-sky-300 hover:border-sky-400 hover:text-sky-500 hover:bg-sky-50/30 transition cursor-pointer"
       >
         <Plus size={20} />
         <span className="text-xs [writing-mode:vertical-lr]">添加栏</span>

@@ -1,11 +1,15 @@
 /**
  * 顶部工具栏
  */
-import { Play, Download, Code, Save } from 'lucide-react'
+import { Play, Download, Code, Save, Puzzle } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { saveWorkflow, runWorkflow, previewCode, downloadCode } from '@/api/client'
 
-export function Toolbar() {
+interface ToolbarProps {
+  onOpenPlugins?: () => void
+}
+
+export function Toolbar({ onOpenPlugins }: ToolbarProps) {
   const { workflow, setRunResult, setIsRunning, isRunning } = useWorkflowStore()
 
   const handleSave = async () => {
@@ -62,7 +66,7 @@ export function Toolbar() {
   return (
     <div className="h-14 bg-white border-b px-4 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold text-indigo-600">MiniFlow</h1>
+        <h1 className="text-lg font-bold text-sky-600">MiniFlow</h1>
         <span className="text-sm text-gray-300">|</span>
         <input
           className="text-sm font-medium bg-transparent border-none outline-none text-gray-700 w-48"
@@ -75,6 +79,14 @@ export function Toolbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <button
+          onClick={onOpenPlugins}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-sky-50 hover:text-sky-600 rounded-lg transition"
+        >
+          <Puzzle size={16} />
+          插件
+        </button>
+        <span className="text-gray-200">|</span>
         <button
           onClick={handleSave}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
@@ -99,7 +111,7 @@ export function Toolbar() {
         <button
           onClick={handleRun}
           disabled={isRunning}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 rounded-lg transition font-medium"
+          className="flex items-center gap-1.5 px-4 py-1.5 text-sm text-white bg-sky-500 hover:bg-sky-600 disabled:opacity-50 rounded-lg transition font-medium"
         >
           <Play size={16} />
           {isRunning ? '运行中...' : '运行'}

@@ -2,19 +2,17 @@
 FastAPI 应用入口
 
 极简配置:
-- 静态文件服务前端
 - 注册所有 API 路由
 - CORS 支持开发环境
+- Tool 已移除，将以插件方式引入
 """
 
 from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
-from api.routes import codegen, execution, workflow
-from miniflow.tools import list_tools
+from api.routes import codegen, execution, plugins, workflow
 
 app = FastAPI(
     title="MiniFlow",
@@ -35,12 +33,7 @@ app.add_middleware(
 app.include_router(workflow.router)
 app.include_router(execution.router)
 app.include_router(codegen.router)
-
-
-@app.get("/api/tools")
-async def get_tools():
-    """获取可用工具列表"""
-    return list_tools()
+app.include_router(plugins.router)
 
 
 @app.get("/api/health")

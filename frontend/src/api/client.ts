@@ -1,7 +1,7 @@
 /**
  * API 客户端
  */
-import type { RunResult, ToolInfo, Workflow } from '@/types/workflow'
+import type { EnabledPlugin, PluginInfo, RunResult, Workflow } from '@/types/workflow'
 
 const BASE = '/api'
 
@@ -74,8 +74,26 @@ export async function downloadCode(id: string) {
   URL.revokeObjectURL(url)
 }
 
-// ===== Tools =====
+// ===== Plugins =====
 
-export async function listTools() {
-  return request<ToolInfo[]>('/tools')
+export async function listPlugins() {
+  return request<PluginInfo[]>('/plugins/')
+}
+
+export async function getEnabledPlugins() {
+  return request<EnabledPlugin[]>('/plugins/enabled')
+}
+
+export async function togglePlugin(pluginId: string, enabled: boolean) {
+  return request<{ ok: boolean }>(`/plugins/${pluginId}/enabled`, {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+export async function updatePluginConfig(pluginId: string, config: Record<string, string>) {
+  return request<{ ok: boolean }>(`/plugins/${pluginId}/config`, {
+    method: 'PUT',
+    body: JSON.stringify({ config }),
+  })
 }

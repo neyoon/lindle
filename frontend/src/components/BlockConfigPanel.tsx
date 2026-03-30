@@ -4,7 +4,6 @@
  * 根据块类型显示不同配置项:
  * - Input: 输入字段定义
  * - AI: 提示词 + 模型选择 + JSON输出key（高级选项）
- * - Tool: 工具选择 + 参数
  * - Output: 无需配置
  */
 import { X, ChevronDown, ChevronUp } from 'lucide-react'
@@ -28,8 +27,8 @@ export function BlockConfigPanel() {
   return (
     <div className="h-full flex flex-col">
       {/* 头部 */}
-      <div className="px-4 py-3 border-b flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">配置: {block.name}</h3>
+      <div className="px-4 py-3 border-b border-sky-100 flex items-center justify-between bg-sky-50/30">
+        <h3 className="text-sm font-semibold text-sky-700">配置: {block.name}</h3>
         <button onClick={() => selectBlock(null)} className="text-gray-400 hover:text-gray-600">
           <X size={16} />
         </button>
@@ -48,8 +47,8 @@ export function BlockConfigPanel() {
 
         {/* 按类型渲染不同配置 */}
         {block.type === 'ai' && <AIConfig block={block} />}
-        {block.type === 'tool' && <ToolConfig block={block} />}
         {block.type === 'input' && <InputConfig block={block} />}
+        {block.type === 'plugin' && <PluginBlockConfig block={block} />}
         {block.type === 'output' && (
           <p className="text-sm text-gray-400">输出块自动展示上一栏的结果，无需额外配置。</p>
         )}
@@ -156,35 +155,28 @@ function OutputSchemaEditor({
           </button>
         </div>
       ))}
-      <button onClick={addKey} className="text-xs text-indigo-500 hover:text-indigo-700">
+      <button onClick={addKey} className="text-xs text-sky-500 hover:text-sky-700">
         + 添加 Key
       </button>
     </div>
   )
 }
 
-// ===== Tool 块配置 =====
+// ===== Plugin 块配置 =====
 
-function ToolConfig({ block }: { block: Block }) {
-  const { updateBlock } = useWorkflowStore()
-
+function PluginBlockConfig({ block }: { block: Block }) {
   return (
     <>
-      <Field label="工具">
-        <select
-          className="input-field"
-          value={block.config.tool_id || ''}
-          onChange={(e) =>
-            updateBlock(block.id, { config: { ...block.config, tool_id: e.target.value } })
-          }
-        >
-          <option value="">选择工具...</option>
-          <option value="web_fetch">获取网页内容</option>
-          <option value="web_search">网页搜索</option>
-          <option value="http_request">HTTP 请求</option>
-          <option value="text_process">文本处理</option>
-        </select>
-      </Field>
+      <div className="p-3 bg-teal-50 rounded-lg">
+        <p className="text-xs text-teal-700 font-medium mb-1">🔌 插件块</p>
+        <p className="text-xs text-teal-600">
+          插件 ID: <span className="font-mono">{block.config.plugin_id || '未配置'}</span>
+        </p>
+        <p className="text-xs text-gray-500 mt-2">
+          插件的参数（如 Token）在「插件管理」页面中配置。
+          此处无需额外设置，运行时会自动使用已配置的参数。
+        </p>
+      </div>
     </>
   )
 }
@@ -216,7 +208,7 @@ function InputConfig({ block }: { block: Block }) {
           <span className="text-xs text-gray-400">{field.field_type}</span>
         </div>
       ))}
-      <button onClick={addField} className="text-xs text-indigo-500 hover:text-indigo-700">
+      <button onClick={addField} className="text-xs text-sky-500 hover:text-sky-700">
         + 添加字段
       </button>
     </>

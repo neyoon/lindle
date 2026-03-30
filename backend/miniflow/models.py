@@ -18,12 +18,12 @@ from pydantic import BaseModel, Field
 
 
 class BlockType(StrEnum):
-    """块类型 - 只有 4 种，保持极简"""
+    """块类型 - 3 种核心 + 插件"""
 
     INPUT = "input"
     AI = "ai"
-    TOOL = "tool"
     OUTPUT = "output"
+    PLUGIN = "plugin"
 
 
 class OutputSchema(BaseModel):
@@ -58,12 +58,11 @@ class BlockConfig(BaseModel):
     prompt: str | None = Field(default=None, description="AI 块的提示词")
     model: str | None = Field(default=None, description="AI 块使用的模型")
 
-    # Tool 块的配置
-    tool_id: str | None = Field(default=None, description="工具 ID")
-    tool_params: dict[str, Any] = Field(default_factory=dict, description="工具参数")
-
     # Input 块的配置
     fields: list[InputField] | None = Field(default=None, description="输入字段定义")
+
+    # Plugin 块的配置
+    plugin_id: str | None = Field(default=None, description="插件 ID")
 
 
 class InputField(BaseModel):

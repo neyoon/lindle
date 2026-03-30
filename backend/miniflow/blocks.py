@@ -1,16 +1,17 @@
 """
 块实现
 
-四种块类型:
-- InputBlock:  接收用户输入
-- AIBlock:     调用大模型处理
-- ToolBlock:   调用预置工具
-- OutputBlock: 输出最终结果
+核心块类型:
+- InputBlock:   接收用户输入
+- AIBlock:      调用大模型处理
+- OutputBlock:  输出最终结果
+- PluginBlock:  调用已启用的插件
 
 设计原则:
 - 每个块只有一个入口和一个出口
 - 数据传递自动完成，用户无需关心格式转换
 - AI 块的 prompt 自动注入上游数据
+- 插件以独立模块方式引入工具能力
 """
 
 from __future__ import annotations
@@ -21,7 +22,6 @@ from typing import Any
 from miniflow.context import BlockResult, Context
 from miniflow.llm import call_llm
 from miniflow.models import Block, BlockType
-from miniflow.tools import get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ class BlockExecutor:
         executors = {
             BlockType.INPUT: _execute_input,
             BlockType.AI: _execute_ai,
-            BlockType.TOOL: _execute_tool,
             BlockType.OUTPUT: _execute_output,
+            BlockType.PLUGIN: _execute_plugin,
         }
 
         executor = executors.get(block.type)
@@ -93,33 +93,28 @@ async def _execute_ai(block: Block, context: Context) -> BlockResult:
     )
 
 
-async def _execute_tool(block: Block, context: Context) -> BlockResult:
-    """执行工具块
+async def _execute_plugin(block: Block, context: Context) -> BlockResult:
+    """执行插件块
 
     1. 从上游获取数据
-    2. 调用预置工具
+    2. 调用已启用的插件
     3. 返回结果
     """
+    from plugins.registry import execute_plugin
+
     connections = [c.model_dump() for c in block.connections] if block.connections else None
     upstream_data = context.get_upstream_data(connections)
 
-    tool_id = block.config.tool_id
-    if not tool_id:
-        raise ValueError(f"工具块 [{block.name}] 未配置 tool_id")
+    plugin_id = block.config.plugin_id
+    if not plugin_id:
+        raise ValueError(f"插件块 [{block.name}] 未配置 plugin_id")
 
-    tool = get_tool(tool_id)
-    result = await tool.execute(
-        input_data=upstream_data,
-        params=block.config.tool_params,
-    )
-
-    output_keys = block.output_schema.keys if block.output_schema else None
+    result = await execute_plugin(plugin_id, upstream_data)
 
     return BlockResult(
         block_id=block.id,
         block_name=block.name,
         data=result,
-        output_keys=output_keys,
     )
 
 

@@ -37,7 +37,7 @@ interface WorkflowState {
   setColumnRepeat: (columnId: string, repeat: number) => void
 
   // 块操作
-  addBlock: (columnId: string, type: BlockType, name: string) => void
+  addBlock: (columnId: string, type: BlockType, name: string, pluginId?: string) => void
   removeBlock: (columnId: string, blockId: string) => void
   updateBlock: (blockId: string, updates: Partial<Block>) => void
   selectBlock: (blockId: string | null) => void
@@ -109,7 +109,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       },
     })),
 
-  addBlock: (columnId, type, name) => {
+  addBlock: (columnId, type, name, pluginId) => {
     const newBlock: Block = {
       id: genBlockId(),
       type,
@@ -123,9 +123,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } else if (type === 'ai') {
       newBlock.config.prompt = ''
       newBlock.config.model = null
-    } else if (type === 'tool') {
-      newBlock.config.tool_id = ''
-      newBlock.config.tool_params = {}
+    } else if (type === 'plugin' && pluginId) {
+      newBlock.config.plugin_id = pluginId
     }
 
     set((state) => ({

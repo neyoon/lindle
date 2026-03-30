@@ -86,10 +86,6 @@ class CodeGenerator:
                         schema_arg = f", output_keys=[{keys_str}]"
                     blocks_code.append(f'    AI("{block.name}", step={func_name}{schema_arg})')
 
-                elif block.type == BlockType.TOOL:
-                    tool_id = block.config.tool_id or "unknown"
-                    blocks_code.append(f'    Tool("{block.name}", tool_id="{tool_id}")')
-
                 elif block.type == BlockType.OUTPUT:
                     blocks_code.append(f'    Output("{block.name}")')
 
@@ -111,7 +107,7 @@ class CodeGenerator:
 
 自动生成 by MiniFlow
 """
-from miniflow import Flow, Input, AI, Tool, Output, Parallel
+from miniflow import Flow, Input, AI, Output, Parallel
 
 {imports_str}
 
@@ -143,9 +139,6 @@ llm:
   api_key: "${{OPENAI_API_KEY}}"      # 从环境变量读取，或直接填写
   base_url: "https://api.openai.com/v1"
   default_model: "{default_model}"
-
-# 工具配置（如需要）
-tools: {{}}
 """
         _write(os.path.join(project_dir, "config.yaml"), config)
 

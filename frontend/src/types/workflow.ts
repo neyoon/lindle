@@ -4,11 +4,12 @@
  * 核心概念:
  * - Workflow: 工作流，由有序的 Column 组成
  * - Column: 栏（竖条），代表一个执行步骤，内含并行执行的 Block
- * - Block: 块，最小执行单元（输入/AI/工具/输出）
+ * - Block: 块，最小执行单元（输入/AI/输出/插件）
  * - Connection: 连接，可选的精确数据流指定
+ * - 插件通过独立页面管理，启用后可作为块添加到工作流
  */
 
-export type BlockType = 'input' | 'ai' | 'tool' | 'output'
+export type BlockType = 'input' | 'ai' | 'output' | 'plugin'
 
 export interface OutputSchema {
   keys: string[]
@@ -31,9 +32,8 @@ export interface InputField {
 export interface BlockConfig {
   prompt?: string | null
   model?: string | null
-  tool_id?: string | null
-  tool_params?: Record<string, unknown>
   fields?: InputField[] | null
+  plugin_id?: string | null
 }
 
 export interface Block {
@@ -79,10 +79,34 @@ export interface RunResult {
   error?: string
 }
 
-// ===== 工具 =====
+// ===== 插件 =====
 
-export interface ToolInfo {
+export interface PluginParam {
+  name: string
+  label: string
+  param_type: 'text' | 'password' | 'number'
+  required: boolean
+  description: string
+  default: string
+}
+
+export interface PluginMeta {
   id: string
   name: string
+  description: string
+  icon: string
+  params: PluginParam[]
+}
+
+export interface PluginInfo {
+  meta: PluginMeta
+  enabled: boolean
+  config: Record<string, string>
+}
+
+export interface EnabledPlugin {
+  id: string
+  name: string
+  icon: string
   description: string
 }

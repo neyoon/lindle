@@ -76,7 +76,7 @@ export function RunPanel() {
           {/* 最终输出 */}
           <div className="border-t pt-3">
             <h4 className="text-xs font-semibold text-gray-500 mb-1">最终输出</h4>
-            <pre className="p-3 bg-indigo-50 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-words">
+            <pre className="p-3 bg-sky-50 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-words">
               {formatData(runResult.output, 2000)}
             </pre>
           </div>
