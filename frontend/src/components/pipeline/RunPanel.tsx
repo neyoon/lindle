@@ -50,7 +50,7 @@ export function RunPanel() {
           {inputFields.map((field) => (
             <div key={field.name} className="flex-1 min-w-[200px] max-w-md">
               <label className="block text-xs font-medium text-gray-500 mb-1">
-                📥 {field.label || field.name}
+                {field.label || field.name}
                 {field.required && <span className="text-red-400 ml-0.5">*</span>}
               </label>
               {field.field_type === 'textarea' ? (
@@ -83,7 +83,7 @@ export function RunPanel() {
           >
             <div className="flex items-center gap-2">
               {isRunning ? (
-                <span className="text-sm text-blue-500">⏳ 运行中...</span>
+                <span className="text-sm text-blue-500">运行中...</span>
               ) : runResult?.success ? (
                 <>
                   <CheckCircle size={16} className="text-green-500" />

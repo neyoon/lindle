@@ -58,7 +58,7 @@ export function PluginsPage({ onBack }: Props) {
           返回编辑器
         </button>
         <span className="text-gray-300">|</span>
-        <h1 className="text-lg font-bold text-sky-600">🔌 插件管理</h1>
+        <h1 className="text-lg font-bold text-sky-600">插件管理</h1>
       </div>
 
       {/* 内容 */}

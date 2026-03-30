@@ -30,7 +30,7 @@ class PluginMeta:
     id: str
     name: str
     description: str
-    icon: str = "🔌"
+    icon: str = ""
     params: list[PluginParam] = field(default_factory=list)
 
 

@@ -12,10 +12,10 @@ import { useWorkflowStore } from '@/stores/workflow'
 import { getEnabledPlugins, listTemplates } from '@/api/client'
 import { BlockView } from '../blocks/Block'
 
-const CORE_BLOCK_OPTIONS: { type: BlockType; label: string; icon: string }[] = [
-  { type: 'input', label: '输入', icon: '📥' },
-  { type: 'ai', label: 'AI', icon: '🤖' },
-  { type: 'output', label: '输出', icon: '📤' },
+const CORE_BLOCK_OPTIONS: { type: BlockType; label: string }[] = [
+  { type: 'input', label: '输入' },
+  { type: 'ai', label: 'AI' },
+  { type: 'output', label: '输出' },
 ]
 
 interface Props {
@@ -115,7 +115,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
                 onClick={() => handleAddBlock(opt.type, opt.label)}
                 className="w-full px-3 py-2.5 text-left text-sm hover:bg-sky-50 flex items-center gap-2 transition"
               >
-                <span className="text-base">{opt.icon}</span>
                 <span className="text-gray-700 font-medium">{opt.label}</span>
               </button>
             ))}
@@ -124,7 +123,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
             {templates.length > 0 && (
               <>
                 <div className="border-t border-sky-50 px-3 py-1.5">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">🏭 制造模板</span>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">制造模板</span>
                 </div>
                 {templates.map((tpl) => (
                   <button
@@ -148,7 +147,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
             {enabledPlugins.length > 0 && (
               <>
                 <div className="border-t border-sky-50 px-3 py-1.5">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">🔌 插件</span>
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">插件</span>
                 </div>
                 {enabledPlugins.map((plugin) => (
                   <button

@@ -11,11 +11,11 @@ import { Trash2, Pencil } from 'lucide-react'
 import type { Block } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
 
-const TYPE_STYLES: Record<string, { bg: string; border: string; tag: string; tagColor: string; icon: string }> = {
-  input:  { bg: 'bg-sky-50',   border: 'border-sky-200',   tag: 'IN',     tagColor: 'text-sky-600 bg-sky-100',   icon: '📥' },
-  ai:     { bg: 'bg-sky-50',   border: 'border-sky-300',   tag: 'AI',     tagColor: 'text-sky-700 bg-sky-100',   icon: '🤖' },
-  output: { bg: 'bg-sky-50',   border: 'border-sky-200',   tag: 'OUT',    tagColor: 'text-sky-600 bg-sky-100',   icon: '📤' },
-  plugin: { bg: 'bg-teal-50',  border: 'border-teal-200',  tag: 'PLUGIN', tagColor: 'text-teal-600 bg-teal-100', icon: '🔌' },
+const TYPE_STYLES: Record<string, { bg: string; border: string; tag: string; tagColor: string }> = {
+  input:  { bg: 'bg-sky-50',   border: 'border-sky-200',   tag: 'IN',     tagColor: 'text-sky-600 bg-sky-100' },
+  ai:     { bg: 'bg-sky-50',   border: 'border-sky-300',   tag: 'AI',     tagColor: 'text-sky-700 bg-sky-100' },
+  output: { bg: 'bg-sky-50',   border: 'border-sky-200',   tag: 'OUT',    tagColor: 'text-sky-600 bg-sky-100' },
+  plugin: { bg: 'bg-teal-50',  border: 'border-teal-200',  tag: 'PLUGIN', tagColor: 'text-teal-600 bg-teal-100' },
 }
 
 interface Props {
@@ -144,9 +144,6 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
           </span>
         </div>
       )}
-
-      {/* 图标 */}
-      <span className="text-2xl">{style.icon}</span>
 
       {/* 类型标签 */}
       <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${style.tagColor}`}>

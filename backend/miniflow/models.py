@@ -123,7 +123,7 @@ class BlockTemplate(BaseModel):
     type: BlockType = Field(description="块类型")
     name: str = Field(description="模板名称")
     description: str = Field(default="", description="描述")
-    icon: str = Field(default="🧩", description="图标（emoji）")
+    icon: str = Field(default="", description="图标")
     config: BlockConfig = Field(default_factory=BlockConfig, description="预设配置")
     output_schema: OutputSchema | None = Field(default=None, description="输出结构")
     created_at: str = Field(default="", description="创建时间")

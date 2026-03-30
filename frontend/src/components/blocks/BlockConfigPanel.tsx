@@ -149,7 +149,7 @@ function ConnectionDisplay({
               {/* 已选 key 提示 */}
               {conn.from_key && (
                 <p className="mt-1 text-[10px] text-sky-500">
-                  📌 仅接收: <span className="font-mono font-medium">{conn.from_key}</span>
+                  仅接收: <span className="font-mono font-medium">{conn.from_key}</span>
                 </p>
               )}
             </div>
@@ -157,7 +157,7 @@ function ConnectionDisplay({
         })}
       </div>
       <p className="text-[10px] text-gray-400 mt-1.5">
-        💡 通过端口连接：点击源块右侧圆点 → 目标块左侧圆点
+        通过端口连接：点击源块右侧圆点 → 目标块左侧圆点
       </p>
     </div>
   )
@@ -303,7 +303,7 @@ function AIConfig({ block }: { block: Block }) {
                   <>
                     {inputVars.length > 0 && (
                       <div className="px-2 pt-2 pb-1">
-                        <p className="text-[10px] text-gray-400 font-medium mb-1">📥 用户输入</p>
+                        <p className="text-[10px] text-gray-400 font-medium mb-1">用户输入</p>
                         {inputVars.map((v) => (
                           <button
                             key={v.template}
@@ -320,7 +320,7 @@ function AIConfig({ block }: { block: Block }) {
                     )}
                     {blockVars.length > 0 && (
                       <div className="px-2 pt-2 pb-1 border-t border-gray-100">
-                        <p className="text-[10px] text-gray-400 font-medium mb-1">🧩 上游块输出</p>
+                        <p className="text-[10px] text-gray-400 font-medium mb-1">上游块输出</p>
                         {blockVars.map((v) => (
                           <button
                             key={v.template}
@@ -352,7 +352,7 @@ function AIConfig({ block }: { block: Block }) {
         />
         {availableVars.length > 0 && (
           <p className="text-[10px] text-gray-400 mt-1">
-            💡 使用 <code className="bg-gray-100 px-1 rounded">{'{{'}</code>变量名<code className="bg-gray-100 px-1 rounded">{'}}'}</code> 精确引用上游数据；不用变量则自动传入全部上游数据
+            使用 <code className="bg-gray-100 px-1 rounded">{'{{'}</code>变量名<code className="bg-gray-100 px-1 rounded">{'}}'}</code> 精确引用上游数据；不用变量则自动传入全部上游数据
           </p>
         )}
       </div>
@@ -370,7 +370,7 @@ function AIConfig({ block }: { block: Block }) {
           <option value="">默认 Provider</option>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} ({p.model}){p.is_default ? ' ⭐' : ''}
+              {p.name} ({p.model}){p.is_default ? ' (默认)' : ''}
             </option>
           ))}
         </select>
@@ -460,7 +460,7 @@ function PluginBlockConfig({ block }: { block: Block }) {
   return (
     <>
       <div className="p-3 bg-teal-50 rounded-lg">
-        <p className="text-xs text-teal-700 font-medium mb-1">🔌 插件块</p>
+        <p className="text-xs text-teal-700 font-medium mb-1">插件块</p>
         <p className="text-xs text-teal-600">
           插件 ID: <span className="font-mono">{block.config.plugin_id || '未配置'}</span>
         </p>

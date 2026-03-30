@@ -18,7 +18,7 @@ class MockToolPlugin(BasePlugin):
         id="mock_tool",
         name="Mock 工具",
         description="一个用于测试的模拟插件，需要配置 Token，输出固定结果 '123, tool test'",
-        icon="🧪",
+        icon="",
         params=[
             PluginParam(
                 name="token",

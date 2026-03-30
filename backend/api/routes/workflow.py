@@ -105,10 +105,10 @@ def _generate_description(workflow: Workflow) -> str:
 
         for block in col.blocks:
             type_label = {
-                BlockType.INPUT: "📥 输入",
-                BlockType.AI: "🤖 AI",
-                BlockType.OUTPUT: "📤 输出",
-                BlockType.PLUGIN: "🔌 插件",
+                BlockType.INPUT: "输入",
+                BlockType.AI: "AI",
+                BlockType.OUTPUT: "输出",
+                BlockType.PLUGIN: "插件",
             }.get(block.type, str(block.type))
 
             lines.append(f"**[{type_label}] {block.name}**")

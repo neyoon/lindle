@@ -162,25 +162,25 @@ async def main():
     user_inputs = {{}}
     for step in STEPS:
         if step["type"] == "input":
-            print(f"\\n📥 {{step['name']}}")
+            print(f"\\n[输入] {{step['name']}}")
             for field_name in step.get("fields", []):
                 value = input(f"  请输入 {{field_name}}: ")
                 user_inputs[field_name] = value
 
     # 3. 执行流水线
-    print("\\n🚀 开始执行...\\n")
+    print("\\n开始执行...\\n")
     engine = Engine(STEPS)
     result = await engine.run(user_inputs)
 
     # 4. 输出结果
     print("\\n" + "=" * 50)
     if result["success"]:
-        print("✅ 执行完成")
+        print("执行完成")
         for key, value in result["output"].items():
-            print(f"\\n📤 [{{key}}]:")
+            print(f"\\n[输出] [{{key}}]:")
             print(value if isinstance(value, str) else str(value))
     else:
-        print(f"❌ 执行失败: {{result.get('error', '未知错误')}}")
+        print(f"执行失败: {{result.get('error', '未知错误')}}")
 
     print("=" * 50)
 

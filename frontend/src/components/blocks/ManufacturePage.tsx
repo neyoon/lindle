@@ -13,13 +13,11 @@ interface Props {
   onBack: () => void
 }
 
-const TYPE_OPTIONS: { value: BlockType; label: string; icon: string }[] = [
-  { value: 'ai', label: 'AI', icon: '🤖' },
-  { value: 'input', label: '输入', icon: '📥' },
-  { value: 'output', label: '输出', icon: '📤' },
+const TYPE_OPTIONS: { value: BlockType; label: string }[] = [
+  { value: 'ai', label: 'AI' },
+  { value: 'input', label: '输入' },
+  { value: 'output', label: '输出' },
 ]
-
-const ICON_OPTIONS = ['🤖', '📊', '📝', '🔍', '💬', '🧠', '⚡', '🎨', '📥', '📤', '🔧', '🌐']
 
 function generateTemplateId(): string {
   return `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
@@ -83,7 +81,7 @@ export function ManufacturePage({ onBack }: Props) {
           返回编辑器
         </button>
         <span className="text-gray-300">|</span>
-        <h1 className="text-lg font-bold text-sky-600">🏭 制造工坊</h1>
+        <h1 className="text-lg font-bold text-sky-600">制造工坊</h1>
       </div>
 
       {/* 内容 */}
@@ -121,7 +119,7 @@ export function ManufacturePage({ onBack }: Props) {
             <p className="text-gray-400 text-center py-12">加载中...</p>
           ) : templates.length === 0 && !isCreating ? (
             <div className="text-center py-16">
-              <p className="text-4xl mb-3">🏭</p>
+              <p className="text-sm text-gray-400 mb-3">暂无模板</p>
               <p className="text-gray-500 text-sm">还没有制造任何模板</p>
               <p className="text-gray-400 text-xs mt-1">点击「新建模板」开始制造你的第一个自定义块</p>
             </div>
@@ -202,7 +200,7 @@ function TemplateForm({
 }) {
   const [name, setName] = useState(initial?.name || '')
   const [description, setDescription] = useState(initial?.description || '')
-  const [icon, setIcon] = useState(initial?.icon || '🤖')
+  const [icon, setIcon] = useState(initial?.icon || '')
   const [type, setType] = useState<BlockType>(initial?.type || 'ai')
   const [prompt, setPrompt] = useState(initial?.config.prompt || '')
   const [model, setModel] = useState(initial?.config.model || '')
@@ -237,7 +235,7 @@ function TemplateForm({
     <div className="bg-white rounded-xl border-2 border-sky-200 p-6 mb-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-bold text-sky-700">
-          {initial ? '编辑模板' : '🏭 制造新模板'}
+          {initial ? '编辑模板' : '制造新模板'}
         </h3>
         <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
           <X size={16} />
@@ -266,7 +264,7 @@ function TemplateForm({
           >
             {TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.icon} {opt.label}
+                {opt.label}
               </option>
             ))}
           </select>
@@ -283,24 +281,15 @@ function TemplateForm({
           />
         </div>
 
-        {/* 图标选择 */}
+        {/* 图标 */}
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-500 mb-1">图标</label>
-          <div className="flex flex-wrap gap-2">
-            {ICON_OPTIONS.map((ic) => (
-              <button
-                key={ic}
-                onClick={() => setIcon(ic)}
-                className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center transition ${
-                  icon === ic
-                    ? 'bg-sky-100 border-2 border-sky-400 scale-110'
-                    : 'bg-gray-50 border border-gray-200 hover:border-sky-300'
-                }`}
-              >
-                {ic}
-              </button>
-            ))}
-          </div>
+          <input
+            className="input-field"
+            value={icon}
+            onChange={(e) => setIcon(e.target.value)}
+            placeholder="可选，输入图标文本"
+          />
         </div>
 
         {/* AI 类型特有配置 */}

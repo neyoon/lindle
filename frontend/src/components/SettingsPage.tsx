@@ -191,7 +191,7 @@ export function SettingsPage({ onBack }: Props) {
           返回
         </button>
         <span className="text-gray-200">|</span>
-        <h1 className="text-lg font-bold text-sky-600">⚙️ 设置</h1>
+        <h1 className="text-lg font-bold text-sky-600">设置</h1>
       </div>
 
       {/* 内容 */}
@@ -245,7 +245,7 @@ export function SettingsPage({ onBack }: Props) {
           {/* Provider 列表 */}
           {providers.length === 0 && editingId !== 'new' ? (
             <div className="text-center py-16">
-              <div className="text-5xl mb-4">🔑</div>
+              <div className="text-lg text-gray-400 mb-4">尚未配置</div>
               <p className="text-gray-500 text-lg mb-2">还没有配置 Provider</p>
               <p className="text-gray-400 text-sm mb-6">添加一个 LLM Provider 以开始使用 AI 功能</p>
               <button
@@ -301,7 +301,7 @@ export function SettingsPage({ onBack }: Props) {
 
           {/* 提示 */}
           <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <p className="text-sm text-amber-800 font-medium mb-1">💡 兼容提示</p>
+            <p className="text-sm text-amber-800 font-medium mb-1">兼容提示</p>
             <p className="text-xs text-amber-700 leading-relaxed">
               MiniFlow 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面、Ollama 本地部署等。
               你可以添加多个 Provider，在创建 AI 块时选择使用哪一个。
@@ -347,7 +347,7 @@ function ProviderCard({
               p.is_default ? 'bg-sky-100' : 'bg-gray-100'
             }`}
           >
-            🤖
+            LLM
           </div>
           <div>
             <div className="flex items-center gap-2">
