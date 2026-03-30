@@ -5,11 +5,13 @@
 1. 默认: 下一栏所有块自动接收上一栏所有块的全部输出
 2. 手动连线: 块只接收指定来源块的输出（可精确到某个 JSON key）
 3. 数据格式自动适配: JSON 自动序列化，纯文本直接传递
+4. 模板变量: prompt 中 {{变量}} 会被渲染为实际数据
 """
 
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -133,6 +135,13 @@ class Context:
         parts = [f"{k}: {v}" for k, v in self.user_inputs.items()]
         return "\n".join(parts)
 
+    def get_block_result_by_name(self, name: str) -> BlockResult | None:
+        """按块名称查找结果（用于模板变量渲染）"""
+        for result in self._block_results.values():
+            if result.block_name == name:
+                return result
+        return None
+
     def get_final_output(self) -> dict[str, Any]:
         """获取最终输出（最后一栏的结果）"""
         if not self._column_order:
@@ -145,3 +154,65 @@ class Context:
             return {"result": results[0].data}
 
         return {r.block_name: r.data for r in results}
+
+
+def render_prompt_template(prompt: str, context: Context) -> tuple[str, bool]:
+    """渲染 prompt 中的 {{变量}} 模板
+
+    支持的变量格式:
+    - {{input.字段名}}  → 用户输入的某个字段
+    - {{块名称}}        → 某个上游块的完整输出
+    - {{块名称.key}}    → 某个上游块输出中的特定 JSON key
+
+    Args:
+        prompt: 包含 {{变量}} 的原始 prompt
+        context: 当前执行上下文
+
+    Returns:
+        (渲染后的 prompt, 是否包含了模板变量)
+    """
+    pattern = r"\{\{(.+?)\}\}"
+    matches = list(re.finditer(pattern, prompt))
+
+    if not matches:
+        return prompt, False
+
+    def _replace(match: re.Match) -> str:
+        var = match.group(1).strip()
+
+        # {{input.xxx}} — 用户输入字段
+        if var.startswith("input."):
+            field_name = var[6:]
+            value = context.user_inputs.get(field_name)
+            if value is not None:
+                return str(value)
+            return f"[未找到输入字段: {field_name}]"
+
+        # {{块名.key}} — 特定 JSON key
+        if "." in var:
+            block_name, key = var.rsplit(".", 1)
+            block_name = block_name.strip()
+            key = key.strip()
+            result = context.get_block_result_by_name(block_name)
+            if result is None:
+                return f"[未找到块: {block_name}]"
+            value = result.get_key(key)
+            if value is None:
+                return f"[块 {block_name} 无 key: {key}]"
+            if isinstance(value, dict | list):
+                return json.dumps(value, ensure_ascii=False, indent=2)
+            return str(value)
+
+        # {{块名}} — 整个块的输出
+        result = context.get_block_result_by_name(var)
+        if result is not None:
+            return result.format_as_text()
+
+        # 兜底: 也许是不带 input. 前缀的用户输入
+        if var in context.user_inputs:
+            return str(context.user_inputs[var])
+
+        return f"[未找到变量: {var}]"
+
+    rendered = re.sub(pattern, _replace, prompt)
+    return rendered, True

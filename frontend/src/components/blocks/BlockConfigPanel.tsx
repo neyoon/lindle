@@ -7,9 +7,10 @@
  * - Output: 无需配置
  * - 连接通过端口管理，此处仅只读展示
  */
-import { X, ChevronDown, ChevronUp, Link } from 'lucide-react'
-import { useState } from 'react'
+import { X, ChevronDown, ChevronUp, Link, Variable } from 'lucide-react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
+import { listProviders, type ProviderResponse } from '@/api/client'
 import type { Block, Column, OutputSchema } from '@/types/workflow'
 
 export function BlockConfigPanel() {
@@ -162,27 +163,202 @@ function ConnectionDisplay({
   )
 }
 
+// ===== 动态变量计算 =====
+
+interface AvailableVar {
+  /** 插入到 prompt 中的模板文本，如 {{块名}} 或 {{input.url}} */
+  template: string
+  /** 显示给用户的标签 */
+  label: string
+  /** 分组: input / block */
+  group: 'input' | 'block'
+}
+
+/**
+ * 根据当前块在工作流中的位置，动态计算它能引用的上游变量列表。
+ * 规则：只有 order 更小的栏中的块才算上游。
+ */
+function useAvailableVars(block: Block): AvailableVar[] {
+  const workflow = useWorkflowStore((s) => s.workflow)
+
+  return useMemo(() => {
+    // 找到当前块所在的栏
+    let currentColOrder = -1
+    for (const col of workflow.columns) {
+      if (col.blocks.some((b) => b.id === block.id)) {
+        currentColOrder = col.order
+        break
+      }
+    }
+    if (currentColOrder < 0) return []
+
+    const vars: AvailableVar[] = []
+
+    // 遍历所有 order 更小的栏
+    const sortedCols = [...workflow.columns].sort((a, b) => a.order - b.order)
+    for (const col of sortedCols) {
+      if (col.order >= currentColOrder) break
+
+      for (const b of col.blocks) {
+        // Input 块: 列出每个字段
+        if (b.type === 'input' && b.config.fields) {
+          for (const f of b.config.fields) {
+            vars.push({
+              template: `{{input.${f.name}}}`,
+              label: `${f.label || f.name}`,
+              group: 'input',
+            })
+          }
+        }
+
+        // 所有非 input 块: 块整体输出
+        if (b.type !== 'input') {
+          vars.push({
+            template: `{{${b.name}}}`,
+            label: b.name,
+            group: 'block',
+          })
+
+          // 如果块定义了 output_schema，额外列出每个 key
+          if (b.output_schema?.keys) {
+            for (const key of b.output_schema.keys) {
+              vars.push({
+                template: `{{${b.name}.${key}}}`,
+                label: `${b.name} → ${key}`,
+                group: 'block',
+              })
+            }
+          }
+        }
+      }
+    }
+
+    return vars
+  }, [workflow.columns, block.id])
+}
+
 // ===== AI 块配置 =====
 
 function AIConfig({ block }: { block: Block }) {
   const { updateBlock } = useWorkflowStore()
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showVarPicker, setShowVarPicker] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [providers, setProviders] = useState<ProviderResponse[]>([])
+
+  useEffect(() => {
+    listProviders().then(setProviders).catch(() => {})
+  }, [])
+
+  const availableVars = useAvailableVars(block)
+
+  /** 在 textarea 光标位置插入变量模板 */
+  const insertVar = (template: string) => {
+    const ta = textareaRef.current
+    if (!ta) return
+
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const current = block.config.prompt || ''
+    const newValue = current.slice(0, start) + template + current.slice(end)
+
+    updateBlock(block.id, { config: { ...block.config, prompt: newValue } })
+    setShowVarPicker(false)
+
+    // 恢复光标位置
+    requestAnimationFrame(() => {
+      ta.focus()
+      const newPos = start + template.length
+      ta.setSelectionRange(newPos, newPos)
+    })
+  }
+
+  const inputVars = availableVars.filter((v) => v.group === 'input')
+  const blockVars = availableVars.filter((v) => v.group === 'block')
 
   return (
     <>
-      <Field label="提示词">
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-medium text-gray-500">提示词</label>
+          <div className="relative">
+            <button
+              onClick={() => setShowVarPicker(!showVarPicker)}
+              className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-sky-600 hover:bg-sky-50 rounded transition"
+              title="插入上游变量"
+            >
+              <Variable size={12} />
+              插入变量
+            </button>
+
+            {/* 变量选择面板 */}
+            {showVarPicker && (
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-30 max-h-64 overflow-y-auto">
+                {availableVars.length === 0 ? (
+                  <p className="p-3 text-xs text-gray-400 text-center">
+                    暂无可用变量<br />
+                    <span className="text-[10px]">请先在前面的栏中添加块</span>
+                  </p>
+                ) : (
+                  <>
+                    {inputVars.length > 0 && (
+                      <div className="px-2 pt-2 pb-1">
+                        <p className="text-[10px] text-gray-400 font-medium mb-1">📥 用户输入</p>
+                        {inputVars.map((v) => (
+                          <button
+                            key={v.template}
+                            onClick={() => insertVar(v.template)}
+                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-sky-50 rounded flex items-center justify-between group"
+                          >
+                            <span className="text-gray-700">{v.label}</span>
+                            <code className="text-[10px] text-sky-500 font-mono opacity-0 group-hover:opacity-100 transition">
+                              {v.template}
+                            </code>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {blockVars.length > 0 && (
+                      <div className="px-2 pt-2 pb-1 border-t border-gray-100">
+                        <p className="text-[10px] text-gray-400 font-medium mb-1">🧩 上游块输出</p>
+                        {blockVars.map((v) => (
+                          <button
+                            key={v.template}
+                            onClick={() => insertVar(v.template)}
+                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-sky-50 rounded flex items-center justify-between group"
+                          >
+                            <span className="text-gray-700">{v.label}</span>
+                            <code className="text-[10px] text-sky-500 font-mono opacity-0 group-hover:opacity-100 transition">
+                              {v.template}
+                            </code>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
         <textarea
-          className="input-field min-h-[120px] resize-y"
+          ref={textareaRef}
+          className="input-field min-h-[120px] resize-y font-mono text-sm"
           value={block.config.prompt || ''}
           onChange={(e) =>
             updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })
           }
-          placeholder="告诉 AI 你想让它做什么..."
+          placeholder="告诉 AI 你想让它做什么...&#10;&#10;使用 {{变量}} 引用上游数据，例如:&#10;{{input.url}} — 引用用户输入&#10;{{块名称}} — 引用上游块输出"
         />
-      </Field>
+        {availableVars.length > 0 && (
+          <p className="text-[10px] text-gray-400 mt-1">
+            💡 使用 <code className="bg-gray-100 px-1 rounded">{'{{'}</code>变量名<code className="bg-gray-100 px-1 rounded">{'}}'}</code> 精确引用上游数据；不用变量则自动传入全部上游数据
+          </p>
+        )}
+      </div>
 
-      <Field label="模型（可选）">
-        <input
+      <Field label="LLM 模型">
+        <select
           className="input-field"
           value={block.config.model || ''}
           onChange={(e) =>
@@ -190,8 +366,19 @@ function AIConfig({ block }: { block: Block }) {
               config: { ...block.config, model: e.target.value || null },
             })
           }
-          placeholder="默认: gpt-4o-mini"
-        />
+        >
+          <option value="">默认 Provider</option>
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({p.model}){p.is_default ? ' ⭐' : ''}
+            </option>
+          ))}
+        </select>
+        {block.config.model && (
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            已选择: {providers.find((p) => p.id === block.config.model)?.name || block.config.model}
+          </p>
+        )}
       </Field>
 
       {/* 高级选项: JSON 输出 key */}

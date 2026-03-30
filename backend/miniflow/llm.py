@@ -49,6 +49,9 @@ async def call_llm(
     model: str | None = None,
     output_keys: list[str] | None = None,
     temperature: float = 0.7,
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
 ) -> Any:
     """调用 LLM
 
@@ -58,11 +61,15 @@ async def call_llm(
         model: 模型名称，默认使用全局配置
         output_keys: 如果指定，要求 LLM 输出 JSON 格式
         temperature: 温度参数
+        api_key: 可选，覆盖全局 API Key（用于指定 Provider）
+        base_url: 可选，覆盖全局 Base URL（用于指定 Provider）
 
     Returns:
         LLM 的输出。如果指定了 output_keys，返回 dict；否则返回 str。
     """
-    model = model or _config.default_model
+    effective_model = model or _config.default_model
+    effective_key = api_key or _config.api_key
+    effective_url = base_url or _config.base_url
 
     # 构建系统提示词
     system_parts = ["你是一个专业的 AI 助手。请根据用户的指令完成任务。"]
@@ -89,7 +96,9 @@ async def call_llm(
         {"role": "user", "content": user_message},
     ]
 
-    result_text = await _call_api(messages, model, temperature)
+    result_text = await _call_api(
+        messages, effective_model, temperature, api_key=effective_key, base_url=effective_url
+    )
 
     # 如果要求 JSON 输出，尝试解析
     if output_keys:
@@ -130,18 +139,28 @@ async def call_llm_stream(
                         continue
 
 
-async def _call_api(messages: list[dict[str, str]], model: str, temperature: float) -> str:
+async def _call_api(
+    messages: list[dict[str, str]],
+    model: str,
+    temperature: float,
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> str:
     """调用 OpenAI 兼容 API"""
+    effective_key = api_key or _config.api_key
+    effective_url = base_url or _config.base_url
+
     async with httpx.AsyncClient(timeout=_config.timeout) as client:
         response = await client.post(
-            f"{_config.base_url}/chat/completions",
+            f"{effective_url}/chat/completions",
             json={
                 "model": model,
                 "messages": messages,
                 "temperature": temperature,
             },
             headers={
-                "Authorization": f"Bearer {_config.api_key}",
+                "Authorization": f"Bearer {effective_key}",
                 "Content-Type": "application/json",
             },
         )

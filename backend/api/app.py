@@ -7,6 +7,7 @@ FastAPI 应用入口
 - codegen: 代码生成
 - plugins: 插件管理
 - workspace: 块模板（制造工坊）
+- settings: LLM 配置管理
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import codegen, execution, plugins, workflow, workspace
+from api.routes import codegen, execution, plugins, settings, workflow, workspace
+from api.routes.settings import init_settings
 
 app = FastAPI(
     title="MiniFlow",
@@ -37,6 +39,13 @@ app.include_router(execution.router)
 app.include_router(codegen.router)
 app.include_router(plugins.router)
 app.include_router(workspace.router)
+app.include_router(settings.router)
+
+
+@app.on_event("startup")
+async def startup():
+    """启动时从 settings.json 加载 LLM 配置"""
+    init_settings()
 
 
 @app.get("/api/health")

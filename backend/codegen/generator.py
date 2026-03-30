@@ -1,25 +1,32 @@
 """
 代码生成器
 
-将工作流定义转换为结构化的 Python 项目。
+将工作流定义转换为**自包含**的结构化 Python 项目。
+生成的项目不依赖 miniflow，可以独立运行。
 
 生成的项目结构:
     my_workflow/
-    ├── main.py                 # 入口：流程定义
+    ├── main.py                 # 入口：加载配置 → 按步骤执行流水线
     ├── config.yaml             # 配置：模型、API Key
+    ├── pipeline/
+    │   ├── __init__.py
+    │   ├── engine.py           # 执行引擎（串行步骤，并行块）
+    │   ├── llm.py              # LLM 调用（OpenAI 兼容）
+    │   └── context.py          # 上下文：步骤间数据传递
     ├── steps/
     │   ├── __init__.py
-    │   ├── step_01_xxx.py      # 每个 AI/Tool 块一个文件
-    │   └── step_02_xxx.py
+    │   ├── step_01.py          # 每个 AI/Tool 块一个文件
+    │   └── step_02.py
     ├── prompts/
-    │   ├── xxx.md              # AI 块的 prompt 独立文件
-    │   └── yyy.md
+    │   ├── step_01.md          # AI 块的 prompt 独立文件
+    │   └── step_02.md
     └── requirements.txt
 
 设计目标:
 - 生成的代码可以直接 python main.py 运行
 - LLM 可以直接阅读文件层次理解整个流程
 - 每个文件短小精悍，职责单一
+- 不依赖 miniflow 包，完全自包含
 """
 
 from __future__ import annotations
@@ -32,7 +39,7 @@ from miniflow.models import Block, BlockType, Column, Workflow
 
 
 class CodeGenerator:
-    """将工作流转换为 Python 项目"""
+    """将工作流转换为自包含的 Python 项目"""
 
     def generate(self, workflow: Workflow, output_dir: str) -> str:
         """生成完整的 Python 项目
@@ -47,12 +54,14 @@ class CodeGenerator:
         project_dir = os.path.join(output_dir, _safe_name(workflow.name))
 
         # 创建目录结构
+        os.makedirs(os.path.join(project_dir, "pipeline"), exist_ok=True)
         os.makedirs(os.path.join(project_dir, "steps"), exist_ok=True)
         os.makedirs(os.path.join(project_dir, "prompts"), exist_ok=True)
 
         # 生成各文件
         self._generate_main(workflow, project_dir)
         self._generate_config(workflow, project_dir)
+        self._generate_pipeline_package(project_dir)
         self._generate_steps(workflow, project_dir)
         self._generate_prompts(workflow, project_dir)
         self._generate_requirements(project_dir)
@@ -60,70 +69,133 @@ class CodeGenerator:
 
         return project_dir
 
-    def _generate_main(self, workflow: Workflow, project_dir: str) -> None:
-        """生成 main.py - 流程定义入口"""
-        columns = workflow.get_sorted_columns()
-        imports: list[str] = []
-        flow_lines: list[str] = []
+    # ========================
+    # main.py
+    # ========================
 
+    def _generate_main(self, workflow: Workflow, project_dir: str) -> None:
+        """生成 main.py - 入口文件，定义并执行流水线"""
+        columns = workflow.get_sorted_columns()
+
+        # 收集步骤信息，生成导入和步骤列表
+        step_defs: list[str] = []
+        imports: list[str] = []
         step_index = 0
+
         for col in columns:
-            blocks_code: list[str] = []
             for block in col.blocks:
                 if block.type == BlockType.INPUT:
                     fields = block.config.fields or []
-                    field_names = ", ".join(f'"{f.name}"' for f in fields)
-                    blocks_code.append(f'    Input("{block.name}", fields=[{field_names}])')
+                    field_list = ", ".join(f'"{f.name}"' for f in fields)
+                    step_defs.append(
+                        f'    {{"type": "input", "name": "{block.name}", "fields": [{field_list}]}}'
+                    )
 
                 elif block.type == BlockType.AI:
                     step_index += 1
-                    step_name = _safe_name(block.name)
-                    func_name = f"step_{step_index:02d}_{step_name}"
+                    func_name = f"step_{step_index:02d}"
                     imports.append(f"from steps.{func_name} import run as {func_name}")
+
                     schema_arg = ""
                     if block.output_schema and block.output_schema.keys:
                         keys_str = ", ".join(f'"{k}"' for k in block.output_schema.keys)
-                        schema_arg = f", output_keys=[{keys_str}]"
-                    blocks_code.append(f'    AI("{block.name}", step={func_name}{schema_arg})')
+                        schema_arg = f', "output_keys": [{keys_str}]'
+
+                    step_defs.append(
+                        f'    {{"type": "ai", "name": "{block.name}", "run": {func_name}{schema_arg}}}'
+                    )
 
                 elif block.type == BlockType.OUTPUT:
-                    blocks_code.append(f'    Output("{block.name}")')
-
-            if len(blocks_code) == 1:
-                flow_lines.append(blocks_code[0] + ",")
-            elif len(blocks_code) > 1:
-                inner = ",\n        ".join(b.strip() for b in blocks_code)
-                if col.repeat > 1:
-                    flow_lines.append(f"    Parallel({inner}, repeat={col.repeat}),")
-                else:
-                    flow_lines.append(f"    Parallel({inner}),")
+                    step_defs.append(
+                        f'    {{"type": "output", "name": "{block.name}"}}'
+                    )
 
         imports_str = "\n".join(imports)
-        flow_body = "\n".join(flow_lines)
+        steps_str = ",\n".join(step_defs)
 
-        code = f'''"""
+        code = f'''#!/usr/bin/env python3
+"""
 {workflow.name}
-{workflow.description}
+{workflow.description or ""}
 
 自动生成 by MiniFlow
+使用方式: python main.py
 """
-from miniflow import Flow, Input, AI, Output, Parallel
+
+import asyncio
+import yaml
+from pathlib import Path
+
+from pipeline.engine import Engine
+from pipeline.llm import configure as configure_llm
 
 {imports_str}
 
-flow = Flow(
-    "{workflow.name}",
-{flow_body}
-)
+# ===== 流水线定义 =====
+
+STEPS = [
+{steps_str}
+]
+
+
+def load_config() -> dict:
+    """加载配置文件"""
+    config_path = Path(__file__).parent / "config.yaml"
+    if config_path.exists():
+        with open(config_path, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {{}}
+    return {{}}
+
+
+async def main():
+    """主函数"""
+    # 1. 加载配置
+    config = load_config()
+    llm_config = config.get("llm", {{}})
+    configure_llm(
+        api_key=llm_config.get("api_key", ""),
+        base_url=llm_config.get("base_url", "https://api.openai.com/v1"),
+        default_model=llm_config.get("default_model", "gpt-4o-mini"),
+    )
+
+    # 2. 收集用户输入
+    user_inputs = {{}}
+    for step in STEPS:
+        if step["type"] == "input":
+            print(f"\\n📥 {{step['name']}}")
+            for field_name in step.get("fields", []):
+                value = input(f"  请输入 {{field_name}}: ")
+                user_inputs[field_name] = value
+
+    # 3. 执行流水线
+    print("\\n🚀 开始执行...\\n")
+    engine = Engine(STEPS)
+    result = await engine.run(user_inputs)
+
+    # 4. 输出结果
+    print("\\n" + "=" * 50)
+    if result["success"]:
+        print("✅ 执行完成")
+        for key, value in result["output"].items():
+            print(f"\\n📤 [{{key}}]:")
+            print(value if isinstance(value, str) else str(value))
+    else:
+        print(f"❌ 执行失败: {{result.get('error', '未知错误')}}")
+
+    print("=" * 50)
+
 
 if __name__ == "__main__":
-    flow.run_interactive()
+    asyncio.run(main())
 '''
         _write(os.path.join(project_dir, "main.py"), code)
 
+    # ========================
+    # config.yaml
+    # ========================
+
     def _generate_config(self, workflow: Workflow, project_dir: str) -> None:
         """生成 config.yaml"""
-        # 收集用到的模型
         models: set[str] = set()
         for col in workflow.columns:
             for block in col.blocks:
@@ -132,8 +204,8 @@ if __name__ == "__main__":
 
         default_model = next(iter(models)) if models else "gpt-4o-mini"
 
-        config = f"""# MiniFlow 配置
-# 请填写你的 API 配置
+        config = f"""# {workflow.name} - 配置文件
+# 请填写你的 API 配置后运行 python main.py
 
 llm:
   api_key: "${{OPENAI_API_KEY}}"      # 从环境变量读取，或直接填写
@@ -141,6 +213,29 @@ llm:
   default_model: "{default_model}"
 """
         _write(os.path.join(project_dir, "config.yaml"), config)
+
+    # ========================
+    # pipeline/ 自包含引擎
+    # ========================
+
+    def _generate_pipeline_package(self, project_dir: str) -> None:
+        """生成 pipeline/ 包 - 自包含的执行引擎"""
+
+        # pipeline/__init__.py
+        _write(os.path.join(project_dir, "pipeline", "__init__.py"), "")
+
+        # pipeline/llm.py
+        _write(os.path.join(project_dir, "pipeline", "llm.py"), _PIPELINE_LLM_CODE)
+
+        # pipeline/context.py
+        _write(os.path.join(project_dir, "pipeline", "context.py"), _PIPELINE_CONTEXT_CODE)
+
+        # pipeline/engine.py
+        _write(os.path.join(project_dir, "pipeline", "engine.py"), _PIPELINE_ENGINE_CODE)
+
+    # ========================
+    # steps/
+    # ========================
 
     def _generate_steps(self, workflow: Workflow, project_dir: str) -> None:
         """为每个 AI 块生成独立的 step 文件"""
@@ -151,11 +246,10 @@ llm:
                     continue
 
                 step_index += 1
-                step_name = _safe_name(block.name)
-                file_name = f"step_{step_index:02d}_{step_name}.py"
-
-                prompt_file = f"{step_name}.md"
-                model = block.config.model or "None  # 使用默认模型"
+                module_name = f"step_{step_index:02d}"
+                file_name = f"{module_name}.py"
+                prompt_file = f"{module_name}.md"
+                model_val = f'"{block.config.model}"' if block.config.model else "None  # 使用默认模型"
 
                 output_schema_code = "None"
                 if block.output_schema and block.output_schema.keys:
@@ -163,17 +257,25 @@ llm:
                     output_schema_code = f"[{keys_str}]"
 
                 code = f'''"""
-AI 步骤: {block.name}
-"""
-from pathlib import Path
+步骤 {step_index}: {block.name}
 
-# 提示词从独立文件加载
+职责: 接收上游数据，调用 LLM 处理后返回结果。
+提示词: prompts/{prompt_file}
+"""
+
+from pathlib import Path
+from pipeline.llm import call_llm
+
+# 步骤名称
+NAME = "{block.name}"
+
+# 提示词从独立文件加载，方便修改
 PROMPT_FILE = Path(__file__).parent.parent / "prompts" / "{prompt_file}"
 
-# 模型配置
-MODEL = {model}
+# 模型配置（None 表示使用 config.yaml 中的默认模型）
+MODEL = {model_val}
 
-# 输出结构（JSON key），None 表示自由文本输出
+# 输出结构（JSON key 列表），None 表示自由文本输出
 OUTPUT_KEYS = {output_schema_code}
 
 
@@ -186,13 +288,11 @@ async def run(upstream_data: str) -> str | dict:
     """执行此步骤
 
     Args:
-        upstream_data: 上游块传递的数据（已自动格式化）
+        upstream_data: 上游步骤传递的数据（已自动格式化为文本）
 
     Returns:
-        处理结果
+        LLM 处理结果。若定义了 OUTPUT_KEYS 则返回 dict，否则返回 str。
     """
-    from miniflow.llm import call_llm
-
     return await call_llm(
         prompt=get_prompt(),
         context=upstream_data,
@@ -204,19 +304,20 @@ async def run(upstream_data: str) -> str | dict:
 
     def _generate_prompts(self, workflow: Workflow, project_dir: str) -> None:
         """为每个 AI 块生成独立的 prompt 文件"""
+        step_index = 0
         for col in workflow.get_sorted_columns():
             for block in col.blocks:
                 if block.type != BlockType.AI:
                     continue
 
-                prompt_name = _safe_name(block.name)
+                step_index += 1
                 prompt_content = block.config.prompt or f"请完成以下任务: {block.name}"
 
                 content = f"""# {block.name}
 
 {prompt_content}
 """
-                _write(os.path.join(project_dir, "prompts", f"{prompt_name}.md"), content)
+                _write(os.path.join(project_dir, "prompts", f"step_{step_index:02d}.md"), content)
 
     def _generate_steps_init(self, workflow: Workflow, project_dir: str) -> None:
         """生成 steps/__init__.py"""
@@ -224,9 +325,8 @@ async def run(upstream_data: str) -> str | dict:
 
     def _generate_requirements(self, project_dir: str) -> None:
         """生成 requirements.txt"""
-        content = """# MiniFlow 依赖
+        content = """# 项目依赖
 httpx>=0.27.0
-pydantic>=2.0.0
 pyyaml>=6.0
 """
         _write(os.path.join(project_dir, "requirements.txt"), content)
@@ -237,7 +337,6 @@ pyyaml>=6.0
 
 def _safe_name(name: str) -> str:
     """将中文/特殊字符名称转换为安全的文件名/标识符"""
-    # 保留中文、字母、数字
     safe = re.sub(r"[^\w\u4e00-\u9fff]", "_", name)
     safe = re.sub(r"_+", "_", safe).strip("_")
     return safe.lower() if safe else "unnamed"
@@ -247,3 +346,244 @@ def _write(path: str, content: str) -> None:
     """写入文件"""
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
+
+
+# ============================================================
+# 以下是生成到 pipeline/ 包中的代码模板（字符串常量）
+# ============================================================
+
+_PIPELINE_LLM_CODE = '''"""
+LLM 调用层
+
+支持 OpenAI 兼容 API（覆盖绝大多数模型服务）。
+配置通过 configure() 设置，或在 config.yaml 中定义。
+"""
+
+import json
+import os
+from dataclasses import dataclass
+from typing import Any
+
+import httpx
+
+
+@dataclass
+class _Config:
+    api_key: str = ""
+    base_url: str = "https://api.openai.com/v1"
+    default_model: str = "gpt-4o-mini"
+    timeout: float = 120.0
+
+
+_config = _Config()
+
+
+def configure(api_key: str = "", base_url: str = "", default_model: str = "") -> None:
+    """配置 LLM 连接参数"""
+    global _config
+    # 支持从环境变量展开 $OPENAI_API_KEY 形式
+    resolved_key = api_key
+    if resolved_key.startswith("$"):
+        resolved_key = os.environ.get(resolved_key.lstrip("${}"), "")
+    _config = _Config(
+        api_key=resolved_key or _config.api_key,
+        base_url=base_url or _config.base_url,
+        default_model=default_model or _config.default_model,
+    )
+
+
+async def call_llm(
+    prompt: str,
+    context: str = "",
+    model: str | None = None,
+    output_keys: list[str] | None = None,
+    temperature: float = 0.7,
+) -> Any:
+    """调用 LLM
+
+    Args:
+        prompt: 提示词
+        context: 上游数据（自动注入到用户消息中）
+        model: 模型名称，None 则使用默认
+        output_keys: 若指定，要求 LLM 以 JSON 格式输出
+        temperature: 温度
+
+    Returns:
+        str 或 dict
+    """
+    model = model or _config.default_model
+
+    # 构建 system prompt
+    system_parts = ["你是一个专业的 AI 助手。请根据用户的指令完成任务。"]
+    if output_keys:
+        keys_desc = ", ".join(f\'"{k}"\' for k in output_keys)
+        system_parts.append(
+            f"\\n请严格以 JSON 格式输出，包含以下 key: {keys_desc}。"
+            "\\n只输出 JSON，不要输出其他内容。"
+        )
+    system_prompt = "\\n".join(system_parts)
+
+    # 构建 user message
+    user_parts = [prompt]
+    if context:
+        user_parts.append(f"\\n---以下是上游数据---\\n{context}")
+    user_message = "\\n".join(user_parts)
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
+
+    # 调用 API
+    async with httpx.AsyncClient(timeout=_config.timeout) as client:
+        response = await client.post(
+            f"{_config.base_url}/chat/completions",
+            json={"model": model, "messages": messages, "temperature": temperature},
+            headers={
+                "Authorization": f"Bearer {_config.api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        result_text = data["choices"][0]["message"]["content"]
+
+    if output_keys:
+        return _parse_json(result_text)
+    return result_text
+
+
+def _parse_json(text: str) -> dict[str, Any]:
+    """尝试从 LLM 输出中解析 JSON"""
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.split("\\n")
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        text = "\\n".join(lines)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start != -1 and end > start:
+            try:
+                return json.loads(text[start:end])
+            except json.JSONDecodeError:
+                pass
+        return {"raw_output": text}
+'''
+
+_PIPELINE_CONTEXT_CODE = '''"""
+执行上下文
+
+管理步骤之间的数据传递：
+- 每个步骤的输出自动成为下一个步骤的输入
+- 数据格式自动适配（dict → JSON 文本，str → 直接传递）
+"""
+
+import json
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class StepResult:
+    """单个步骤的执行结果"""
+    name: str
+    data: Any
+
+    def as_text(self) -> str:
+        """格式化为文本"""
+        if isinstance(self.data, dict):
+            return json.dumps(self.data, ensure_ascii=False, indent=2)
+        return str(self.data)
+
+
+@dataclass
+class Context:
+    """执行上下文"""
+    user_inputs: dict[str, Any] = field(default_factory=dict)
+    results: list[StepResult] = field(default_factory=list)
+
+    def add_result(self, name: str, data: Any) -> None:
+        self.results.append(StepResult(name=name, data=data))
+
+    def get_upstream_text(self) -> str:
+        """获取上一步的输出文本（供下一步使用）"""
+        if not self.results:
+            # 没有上游，返回用户输入
+            return "\\n".join(f"{k}: {v}" for k, v in self.user_inputs.items())
+        last = self.results[-1]
+        return f"[{last.name}]:\\n{last.as_text()}"
+
+    def get_final_output(self) -> dict[str, Any]:
+        """获取最终输出"""
+        if not self.results:
+            return {}
+        last = self.results[-1]
+        return {"result": last.data}
+'''
+
+_PIPELINE_ENGINE_CODE = '''"""
+执行引擎
+
+按步骤顺序执行流水线：
+1. 收集输入
+2. 逐步执行 AI 步骤（每步接收上一步输出）
+3. 返回最终结果
+"""
+
+import time
+from typing import Any
+
+from pipeline.context import Context
+
+
+class Engine:
+    """流水线执行引擎"""
+
+    def __init__(self, steps: list[dict[str, Any]]):
+        self.steps = steps
+
+    async def run(self, user_inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+        """执行整个流水线"""
+        ctx = Context(user_inputs=user_inputs or {})
+        start = time.time()
+
+        try:
+            for step in self.steps:
+                step_type = step["type"]
+
+                if step_type == "input":
+                    # 输入步骤：数据已在 user_inputs 中
+                    ctx.add_result(step["name"], user_inputs)
+                    print(f"  ✓ [{step['name']}] 输入已接收")
+
+                elif step_type == "ai":
+                    # AI 步骤：调用 run 函数
+                    upstream = ctx.get_upstream_text()
+                    run_fn = step["run"]
+                    result = await run_fn(upstream)
+                    ctx.add_result(step["name"], result)
+                    elapsed = time.time() - start
+                    print(f"  ✓ [{step['name']}] 完成 ({elapsed:.1f}s)")
+
+                elif step_type == "output":
+                    # 输出步骤：透传上游数据
+                    upstream_text = ctx.get_upstream_text()
+                    ctx.add_result(step["name"], upstream_text)
+                    print(f"  ✓ [{step['name']}] 输出就绪")
+
+            return {
+                "success": True,
+                "output": ctx.get_final_output(),
+                "elapsed": round(time.time() - start, 3),
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "elapsed": round(time.time() - start, 3),
+            }
+'''

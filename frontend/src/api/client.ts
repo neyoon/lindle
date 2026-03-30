@@ -98,6 +98,70 @@ export async function updatePluginConfig(pluginId: string, config: Record<string
   })
 }
 
+// ===== Settings (LLM Provider 管理) =====
+
+/** 启动检查用：是否有已配置的 Provider */
+export interface SettingsSummary {
+  api_key_set: boolean
+  api_key_masked: string
+  base_url: string
+  default_model: string
+}
+
+export interface ProviderResponse {
+  id: string
+  name: string
+  api_key_masked: string
+  api_key_set: boolean
+  base_url: string
+  model: string
+  is_default: boolean
+}
+
+export interface ProviderInput {
+  name: string
+  api_key: string
+  base_url: string
+  model: string
+}
+
+export async function getSettings() {
+  return request<SettingsSummary>('/settings/')
+}
+
+export async function listProviders() {
+  return request<ProviderResponse[]>('/settings/providers')
+}
+
+export async function addProvider(provider: ProviderInput) {
+  return request<ProviderResponse>('/settings/providers', {
+    method: 'POST',
+    body: JSON.stringify(provider),
+  })
+}
+
+export async function updateProvider(id: string, provider: ProviderInput) {
+  return request<ProviderResponse>(`/settings/providers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(provider),
+  })
+}
+
+export async function deleteProvider(id: string) {
+  return request<{ message: string }>(`/settings/providers/${id}`, { method: 'DELETE' })
+}
+
+export async function setDefaultProvider(id: string) {
+  return request<{ message: string }>(`/settings/providers/${id}/default`, { method: 'POST' })
+}
+
+export async function testConnection(params: { api_key?: string; base_url: string; model: string; provider_id?: string }) {
+  return request<{ success: boolean; message: string }>('/settings/test', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
 // ===== Workspace (块模板) =====
 
 export async function listTemplates() {

@@ -8,6 +8,7 @@ import io
 import os
 import tempfile
 import zipfile
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -41,10 +42,12 @@ async def download_code(workflow_id: str):
 
         zip_buffer.seek(0)
 
+    # 文件名用 URL 编码处理中文字符
+    encoded_name = quote(f"{workflow.name}.zip")
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{workflow.name}.zip"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}"},
     )
 
 

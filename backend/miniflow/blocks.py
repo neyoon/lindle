@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from miniflow.context import BlockResult, Context
+from miniflow.context import BlockResult, Context, render_prompt_template
 from miniflow.llm import call_llm
 from miniflow.models import Block, BlockType
 
@@ -60,30 +60,70 @@ async def _execute_input(block: Block, context: Context) -> BlockResult:
     )
 
 
+def _resolve_provider(provider_id: str | None) -> dict[str, Any]:
+    """根据 provider_id 解析 LLM 调用参数
+
+    返回 dict 包含 model, api_key, base_url（可直接 ** 展开传给 call_llm）。
+    如果 provider_id 为空或找不到，则使用默认 Provider。
+    """
+    from api.routes.settings import get_default_provider, get_provider_by_id
+
+    provider = None
+    if provider_id:
+        provider = get_provider_by_id(provider_id)
+
+    if provider is None:
+        provider = get_default_provider()
+
+    if provider is None:
+        return {}  # 全部回退到 llm.py 的全局 _config
+
+    return {
+        "model": provider.get("model"),
+        "api_key": provider.get("api_key"),
+        "base_url": provider.get("base_url"),
+    }
+
+
 async def _execute_ai(block: Block, context: Context) -> BlockResult:
     """执行 AI 块
 
-    1. 从上游获取数据（根据连接规则）
-    2. 将上游数据自动注入 prompt
-    3. 如果定义了 output_schema，要求 LLM 输出 JSON
-    4. 返回结果
-    """
-    # 获取上游数据
-    connections = [c.model_dump() for c in block.connections] if block.connections else None
-    upstream_data = context.get_upstream_data(connections)
+    两种模式:
+    - 模板模式: prompt 中含 {{变量}}，渲染后直接发送，不自动追加上游数据
+    - 默认模式: prompt 无模板变量，自动把上游数据追加到 context 参数
 
+    block.config.model 存储的是 provider_id（如 "p_1234"），
+    执行时自动查找对应 Provider 的完整配置。
+    """
     # 获取配置
     prompt = block.config.prompt or ""
-    model = block.config.model
     output_keys = block.output_schema.keys if block.output_schema else None
 
-    # 调用 LLM
-    result = await call_llm(
-        prompt=prompt,
-        context=upstream_data,
-        model=model,
-        output_keys=output_keys,
-    )
+    # 解析 Provider 配置
+    provider_config = _resolve_provider(block.config.model)
+
+    # 尝试渲染模板变量
+    rendered_prompt, has_template = render_prompt_template(prompt, context)
+
+    if has_template:
+        # 模板模式: 变量已经嵌入到 prompt 中，不再自动追加上游数据
+        logger.info("块 [%s] 使用模板模式，已渲染 {{变量}}", block.name)
+        result = await call_llm(
+            prompt=rendered_prompt,
+            context="",
+            output_keys=output_keys,
+            **provider_config,
+        )
+    else:
+        # 默认模式: 自动追加上游数据（原有行为）
+        connections = [c.model_dump() for c in block.connections] if block.connections else None
+        upstream_data = context.get_upstream_data(connections)
+        result = await call_llm(
+            prompt=prompt,
+            context=upstream_data,
+            output_keys=output_keys,
+            **provider_config,
+        )
 
     return BlockResult(
         block_id=block.id,
