@@ -12,10 +12,13 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# 安装 uv 并通过 pyproject.toml 安装依赖
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-COPY backend/pyproject.toml ./
-RUN uv pip install --system --no-cache .
+# 使用清华镜像源安装依赖
+RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple \
+        "fastapi>=0.115.0" \
+        "uvicorn[standard]>=0.30.0" \
+        "httpx>=0.27.0" \
+        "pydantic>=2.0.0" \
+        "pyyaml>=6.0"
 
 # 复制后端代码
 COPY backend/ ./
