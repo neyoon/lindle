@@ -5,7 +5,7 @@
  * 连接线通过 SVG 覆盖层绘制在块的端口之间。
  * 点击画布空白区域可取消连接模式。
  */
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Plus } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { ColumnView } from './Column'
@@ -16,13 +16,26 @@ export function Canvas() {
   const columns = [...workflow.columns].sort((a, b) => a.order - b.order)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // ESC 键取消连接模式
+  useEffect(() => {
+    if (!connectingFrom) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancelConnecting()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [connectingFrom, cancelConnecting])
+
   return (
     <div
       ref={containerRef}
       className="relative flex h-full"
-      onClick={(e) => {
-        // 点击画布空白处时取消连接模式
-        if (connectingFrom && e.target === e.currentTarget) {
+      onClick={() => {
+        if (connectingFrom) cancelConnecting()
+      }}
+      onContextMenu={(e) => {
+        if (connectingFrom) {
+          e.preventDefault()
           cancelConnecting()
         }
       }}

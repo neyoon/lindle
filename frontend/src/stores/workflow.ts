@@ -175,15 +175,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }))
   },
 
-  removeBlock: (columnId, blockId) =>
+  removeBlock: (columnId, blockId) => {
+    const { connectingFrom } = get()
     set((state) => ({
       workflow: {
         ...state.workflow,
-        columns: state.workflow.columns.map((c) =>
-          c.id === columnId ? { ...c, blocks: c.blocks.filter((b) => b.id !== blockId) } : c,
-        ),
+        columns: state.workflow.columns.map((c) => ({
+          ...c,
+          blocks: (c.id === columnId ? c.blocks.filter((b) => b.id !== blockId) : c.blocks)
+            .map((b) => ({
+              ...b,
+              connections: b.connections.filter((conn) => conn.from_block_id !== blockId),
+            })),
+        })),
       },
-    })),
+      connectingFrom: connectingFrom?.blockId === blockId ? null : connectingFrom,
+      selectedBlockId: get().selectedBlockId === blockId ? null : get().selectedBlockId,
+    }))
+  },
 
   updateBlock: (blockId, updates) =>
     set((state) => ({

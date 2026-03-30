@@ -8,7 +8,7 @@
  * - 无箭头: 顺序由左到右自然表达
  * - 连接模式: 临时虚线跟随鼠标
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
 
 interface LineData {
@@ -133,9 +133,12 @@ export function ConnectionLines({ containerRef }: Props) {
   const workflow = useWorkflowStore((s) => s.workflow)
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
   const connectingFrom = useWorkflowStore((s) => s.connectingFrom)
+  const removeConnection = useWorkflowStore((s) => s.removeConnection)
   const [lines, setLines] = useState<LineData[]>([])
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
   const [sourcePortPos, setSourcePortPos] = useState<{ x: number; y: number } | null>(null)
+  const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
+  const hoverTimeoutRef = useRef<number | null>(null)
 
   // blockId → columnOrder 映射
   const blockColumnMap = useMemo(() => {
@@ -309,25 +312,57 @@ export function ConnectionLines({ containerRef }: Props) {
   const hasContent = lines.length > 0 || (connectingFrom && sourcePortPos && mousePos)
   if (!hasContent) return null
 
+  const handleLineClick = (line: LineData, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (connectingFrom) return
+    removeConnection(line.toBlockId, line.fromBlockId)
+    setHoveredLineId(null)
+  }
+
+  const handleLineMouseEnter = (lineId: string) => {
+    if (connectingFrom) return
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    setHoveredLineId(lineId)
+  }
+
+  const handleLineMouseLeave = () => {
+    hoverTimeoutRef.current = window.setTimeout(() => setHoveredLineId(null), 50)
+  }
+
   return (
     <svg
-      className="absolute inset-0 pointer-events-none"
-      style={{ width: '100%', height: '100%', overflow: 'visible' }}
+      className="absolute inset-0"
+      style={{ width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}
     >
       {/* 已有连接线 */}
       {lines.map((line) => {
         const isHighlighted =
           selectedBlockId === line.fromBlockId || selectedBlockId === line.toBlockId
+        const isHovered = hoveredLineId === line.id
         const path = getPath(line)
+
+        const strokeColor = isHovered ? '#ef4444' : isHighlighted ? '#38bdf8' : '#7dd3fc'
 
         return (
           <g key={line.id}>
+            {/* 透明宽路径用于鼠标点击检测 */}
+            <path
+              d={path}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={14}
+              strokeLinecap="round"
+              style={{ pointerEvents: 'stroke', cursor: connectingFrom ? 'default' : 'pointer' }}
+              onClick={(e) => handleLineClick(line, e)}
+              onMouseEnter={() => handleLineMouseEnter(line.id)}
+              onMouseLeave={handleLineMouseLeave}
+            />
             {/* 底层光晕 */}
-            {isHighlighted && (
+            {(isHighlighted || isHovered) && (
               <path
                 d={path}
                 fill="none"
-                stroke="#bae6fd"
+                stroke={isHovered ? '#fecaca' : '#bae6fd'}
                 strokeWidth={6}
                 strokeLinecap="round"
                 opacity={0.5}
@@ -337,8 +372,8 @@ export function ConnectionLines({ containerRef }: Props) {
             <path
               d={path}
               fill="none"
-              stroke={isHighlighted ? '#38bdf8' : '#7dd3fc'}
-              strokeWidth={isHighlighted ? 2.5 : 1.8}
+              stroke={strokeColor}
+              strokeWidth={isHighlighted || isHovered ? 2.5 : 1.8}
               strokeLinecap="round"
               strokeDasharray={line.isOverlapping ? '6 4' : 'none'}
               style={{ transition: 'stroke 0.2s, stroke-width 0.2s' }}
@@ -347,18 +382,42 @@ export function ConnectionLines({ containerRef }: Props) {
             <circle
               cx={line.fromX}
               cy={line.fromY}
-              r={isHighlighted ? 4 : 3}
-              fill={isHighlighted ? '#38bdf8' : '#7dd3fc'}
+              r={isHighlighted || isHovered ? 4 : 3}
+              fill={strokeColor}
               style={{ transition: 'r 0.2s, fill 0.2s' }}
             />
             {/* 目标端点 */}
             <circle
               cx={line.toX}
               cy={line.toY}
-              r={isHighlighted ? 4 : 3}
-              fill={isHighlighted ? '#38bdf8' : '#7dd3fc'}
+              r={isHighlighted || isHovered ? 4 : 3}
+              fill={strokeColor}
               style={{ transition: 'r 0.2s, fill 0.2s' }}
             />
+            {/* 删除提示 */}
+            {isHovered && !connectingFrom && (
+              <g>
+                <circle
+                  cx={(line.fromX + line.toX) / 2}
+                  cy={(line.fromY + line.toY) / 2}
+                  r={8}
+                  fill="#ef4444"
+                  style={{ pointerEvents: 'none' }}
+                />
+                <text
+                  x={(line.fromX + line.toX) / 2}
+                  y={(line.fromY + line.toY) / 2}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fill="white"
+                  fontSize={11}
+                  fontWeight="bold"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  ×
+                </text>
+              </g>
+            )}
           </g>
         )
       })}
