@@ -44,12 +44,23 @@ export function Canvas() {
       <ConnectionLines containerRef={containerRef} />
 
       {columns.map((column, i) => (
-        <ColumnView
-          key={column.id}
-          column={column}
-          isFirstColumn={i === 0}
-          isLastColumn={i === columns.length - 1}
-        />
+        <div key={column.id} className="flex h-full">
+          {/* 列间插入按钮 */}
+          {i > 0 && (
+            <button
+              onClick={() => addColumn(columns[i - 1].order)}
+              className="w-5 shrink-0 h-full flex items-center justify-center text-sky-200 hover:text-sky-500 hover:bg-sky-50/50 transition group/insert"
+              title="在此插入栏"
+            >
+              <Plus size={14} className="opacity-0 group-hover/insert:opacity-100 transition" />
+            </button>
+          )}
+          <ColumnView
+            column={column}
+            isFirstColumn={i === 0}
+            isLastColumn={i === columns.length - 1}
+          />
+        </div>
       ))}
 
       {/* 添加新栏按钮 */}

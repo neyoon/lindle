@@ -142,12 +142,12 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
                   className="group bg-white rounded-xl border-2 border-gray-100 hover:border-sky-300 p-5 cursor-pointer transition hover:shadow-md"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 shrink-0 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center">
                         <FileCode size={20} className="text-sky-500" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-gray-800 truncate">{wf.name}</h3>
+                        <h3 className="font-semibold text-gray-800 truncate max-w-[200px]">{wf.name}</h3>
                         {wf.description && (
                           <p className="text-xs text-gray-400 mt-0.5 truncate">{wf.description}</p>
                         )}

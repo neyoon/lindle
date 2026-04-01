@@ -35,9 +35,12 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
   const startConnecting = useWorkflowStore((s) => s.startConnecting)
   const finishConnecting = useWorkflowStore((s) => s.finishConnecting)
 
+  const blockDiffMap = useWorkflowStore((s) => s.blockDiffMap)
+
   const style = TYPE_STYLES[block.type] || TYPE_STYLES.input
   const isSelected = selectedBlockId === block.id
   const isConnectingSource = connectingFrom?.blockId === block.id
+  const diffStatus = blockDiffMap?.[block.id] ?? null
 
   // 是否为有效连接目标（连接模式下，当前块在源块之后的列）
   const isValidTarget = connectingFrom
@@ -68,6 +71,8 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         ${style.bg} ${style.border}
         ${isSelected ? 'ring-2 ring-sky-400 shadow-lg scale-[1.03]' : 'hover:shadow-md hover:scale-[1.01]'}
         ${isConnectingSource ? 'ring-2 ring-amber-400 shadow-amber-100' : ''}
+        ${diffStatus === 'added' ? 'ring-2 ring-emerald-400 shadow-emerald-100 shadow-lg' : ''}
+        ${diffStatus === 'modified' ? 'ring-2 ring-amber-400 shadow-amber-100 shadow-lg' : ''}
       `}
     >
       {/* ===== 左侧输入端口 ===== */}
@@ -148,6 +153,19 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
             ←{block.connections.length}
           </span>
         </div>
+      )}
+
+      {/* AI diff 标签 */}
+      {diffStatus && (
+        <span
+          className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold rounded-full px-2 py-0.5 shadow-sm z-20 ${
+            diffStatus === 'added'
+              ? 'bg-emerald-500 text-white'
+              : 'bg-amber-500 text-white'
+          }`}
+        >
+          {diffStatus === 'added' ? '新增' : '修改'}
+        </span>
       )}
 
       {/* 类型标签 */}

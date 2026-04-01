@@ -196,6 +196,27 @@ MiniFlow 是一个**多步骤流水线**：
 - **手动连线（connections）**：只有当需要跳过某些步骤、或精确指定数据来源时才使用。大多数情况 connections 应为空数组 []。
 - connections 格式: [{ "from_block_id": "blk_xxx", "from_key": null }]，from_key 可用于指定源块 output_schema 中的某个 key。
 
+## 模板变量（AI 块 prompt 中引用数据）
+
+AI 块的 prompt 中可以使用 `{{变量}}` 语法引用上游数据。运行时引擎会自动渲染这些变量。
+
+支持的变量格式：
+- `{{input.字段名}}` → 引用 input 块中用户输入的某个字段（字段名 = fields 中的 name 值）
+- `{{块名称}}` → 引用某个上游块的完整输出（块名称 = block 的 name 值）
+- `{{块名称.key}}` → 引用某个上游块 output_schema 中的特定 key
+
+示例：
+- 假设有一个 input 块，fields 包含 { name: "topic", label: "主题" }，则后续 AI 块可写：
+  prompt: "请围绕 {{input.topic}} 写一篇文章"
+- 假设有一个名为 "翻译" 的 AI 块，则后续块可写：
+  prompt: "请总结以下内容：{{翻译}}"
+- 假设有一个名为 "分析" 的 AI 块设置了 output_schema keys: ["summary", "score"]，则可写：
+  prompt: "评分为 {{分析.score}}，摘要为 {{分析.summary}}"
+
+**重要**：
+- 引用 input 块的用户输入时，**必须**使用 `{{input.字段name}}` 格式，不要省略 `input.` 前缀
+- 如果不使用模板变量，上游数据也会通过默认数据流自动传入，但使用模板变量可以更精确地控制数据注入位置
+
 ## JSON 结构
 
 - workflow: { id, name, description, columns: [...] }
@@ -209,10 +230,17 @@ MiniFlow 是一个**多步骤流水线**：
     - 插件块: { plugin_id: "xxx" }
   - output_schema: { keys: ["key1", "key2"], descriptions: {} } 或 null
 
-## 规则
+## 编辑原则（最重要）
+
+- **增量修改**：只修改用户指令涉及的部分，保留其余所有内容不变
+- **保留已有结构**：不要删除或重写用户没有提到的 Column / Block
+- **保留已有 ID**：已存在的 column/block 的 id 必须保持原样，不要生成新 id 替换
+- **保留已有配置**：已存在的 block 的 prompt、config、connections 等不要改动（除非用户明确要求）
+
+## 格式规则
 
 1. 保持 workflow 的 id 不变
-2. 新增 block/column 时，用 "col_<13位时间戳>_<4位随机>" 和 "blk_<13位时间戳>_<4位随机>" 格式生成唯一 id
+2. **仅**在新增 block/column 时生成新 id，格式: "col_<13位时间戳>_<4位随机>" / "blk_<13位时间戳>_<4位随机>"
 3. 保持 column 的 order 字段连续（0, 1, 2, ...）
 4. **每个 Column 通常只放 1 个 Block**，除非用户明确要求并行
 5. **不要把所有块堆在同一个 Column**，按逻辑步骤分到不同 Column
@@ -227,6 +255,29 @@ class AIEditRequest(BaseModel):
 
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _build_available_variables(workflow: Workflow) -> str:
+    """从当前 workflow 中提取所有可在 AI 块 prompt 中引用的模板变量"""
+    variables: list[str] = []
+    columns = sorted(workflow.columns, key=lambda c: c.order)
+    for col in columns:
+        for block in col.blocks:
+            if block.type == BlockType.INPUT and block.config.fields:
+                for field in block.config.fields:
+                    ref = "{{input." + field.name + "}}"
+                    label = field.label or field.name
+                    variables.append(f"  - `{ref}`  ← 用户输入「{label}」")
+            else:
+                ref = "{{" + block.name + "}}"
+                variables.append(f"  - `{ref}`  ← 块「{block.name}」的完整输出")
+                if block.output_schema and block.output_schema.keys:
+                    for key in block.output_schema.keys:
+                        key_ref = "{{" + block.name + "." + key + "}}"
+                        variables.append(f"  - `{key_ref}`  ← 块「{block.name}」的 {key}")
+    if not variables:
+        return ""
+    return "\n当前工作流中可用的模板变量：\n" + "\n".join(variables) + "\n"
 
 
 @router.post("/{workflow_id}/ai-edit")
@@ -250,9 +301,13 @@ async def ai_edit_workflow(workflow_id: str, body: AIEditRequest):
         raise HTTPException(status_code=400, detail="未配置 AI 编辑 Provider")
 
     workflow_json = workflow.model_dump_json(indent=2)
+    var_hint = _build_available_variables(workflow)
     messages = [
         {"role": "system", "content": _AI_EDIT_SYSTEM_PROMPT},
-        {"role": "user", "content": f"当前工作流 JSON：\n{workflow_json}\n\n修改指令：{body.instruction}"},
+        {
+            "role": "user",
+            "content": f"当前工作流 JSON：\n{workflow_json}\n{var_hint}\n修改指令：{body.instruction}",
+        },
     ]
 
     async def event_stream():

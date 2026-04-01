@@ -37,6 +37,10 @@ interface WorkflowState {
   // 端口连接交互
   connectingFrom: ConnectingState | null
 
+  // AI 编辑 diff 高亮
+  blockDiffMap: Record<string, 'added' | 'modified'> | null
+  setBlockDiffMap: (map: Record<string, 'added' | 'modified'> | null) => void
+
   // 工作流操作
   setWorkflow: (workflow: Workflow) => void
   updateWorkflowMeta: (name: string, description: string) => void
@@ -83,12 +87,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isRunning: false,
   userInputs: {},
   connectingFrom: null,
+  blockDiffMap: null,
+
+  setBlockDiffMap: (map) => set({ blockDiffMap: map }),
 
   setWorkflow: (workflow) => set({ workflow }),
 
   updateWorkflowMeta: (name, description) =>
     set((state) => ({
       workflow: { ...state.workflow, name, description },
+      blockDiffMap: null,
     })),
 
   addColumn: (afterOrder) => {
@@ -105,7 +113,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       repeat: 1,
     })
     columns.sort((a, b) => a.order - b.order)
-    set({ workflow: { ...state.workflow, columns } })
+    set({ workflow: { ...state.workflow, columns }, blockDiffMap: null })
   },
 
   removeColumn: (columnId) =>
@@ -116,6 +124,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           .filter((c) => c.id !== columnId)
           .map((c, i) => ({ ...c, order: i })),
       },
+      blockDiffMap: null,
     })),
 
   setColumnRepeat: (columnId, repeat) =>
@@ -152,6 +161,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           c.id === columnId ? { ...c, blocks: [...c.blocks, newBlock] } : c,
         ),
       },
+      blockDiffMap: null,
     }))
   },
 
@@ -173,6 +183,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           c.id === columnId ? { ...c, blocks: [...c.blocks, newBlock] } : c,
         ),
       },
+      blockDiffMap: null,
     }))
   },
 
@@ -205,7 +216,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const clampedIndex = Math.min(insertIndex, dstCol.blocks.length)
       dstCol.blocks.splice(clampedIndex, 0, block)
 
-      return { workflow: { ...state.workflow, columns } }
+      return { workflow: { ...state.workflow, columns }, blockDiffMap: null }
     }),
 
   removeBlock: (columnId, blockId) => {
@@ -224,6 +235,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       },
       connectingFrom: connectingFrom?.blockId === blockId ? null : connectingFrom,
       selectedBlockId: get().selectedBlockId === blockId ? null : get().selectedBlockId,
+      blockDiffMap: null,
     }))
   },
 
@@ -236,6 +248,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           blocks: c.blocks.map((b) => (b.id === blockId ? { ...b, ...updates } : b)),
         })),
       },
+      blockDiffMap: null,
     })),
 
   selectBlock: (blockId) => set({ selectedBlockId: blockId }),

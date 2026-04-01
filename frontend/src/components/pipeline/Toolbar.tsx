@@ -2,9 +2,10 @@
  * 顶部工具栏
  */
 import { useState, useRef, useEffect } from 'react'
-import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles, X, Loader2, Square } from 'lucide-react'
+import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles, X, Loader2, Square, Undo2, Check } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode, previewCode } from '@/api/client'
+import type { Workflow, Block } from '@/types/workflow'
 
 const API_BASE = '/api'
 
@@ -19,8 +20,30 @@ function generateId(): string {
   return `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+function computeBlockDiff(
+  oldWf: Workflow,
+  newWf: Workflow,
+): Record<string, 'added' | 'modified'> {
+  const oldBlocks = new Map<string, Block>()
+  for (const col of oldWf.columns) {
+    for (const b of col.blocks) oldBlocks.set(b.id, b)
+  }
+  const diff: Record<string, 'added' | 'modified'> = {}
+  for (const col of newWf.columns) {
+    for (const b of col.blocks) {
+      const old = oldBlocks.get(b.id)
+      if (!old) {
+        diff[b.id] = 'added'
+      } else if (JSON.stringify(old) !== JSON.stringify(b)) {
+        diff[b.id] = 'modified'
+      }
+    }
+  }
+  return diff
+}
+
 export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onManualSave }: ToolbarProps) {
-  const { workflow, setWorkflow, setRunResult, setIsRunning, isRunning } = useWorkflowStore()
+  const { workflow, setWorkflow, setRunResult, setIsRunning, isRunning, setBlockDiffMap } = useWorkflowStore()
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [aiInstruction, setAIInstruction] = useState('')
@@ -28,9 +51,11 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
   const [aiThinking, setAIThinking] = useState('')
   const [aiDelta, setAIDelta] = useState('')
   const [aiError, setAIError] = useState('')
+  const [aiDone, setAIDone] = useState(false)
   const aiInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const streamPanelRef = useRef<HTMLPreElement>(null)
+  const prevWorkflowRef = useRef<Workflow | null>(null)
 
   useEffect(() => {
     if (streamPanelRef.current) {
@@ -45,12 +70,16 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
       return
     }
 
+    prevWorkflowRef.current = JSON.parse(JSON.stringify(workflow))
+
     const controller = new AbortController()
     abortRef.current = controller
     setAILoading(true)
     setAIThinking('')
     setAIDelta('')
     setAIError('')
+    setAIDone(false)
+    setBlockDiffMap(null)
 
     try {
       const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/ai-edit`, {
@@ -89,12 +118,16 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
               } else if (currentEvent === 'delta') {
                 setAIDelta((prev) => prev + data.text)
               } else if (currentEvent === 'done') {
-                setWorkflow(data)
+                const newWf = data as Workflow
+                const diff = prevWorkflowRef.current
+                  ? computeBlockDiff(prevWorkflowRef.current, newWf)
+                  : {}
+                setWorkflow(newWf)
+                setBlockDiffMap(Object.keys(diff).length > 0 ? diff : null)
                 setAIInstruction('')
                 setShowAIEdit(false)
                 setAILoading(false)
-                setAIThinking('')
-                setAIDelta('')
+                setAIDone(true)
                 return
               } else if (currentEvent === 'error') {
                 setAIError(data.message)
@@ -119,13 +152,36 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
     abortRef.current?.abort()
   }
 
+  const handleUndo = async () => {
+    const prev = prevWorkflowRef.current
+    if (!prev) return
+    setWorkflow(prev)
+    setBlockDiffMap(null)
+    prevWorkflowRef.current = null
+    setAIDone(false)
+    setAIThinking('')
+    setAIDelta('')
+    try {
+      await updateWorkflow(prev.id, prev)
+    } catch {}
+  }
+
+  const handleConfirmEdit = () => {
+    setBlockDiffMap(null)
+    prevWorkflowRef.current = null
+    setAIDone(false)
+    setAIThinking('')
+    setAIDelta('')
+  }
+
   const closeStreamPanel = () => {
     setAIThinking('')
     setAIDelta('')
     setAIError('')
+    setAIDone(false)
   }
 
-  const showStreamPanel = aiLoading || aiThinking || aiDelta || aiError
+  const showStreamPanel = aiLoading || aiThinking || aiDelta || aiError || aiDone
 
   const handleSave = async () => {
     try {
@@ -360,26 +416,47 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
                 <><Loader2 size={12} className="animate-spin" /> AI 正在修改工作流...</>
               ) : aiError ? (
                 <span className="text-red-500">{aiError}</span>
+              ) : aiDone ? (
+                '编辑完成 — 画布中高亮显示了变更'
               ) : (
                 '完成'
               )}
             </span>
-            {aiLoading ? (
-              <button
-                onClick={handleAbort}
-                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition font-medium"
-              >
-                <Square size={10} fill="currentColor" />
-                打断
-              </button>
-            ) : (
-              <button
-                onClick={closeStreamPanel}
-                className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition"
-              >
-                关闭
-              </button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {aiLoading ? (
+                <button
+                  onClick={handleAbort}
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition font-medium"
+                >
+                  <Square size={10} fill="currentColor" />
+                  打断
+                </button>
+              ) : aiDone && prevWorkflowRef.current ? (
+                <>
+                  <button
+                    onClick={handleUndo}
+                    className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 px-2.5 py-1 rounded-md hover:bg-orange-50 border border-orange-200 transition font-medium"
+                  >
+                    <Undo2 size={12} />
+                    撤销
+                  </button>
+                  <button
+                    onClick={handleConfirmEdit}
+                    className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 px-2.5 py-1 rounded-md hover:bg-emerald-50 border border-emerald-200 transition font-medium"
+                  >
+                    <Check size={12} />
+                    确认
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={closeStreamPanel}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition"
+                >
+                  关闭
+                </button>
+              )}
+            </div>
           </div>
           {aiThinking && (
             <div className="mb-2">
