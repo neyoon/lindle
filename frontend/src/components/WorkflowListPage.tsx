@@ -8,7 +8,7 @@
  * - 删除工作流
  */
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Clock, Layers, FileCode, Settings } from 'lucide-react'
+import { Plus, Trash2, Clock, Layers, FileCode, Settings, Puzzle } from 'lucide-react'
 import { listWorkflows, deleteWorkflow } from '@/api/client'
 
 interface WorkflowSummary {
@@ -21,10 +21,11 @@ interface WorkflowSummary {
 interface Props {
   onOpen: (workflowId: string) => void
   onCreateNew: () => void
+  onOpenPlugins?: () => void
   onOpenSettings?: () => void
 }
 
-export function WorkflowListPage({ onOpen, onCreateNew, onOpenSettings }: Props) {
+export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenSettings }: Props) {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -62,15 +63,26 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenSettings }: Props)
           <Layers size={20} />
           MiniFlow
         </h1>
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
-          >
-            <Settings size={16} />
-            设置
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onOpenPlugins && (
+            <button
+              onClick={onOpenPlugins}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
+            >
+              <Puzzle size={16} />
+              插件
+            </button>
+          )}
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
+            >
+              <Settings size={16} />
+              设置
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 内容区 */}

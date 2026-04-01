@@ -28,6 +28,8 @@ import {
   deleteProvider,
   setDefaultProvider,
   testConnection,
+  getAIEditProvider,
+  setAIEditProvider,
   type ProviderResponse,
 } from '@/api/client'
 
@@ -49,6 +51,9 @@ export function SettingsPage({ onBack }: Props) {
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string } | null>(null)
 
+  // AI 编辑 Provider
+  const [aiEditProviderId, setAiEditProviderId] = useState('')
+
   // 表单状态
   const [formName, setFormName] = useState('')
   const [formKey, setFormKey] = useState('')
@@ -59,6 +64,9 @@ export function SettingsPage({ onBack }: Props) {
 
   useEffect(() => {
     loadProviders()
+    getAIEditProvider()
+      .then((r) => setAiEditProviderId(r.provider_id))
+      .catch(() => {})
   }, [])
 
   const loadProviders = async () => {
@@ -295,6 +303,46 @@ export function SettingsPage({ onBack }: Props) {
                     onTest={() => handleTest(p.id)}
                   />
                 ),
+              )}
+            </div>
+          )}
+
+          {/* AI 编辑专用 Provider */}
+          {providers.length > 0 && (
+            <div className="mt-8 bg-white rounded-xl border-2 border-violet-100 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">
+                  ✨
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-violet-700">AI 编辑 Provider</h3>
+                  <p className="text-xs text-gray-400">用于「AI 编辑」功能的大模型，建议选择能力较强的模型</p>
+                </div>
+              </div>
+              <select
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400"
+                value={aiEditProviderId}
+                onChange={async (e) => {
+                  const newId = e.target.value
+                  setAiEditProviderId(newId)
+                  try {
+                    await setAIEditProvider(newId)
+                  } catch (err) {
+                    alert(`设置失败: ${err}`)
+                  }
+                }}
+              >
+                <option value="">跟随默认 Provider</option>
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.model}){p.is_default ? ' (默认)' : ''}
+                  </option>
+                ))}
+              </select>
+              {aiEditProviderId && (
+                <p className="text-[10px] text-gray-400 mt-1.5">
+                  已选择: {providers.find((p) => p.id === aiEditProviderId)?.name || aiEditProviderId}
+                </p>
               )}
             </div>
           )}

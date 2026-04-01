@@ -45,6 +45,13 @@ export async function deleteWorkflow(id: string) {
   return request(`/workflows/${id}`, { method: 'DELETE' })
 }
 
+export async function aiEditWorkflow(id: string, instruction: string) {
+  return request<Workflow>(`/workflows/${id}/ai-edit`, {
+    method: 'POST',
+    body: JSON.stringify({ instruction }),
+  })
+}
+
 // ===== Execution =====
 
 export async function runWorkflow(id: string, inputs: Record<string, unknown>) {
@@ -153,6 +160,17 @@ export async function deleteProvider(id: string) {
 
 export async function setDefaultProvider(id: string) {
   return request<{ message: string }>(`/settings/providers/${id}/default`, { method: 'POST' })
+}
+
+export async function getAIEditProvider() {
+  return request<{ provider_id: string }>('/settings/ai-edit-provider')
+}
+
+export async function setAIEditProvider(providerId: string) {
+  return request<{ provider_id: string }>('/settings/ai-edit-provider', {
+    method: 'POST',
+    body: JSON.stringify({ provider_id: providerId }),
+  })
 }
 
 export async function testConnection(params: { api_key?: string; base_url: string; model: string; provider_id?: string }) {
