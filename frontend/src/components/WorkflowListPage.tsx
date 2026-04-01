@@ -8,7 +8,7 @@
  * - 删除工作流
  */
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Clock, Layers, FileCode, Settings, Puzzle } from 'lucide-react'
+import { Plus, Trash2, Clock, Layers, FileCode, Settings, Puzzle, Factory } from 'lucide-react'
 import { listWorkflows, deleteWorkflow } from '@/api/client'
 
 interface WorkflowSummary {
@@ -22,10 +22,11 @@ interface Props {
   onOpen: (workflowId: string) => void
   onCreateNew: () => void
   onOpenPlugins?: () => void
+  onOpenManufacture?: () => void
   onOpenSettings?: () => void
 }
 
-export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenSettings }: Props) {
+export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenManufacture, onOpenSettings }: Props) {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -71,6 +72,15 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenSet
             >
               <Puzzle size={16} />
               插件
+            </button>
+          )}
+          {onOpenManufacture && (
+            <button
+              onClick={onOpenManufacture}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
+            >
+              <Factory size={16} />
+              制造
             </button>
           )}
           {onOpenSettings && (

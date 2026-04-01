@@ -27,6 +27,7 @@ export default function App() {
   const [checkedSettings, setCheckedSettings] = useState(false)
   const [autoSaved, setAutoSaved] = useState(false)
   const settingsFrom = useRef<Page>('list')
+  const manufactureFrom = useRef<Page>('editor')
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
   const setWorkflow = useWorkflowStore((s) => s.setWorkflow)
 
@@ -93,6 +94,7 @@ export default function App() {
         onOpen={handleOpenWorkflow}
         onCreateNew={handleCreateNew}
         onOpenPlugins={() => setPage('plugins')}
+        onOpenManufacture={() => { manufactureFrom.current = 'list'; setPage('manufacture') }}
         onOpenSettings={() => { settingsFrom.current = 'list'; setPage('settings') }}
       />
     )
@@ -103,13 +105,13 @@ export default function App() {
   }
 
   if (page === 'manufacture') {
-    return <ManufacturePage onBack={() => setPage('editor')} />
+    return <ManufacturePage onBack={() => setPage(manufactureFrom.current)} />
   }
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
       <Toolbar
-        onOpenManufacture={() => setPage('manufacture')}
+        onOpenManufacture={() => { manufactureFrom.current = 'editor'; setPage('manufacture') }}
         onBackToList={handleBackToList}
         onOpenSettings={() => { settingsFrom.current = 'editor'; setPage('settings') }}
         onManualSave={() => setAutoSaved(false)}
