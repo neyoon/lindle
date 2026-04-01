@@ -57,9 +57,14 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
   return (
     <div
       data-block-id={block.id}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('application/miniflow-block', JSON.stringify({ blockId: block.id, columnId }))
+        e.dataTransfer.effectAllowed = 'move'
+      }}
       onClick={() => selectBlock(block.id)}
       className={`
-        group relative w-[140px] h-[140px] rounded-xl border-2 cursor-pointer transition flex flex-col items-center justify-center gap-1.5 p-3
+        group relative w-[140px] h-[140px] rounded-xl border-2 cursor-grab active:cursor-grabbing transition flex flex-col items-center justify-center gap-1.5 p-3
         ${style.bg} ${style.border}
         ${isSelected ? 'ring-2 ring-sky-400 shadow-lg scale-[1.03]' : 'hover:shadow-md hover:scale-[1.01]'}
         ${isConnectingSource ? 'ring-2 ring-amber-400 shadow-amber-100' : ''}

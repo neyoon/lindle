@@ -25,10 +25,11 @@ interface Props {
 }
 
 export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
-  const { removeColumn, addBlock, addBlockFromTemplate, setColumnRepeat } = useWorkflowStore()
+  const { removeColumn, addBlock, addBlockFromTemplate, moveBlock, setColumnRepeat } = useWorkflowStore()
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [enabledPlugins, setEnabledPlugins] = useState<EnabledPlugin[]>([])
   const [templates, setTemplates] = useState<BlockTemplate[]>([])
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
 
   // 每次打开菜单时加载已启用插件和制造模板
   useEffect(() => {
@@ -46,6 +47,36 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   const handleAddFromTemplate = (template: BlockTemplate) => {
     addBlockFromTemplate(column.id, template)
     setShowAddMenu(false)
+  }
+
+  const calcDropIndex = (e: React.DragEvent<HTMLDivElement>) => {
+    const container = e.currentTarget
+    const blockEls = Array.from(container.querySelectorAll('[data-block-id]')) as HTMLElement[]
+    const y = e.clientY
+    for (let i = 0; i < blockEls.length; i++) {
+      const rect = blockEls[i].getBoundingClientRect()
+      if (y < rect.top + rect.height / 2) return i
+    }
+    return blockEls.length
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes('application/miniflow-block')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropIndex(calcDropIndex(e))
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setDropIndex(null)
+    const raw = e.dataTransfer.getData('application/miniflow-block')
+    if (!raw) return
+    try {
+      const { blockId, columnId: fromColumnId } = JSON.parse(raw)
+      const idx = calcDropIndex(e)
+      moveBlock(blockId, fromColumnId, column.id, idx)
+    } catch {}
   }
 
   return (
@@ -82,18 +113,30 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
         </div>
       </div>
 
-      {/* 块列表 - 居中排列正方形块 */}
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col items-center gap-3">
-        {column.blocks.map((block) => (
-          <BlockView
-            key={block.id}
-            block={block}
-            columnId={column.id}
-            columnOrder={column.order}
-            isFirstColumn={isFirstColumn}
-            isLastColumn={isLastColumn}
-          />
+      {/* 块列表 - 居中排列正方形块，支持拖放 */}
+      <div
+        className="flex-1 overflow-y-auto p-3 flex flex-col items-center gap-3"
+        onDragOver={handleDragOver}
+        onDragLeave={() => setDropIndex(null)}
+        onDrop={handleDrop}
+      >
+        {column.blocks.map((block, i) => (
+          <div key={block.id} className="flex flex-col items-center">
+            {dropIndex === i && (
+              <div className="w-[140px] h-1 bg-sky-400 rounded-full mb-2 animate-pulse" />
+            )}
+            <BlockView
+              block={block}
+              columnId={column.id}
+              columnOrder={column.order}
+              isFirstColumn={isFirstColumn}
+              isLastColumn={isLastColumn}
+            />
+          </div>
         ))}
+        {dropIndex === column.blocks.length && (
+          <div className="w-[140px] h-1 bg-sky-400 rounded-full animate-pulse" />
+        )}
       </div>
 
       {/* 添加块 - 固定在底部 */}

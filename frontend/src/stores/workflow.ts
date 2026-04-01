@@ -49,6 +49,7 @@ interface WorkflowState {
   // 块操作
   addBlock: (columnId: string, type: BlockType, name: string, pluginId?: string) => void
   addBlockFromTemplate: (columnId: string, template: BlockTemplate) => void
+  moveBlock: (blockId: string, fromColumnId: string, toColumnId: string, insertIndex: number) => void
   removeBlock: (columnId: string, blockId: string) => void
   updateBlock: (blockId: string, updates: Partial<Block>) => void
   selectBlock: (blockId: string | null) => void
@@ -174,6 +175,38 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       },
     }))
   },
+
+  moveBlock: (blockId, fromColumnId, toColumnId, insertIndex) =>
+    set((state) => {
+      const columns = state.workflow.columns.map((c) => ({
+        ...c,
+        blocks: [...c.blocks],
+      }))
+      const srcCol = columns.find((c) => c.id === fromColumnId)
+      const dstCol = columns.find((c) => c.id === toColumnId)
+      if (!srcCol || !dstCol) return state
+
+      const blockIdx = srcCol.blocks.findIndex((b) => b.id === blockId)
+      if (blockIdx === -1) return state
+
+      const [block] = srcCol.blocks.splice(blockIdx, 1)
+
+      if (fromColumnId !== toColumnId) {
+        // 清空自身入连线 + 清除所有其他块中引用此块的出连线
+        block.connections = []
+        for (const col of columns) {
+          col.blocks = col.blocks.map((b) => ({
+            ...b,
+            connections: b.connections.filter((c) => c.from_block_id !== blockId),
+          }))
+        }
+      }
+
+      const clampedIndex = Math.min(insertIndex, dstCol.blocks.length)
+      dstCol.blocks.splice(clampedIndex, 0, block)
+
+      return { workflow: { ...state.workflow, columns } }
+    }),
 
   removeBlock: (columnId, blockId) => {
     const { connectingFrom } = get()
