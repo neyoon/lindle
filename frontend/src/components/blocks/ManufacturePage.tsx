@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Plus, Pencil, Trash2, Save, X } from 'lucide-react'
 import type { BlockConfig, BlockTemplate, BlockType } from '@/types/workflow'
-import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/api/client'
+import type { ProviderResponse } from '@/api/client'
+import { listTemplates, createTemplate, updateTemplate, deleteTemplate, listProviders } from '@/api/client'
 
 interface Props {
   onBack: () => void
@@ -204,6 +205,11 @@ function TemplateForm({
   const [type, setType] = useState<BlockType>(initial?.type || 'ai')
   const [prompt, setPrompt] = useState(initial?.config.prompt || '')
   const [model, setModel] = useState(initial?.config.model || '')
+  const [providers, setProviders] = useState<ProviderResponse[]>([])
+
+  useEffect(() => {
+    listProviders().then(setProviders).catch(() => {})
+  }, [])
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -305,13 +311,24 @@ function TemplateForm({
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">模型（可选）</label>
-              <input
+              <label className="block text-xs font-medium text-gray-500 mb-1">LLM Provider（可选）</label>
+              <select
                 className="input-field"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder="默认: gpt-4o-mini"
-              />
+              >
+                <option value="">默认 Provider</option>
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.model}){p.is_default ? ' (默认)' : ''}
+                  </option>
+                ))}
+              </select>
+              {model && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  已选择: {providers.find((p) => p.id === model)?.name || model}
+                </p>
+              )}
             </div>
           </>
         )}
