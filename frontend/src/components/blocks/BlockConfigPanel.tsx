@@ -484,7 +484,20 @@ const FIELD_TYPE_OPTIONS: { value: InputField['field_type']; label: string }[] =
 
 function InputConfig({ block }: { block: Block }) {
   const { updateBlock } = useWorkflowStore()
+  const workflow = useWorkflowStore((s) => s.workflow)
   const fields: InputField[] = block.config.fields || []
+
+  const otherFieldNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const col of workflow.columns) {
+      for (const b of col.blocks) {
+        if (b.type === 'input' && b.id !== block.id && b.config.fields) {
+          for (const f of b.config.fields) names.add(f.name)
+        }
+      }
+    }
+    return names
+  }, [workflow.columns, block.id])
 
   const setFields = (newFields: InputField[]) => {
     updateBlock(block.id, { config: { ...block.config, fields: newFields } })
@@ -568,6 +581,16 @@ function InputConfig({ block }: { block: Block }) {
               <p className="text-[10px] text-gray-400 font-mono">
                 变量名: {'{{'}<span className="text-sky-500">input.{field.name}</span>{'}}'}
               </p>
+              {otherFieldNames.has(field.name) && (
+                <p className="text-[10px] text-amber-600 font-medium mt-0.5">
+                  ⚠ 字段名「{field.name}」与其他 Input 块中的字段重复，运行时会互相覆盖
+                </p>
+              )}
+              {fields.filter((f) => f.name === field.name).length > 1 && (
+                <p className="text-[10px] text-red-500 font-medium mt-0.5">
+                  ⚠ 当前块内存在同名字段，请修改
+                </p>
+              )}
             </div>
           ))}
         </div>
