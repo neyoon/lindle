@@ -40,3 +40,6 @@ frontend/.vite/
 .idea/
 .vscode/
 *.code-workspace
+
+# ----- Claude -----
+.claude

@@ -26,6 +26,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   tool_calls?: ToolCall[]
+  reasoning?: string  // 思考过程
 }
 
 export interface ToolCall {

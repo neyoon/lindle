@@ -12,7 +12,8 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from agent.models import Agent, AgentSkill
+from agent.models import Agent, AgentSkill, ChatMessage
+from agent.engine import AgentEngine
 from shared_llm import call_llm
 from plugins.registry import get_plugin
 from storage.agent_store import delete_agent, list_agents, load_agent, save_agent
@@ -146,3 +147,40 @@ Agent 名称：{req.agent_name}
         return GeneratePromptResponse(
             system_prompt=f"你是 {req.agent_name}，一个智能助手。你可以使用以下工具帮助用户：{', '.join([s.get('name', '') for s in req.skills])}。"
         )
+
+
+class ChatRequest(BaseModel):
+    """对话请求"""
+
+    message: str
+    history: list[dict] = []  # [{"role": "user", "content": "..."}, ...]
+
+
+class ChatResponse(BaseModel):
+    """对话响应"""
+
+    message: dict  # {"role": "assistant", "content": "..."}
+    tool_calls: list[dict] = []
+    reasoning: str = ""  # 思考过程
+
+
+@router.post("/{agent_id}/chat", response_model=ChatResponse)
+async def chat_with_agent(agent_id: str, req: ChatRequest):
+    """与 Agent 对话"""
+    agent = load_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+
+    # 转换历史消息
+    history = [ChatMessage(**msg) for msg in req.history]
+
+    # 创建引擎并执行
+    engine = AgentEngine(agent)
+    result = await engine.chat(req.message, history)
+
+    return ChatResponse(
+        message=result["message"].model_dump(),
+        tool_calls=[tc.model_dump() for tc in result.get("tool_calls", [])],
+        reasoning=result.get("reasoning", ""),
+    )
+

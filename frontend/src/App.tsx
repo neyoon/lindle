@@ -21,6 +21,7 @@ import { PluginsPage } from './components/PluginsPage'
 import { ManufacturePage } from './components/blocks/ManufacturePage'
 import { WorkflowListPage } from './components/WorkflowListPage'
 import { AgentListPage } from './components/AgentListPage'
+import { AgentEditorPage } from './components/AgentEditorPage'
 import { SettingsPage } from './components/SettingsPage'
 import { useWorkflowStore } from './stores/workflow'
 import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow } from './api/client'
@@ -31,6 +32,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('home')
   const [checkedSettings, setCheckedSettings] = useState(false)
   const [autoSaved, setAutoSaved] = useState(false)
+  const [currentAgentId, setCurrentAgentId] = useState<string | undefined>(undefined)
   const settingsFrom = useRef<Page>('home')
   const manufactureFrom = useRef<Page>('flow-editor')
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
@@ -119,13 +121,11 @@ export default function App() {
     return (
       <AgentListPage
         onOpen={(agentId) => {
-          // TODO: 加载 Agent 并进入编辑器
-          console.log('Open agent:', agentId)
+          setCurrentAgentId(agentId)
           setPage('agent-editor')
         }}
         onCreateNew={() => {
-          // TODO: 创建新 Agent
-          console.log('Create new agent')
+          setCurrentAgentId(undefined)
           setPage('agent-editor')
         }}
         onBack={() => setPage('home')}
@@ -134,7 +134,12 @@ export default function App() {
   }
 
   if (page === 'agent-editor') {
-    return <div className="h-screen flex items-center justify-center text-gray-400">Agent 编辑器开发中...</div>
+    return (
+      <AgentEditorPage
+        agentId={currentAgentId}
+        onBack={() => setPage('agent-list')}
+      />
+    )
   }
 
   if (page === 'plugins') {

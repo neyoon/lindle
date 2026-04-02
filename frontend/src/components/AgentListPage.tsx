@@ -8,7 +8,7 @@
  * - 删除 Agent
  */
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Bot, Wrench } from 'lucide-react'
+import { Plus, Trash2, Sparkles, Wrench } from 'lucide-react'
 import { listAgents, deleteAgent } from '@/api/client'
 
 interface AgentSummary {
@@ -67,17 +67,16 @@ export function AgentListPage({ onOpen, onCreateNew, onBack }: Props) {
           >
             ← 返回
           </button>
-          <h1 className="text-lg font-bold text-sky-600 flex items-center gap-2">
-            <Bot size={20} />
+          <h1 className="text-lg font-bold text-purple-600 flex items-center gap-2">
+            <Sparkles size={20} />
             我的 Agent
             <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">Beta</span>
           </h1>
         </div>
         <button
           onClick={onCreateNew}
-          className="flex items-center gap-1.5 px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition shadow-sm"
+          className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition shadow-sm"
         >
-          <Plus size={16} />
           创建 Agent
         </button>
       </div>
@@ -88,13 +87,12 @@ export function AgentListPage({ onOpen, onCreateNew, onBack }: Props) {
           <div className="text-center text-gray-400 py-12">加载中...</div>
         ) : agents.length === 0 ? (
           <div className="text-center py-20">
-            <Bot size={64} className="mx-auto text-gray-300 mb-4" />
+            <Sparkles size={64} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-400 mb-6">还没有创建任何 Agent</p>
             <button
               onClick={onCreateNew}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition"
+              className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition"
             >
-              <Plus size={18} />
               创建第一个 Agent
             </button>
           </div>
@@ -104,12 +102,12 @@ export function AgentListPage({ onOpen, onCreateNew, onBack }: Props) {
               <div
                 key={agent.id}
                 onClick={() => onOpen(agent.id)}
-                className="bg-white rounded-lg p-5 border border-gray-200 hover:border-sky-300 hover:shadow-md transition Claude Code-pointer group"
+                className="bg-white rounded-lg p-5 border border-gray-200 hover:border-purple-300 hover:shadow-md transition Claude Code-pointer group"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Bot size={20} className="text-sky-500" />
-                    <h3 className="font-semibold text-gray-800 group-hover:text-sky-600 transition">
+                    <Sparkles size={20} className="text-purple-500" />
+                    <h3 className="font-semibold text-gray-800 group-hover:text-purple-600 transition">
                       {agent.name}
                     </h3>
                   </div>

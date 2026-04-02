@@ -8,7 +8,7 @@
  * - 删除工作流
  */
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Clock, Layers, FileCode, Settings, Puzzle, Factory, Bot } from 'lucide-react'
+import { Plus, Trash2, Clock, Workflow, FileCode, Settings, Puzzle, Factory } from 'lucide-react'
 import { listWorkflows, deleteWorkflow } from '@/api/client'
 
 interface WorkflowSummary {
@@ -71,7 +71,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
             </button>
           )}
           <h1 className="text-lg font-bold text-sky-600 flex items-center gap-2">
-            <Layers size={20} />
+            <Workflow size={20} />
             我的工作流
           </h1>
         </div>
@@ -155,7 +155,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 shrink-0 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center">
-                        <FileCode size={20} className="text-sky-500" />
+                        <Workflow size={20} className="text-sky-500" />
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-semibold text-gray-800 truncate max-w-[200px]">{wf.name}</h3>
@@ -175,7 +175,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
 
                   <div className="mt-4 flex items-center gap-3 text-xs text-gray-400">
                     <span className="flex items-center gap-1">
-                      <Layers size={12} />
+                      <Workflow size={12} />
                       {wf.column_count} 个步骤
                     </span>
                     <span className="flex items-center gap-1">
