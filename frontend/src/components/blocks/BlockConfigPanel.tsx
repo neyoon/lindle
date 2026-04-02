@@ -46,12 +46,14 @@ export function BlockConfigPanel() {
     setSaving(true)
     try {
       await createTemplate({
+        id: `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         type: block.type,
         name,
         description,
         icon,
         config: block.config,
         output_schema: block.output_schema || null,
+        created_at: new Date().toISOString(),
       })
       alert('模板保存成功！可在制造工坊中查看。')
     } catch (e) {

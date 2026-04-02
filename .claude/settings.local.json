@@ -4,7 +4,15 @@
       "Bash(python3 -c ':*)",
       "Bash(uv run python -c ':*)",
       "Bash(./start.sh)",
-      "Bash(./start.sh restart:*)"
+      "Bash(./start.sh restart:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(python -c \"from miniflow.flow.models import Workflow; print\\('✅ Import successful'\\)\")",
+      "Bash(uv run:*)",
+      "Bash(find .:*)",
+      "Bash(sed 's/from miniflow\\\\./from flow./g; s/from miniflow\\\\.llm/from shared_llm/g' /tmp/blocks_temp.py)",
+      "Bash(npm run:*)",
+      "Bash(git add:*)"
     ]
   }
 }
