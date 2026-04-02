@@ -215,7 +215,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
     }
   }
 
-  // 自动生成系统提示词
+  // 自动生成系统提示词，生成完后自动同步到后端
   const autoGeneratePrompt = async (currentAgent: Agent) => {
     if (currentAgent.skills.length === 0) return
 
@@ -231,7 +231,13 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
       })
 
       const result = await generateSystemPrompt(currentAgent.name, skillsInfo)
-      setAgent(prev => ({ ...prev, system_prompt: result.system_prompt }))
+      const updated = { ...currentAgent, system_prompt: result.system_prompt }
+      setAgent(updated)
+
+      // 自动同步到后端，保证对话时使用最新的 prompt
+      if (agentId) {
+        await updateAgent(agentId, updated)
+      }
     } catch (e) {
       console.error('生成提示词失败:', e)
     } finally {
@@ -567,19 +573,25 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
           </div>
 
           <div className="border-t p-4 bg-gray-50">
+            {generating && (
+              <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2 text-xs text-purple-500">
+                <Sparkles size={12} className="animate-pulse" />
+                正在为 Agent 加载 Skill，请稍候...
+              </div>
+            )}
             <div className="max-w-3xl mx-auto flex gap-3">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="输入消息..."
-                className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                disabled={chatLoading}
+                onKeyPress={(e) => e.key === 'Enter' && !generating && handleSendMessage()}
+                placeholder={generating ? 'Skill 加载中...' : '输入消息...'}
+                className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
+                disabled={chatLoading || generating}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!input.trim() || chatLoading}
+                disabled={!input.trim() || chatLoading || generating}
                 className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50 disabled:Claude Code-not-allowed flex items-center gap-2"
               >
                 <Send size={18} />
