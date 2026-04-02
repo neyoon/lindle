@@ -109,6 +109,8 @@ export interface PluginMeta {
   description: string
   icon: string
   params: PluginParam[]
+  input_schema?: Record<string, unknown>
+  output_schema?: Record<string, unknown>
 }
 
 export interface PluginInfo {
@@ -122,4 +124,6 @@ export interface EnabledPlugin {
   name: string
   icon: string
   description: string
+  input_schema?: Record<string, unknown> | null
+  output_schema?: Record<string, unknown> | null
 }

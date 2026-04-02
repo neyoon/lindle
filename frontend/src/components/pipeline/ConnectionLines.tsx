@@ -269,17 +269,39 @@ export function ConnectionLines({ containerRef }: Props) {
     computeLines()
 
     const container = containerRef.current
+    if (!container) return
+
     const handleResize = () => computeLines()
 
     window.addEventListener('resize', handleResize)
-    container?.addEventListener('scroll', handleResize)
+    container.addEventListener('scroll', handleResize)
+
+    // 监听外层水平滚动容器
+    const scrollParent = container.parentElement
+    if (scrollParent) {
+      scrollParent.addEventListener('scroll', handleResize)
+    }
+
+    // 监听所有栏内的滚动事件
+    const columnScrollContainers = Array.from(
+      container.querySelectorAll('.column-scroll-container')
+    )
+    columnScrollContainers.forEach((col) => {
+      col.addEventListener('scroll', handleResize)
+    })
 
     const resizeObserver = new ResizeObserver(handleResize)
-    if (container) resizeObserver.observe(container)
+    resizeObserver.observe(container)
 
     return () => {
       window.removeEventListener('resize', handleResize)
-      container?.removeEventListener('scroll', handleResize)
+      container.removeEventListener('scroll', handleResize)
+      if (scrollParent) {
+        scrollParent.removeEventListener('scroll', handleResize)
+      }
+      columnScrollContainers.forEach((col) => {
+        col.removeEventListener('scroll', handleResize)
+      })
       resizeObserver.disconnect()
     }
   }, [computeLines, containerRef])

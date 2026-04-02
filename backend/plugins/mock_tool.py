@@ -28,6 +28,31 @@ class MockToolPlugin(BasePlugin):
                 description="模拟的 API Token（输入任意值即可）",
             ),
         ],
+        input_schema={
+            "type": "string",
+            "description": "任意文本输入（用于测试）",
+            "example": "test input"
+        },
+        output_schema={
+            "type": "object",
+            "description": "Mock 工具的固定输出",
+            "properties": {
+                "result": {
+                    "type": "string",
+                    "description": "固定返回值",
+                    "example": "123, tool test"
+                },
+                "input_received": {
+                    "type": "string",
+                    "description": "接收到的输入（前100字符）"
+                },
+                "token_valid": {
+                    "type": "boolean",
+                    "description": "Token 验证状态",
+                    "example": True
+                }
+            }
+        }
     )
 
     async def execute(self, input_data: str, config: dict[str, Any]) -> Any:

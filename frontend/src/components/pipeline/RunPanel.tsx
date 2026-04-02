@@ -11,14 +11,13 @@ import { useWorkflowStore } from '@/stores/workflow'
 import type { InputField } from '@/types/workflow'
 
 /** 将任意数据安全转为可显示字符串 */
-function formatData(data: unknown, maxLen = 500): string {
+function formatData(data: unknown): string {
   if (data == null) return ''
-  if (typeof data === 'string') return data.slice(0, maxLen)
+  if (typeof data === 'string') return data
   try {
-    const text = JSON.stringify(data, null, 2)
-    return text.slice(0, maxLen)
+    return JSON.stringify(data, null, 2)
   } catch {
-    return String(data).slice(0, maxLen)
+    return String(data)
   }
 }
 
@@ -102,7 +101,7 @@ export function RunPanel() {
           </button>
 
           {showResult && runResult && (
-            <div className="px-4 pb-4 max-h-64 overflow-y-auto">
+            <div className="px-4 pb-4 max-h-[60vh] overflow-y-auto">
               <div className="space-y-2 mb-3">
                 {runResult.steps
                   .filter((s) => s.event_type === 'block_done')
@@ -111,9 +110,9 @@ export function RunPanel() {
                     return (
                       <div key={i} className="text-xs">
                         <span className="font-medium text-gray-600">[{step.block_name}]</span>
-                        <span className="text-gray-400 ml-2">{step.elapsed}s</span>
+                        <span className="text-gray-400 ml-2">{step.elapsed.toFixed(1)}s</span>
                         {text && (
-                          <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-x-auto whitespace-pre-wrap break-words">
+                          <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-auto whitespace-pre-wrap break-words max-h-64">
                             {text}
                           </pre>
                         )}
@@ -124,8 +123,8 @@ export function RunPanel() {
 
               <div className="border-t pt-3">
                 <h4 className="text-xs font-semibold text-gray-500 mb-1">最终输出</h4>
-                <pre className="p-3 bg-sky-50 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-words">
-                  {formatData(runResult.output, 2000)}
+                <pre className="p-3 bg-sky-50 rounded-lg text-sm overflow-auto whitespace-pre-wrap break-words max-h-96">
+                  {formatData(runResult.output)}
                 </pre>
               </div>
 

@@ -46,6 +46,7 @@ class Context:
     - 存储每一栏的执行结果
     - 根据连接规则提供上游数据
     - 自动格式化数据给下游块
+    - 传递下游插件的输入格式提示给 AI 块
     """
 
     user_inputs: dict[str, Any] = field(default_factory=dict)
@@ -58,6 +59,10 @@ class Context:
 
     # 记录栏的执行顺序
     _column_order: list[str] = field(default_factory=list)
+
+    # 下游插件格式提示：当下一栏有插件块时，存储其 input_schema 信息
+    # 格式: [{"plugin_name": "xxx", "plugin_id": "xxx", "input_schema": {...}}]
+    downstream_plugin_hints: list[dict[str, Any]] = field(default_factory=list)
 
     def add_column_results(self, column_id: str, results: list[BlockResult]) -> None:
         """添加一栏的执行结果"""
@@ -156,13 +161,32 @@ class Context:
         return {r.block_name: r.data for r in results}
 
 
+def _resolve_nested(data: Any, key_path: list[str]) -> Any:
+    """沿 key 路径逐层取值，支持 dict 嵌套访问"""
+    value = data
+    for k in key_path:
+        if isinstance(value, dict):
+            value = value.get(k)
+        else:
+            return None
+    return value
+
+
+def _format_value(value: Any) -> str:
+    """将值格式化为字符串"""
+    if isinstance(value, dict | list):
+        return json.dumps(value, ensure_ascii=False, indent=2)
+    return str(value)
+
+
 def render_prompt_template(prompt: str, context: Context) -> tuple[str, bool]:
     """渲染 prompt 中的 {{变量}} 模板
 
     支持的变量格式:
-    - {{input.字段名}}  → 用户输入的某个字段
-    - {{块名称}}        → 某个上游块的完整输出
-    - {{块名称.key}}    → 某个上游块输出中的特定 JSON key
+    - {{input.字段名}}       → 用户输入的某个字段
+    - {{块名称}}             → 某个上游块的完整输出
+    - {{块名称.key}}         → 某个上游块输出中的特定 JSON key
+    - {{块名称.key1.key2}}   → 嵌套 key 访问（如 {{分析.report.score}}）
 
     Args:
         prompt: 包含 {{变量}} 的原始 prompt
@@ -188,20 +212,19 @@ def render_prompt_template(prompt: str, context: Context) -> tuple[str, bool]:
                 return str(value)
             return f"[未找到输入字段: {field_name}]"
 
-        # {{块名.key}} — 特定 JSON key
+        # {{块名.key...}} — 第一个 "." 之前为块名，之后为嵌套 key 路径
+        # 约定：块名不得含 "."，"." 一律作为 key 分隔符
         if "." in var:
-            block_name, key = var.rsplit(".", 1)
+            block_name, _, key_str = var.partition(".")
             block_name = block_name.strip()
-            key = key.strip()
             result = context.get_block_result_by_name(block_name)
             if result is None:
                 return f"[未找到块: {block_name}]"
-            value = result.get_key(key)
-            if value is None:
-                return f"[块 {block_name} 无 key: {key}]"
-            if isinstance(value, dict | list):
-                return json.dumps(value, ensure_ascii=False, indent=2)
-            return str(value)
+            key_path = [p.strip() for p in key_str.split(".")]
+            value = _resolve_nested(result.data, key_path)
+            if value is not None:
+                return _format_value(value)
+            return f"[块 {block_name} 无 key: {key_str}]"
 
         # {{块名}} — 整个块的输出
         result = context.get_block_result_by_name(var)

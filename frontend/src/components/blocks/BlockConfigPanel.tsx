@@ -7,14 +7,15 @@
  * - Output: 无需配置
  * - 连接通过端口管理，此处仅只读展示
  */
-import { X, ChevronDown, ChevronUp, Link, Variable } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, Link, Variable, Save } from 'lucide-react'
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
-import { listProviders, type ProviderResponse } from '@/api/client'
+import { listProviders, type ProviderResponse, createTemplate } from '@/api/client'
 import type { Block, Column, InputField, OutputSchema } from '@/types/workflow'
 
 export function BlockConfigPanel() {
   const { workflow, selectedBlockId, selectBlock, updateBlock, removeConnection } = useWorkflowStore()
+  const [saving, setSaving] = useState(false)
 
   // 找到选中的块及其所在栏
   let block: Block | null = null
@@ -30,14 +31,56 @@ export function BlockConfigPanel() {
 
   if (!block || !blockColumn) return null
 
+  // 只有 input、ai、output 类型的块可以保存为模板
+  const canSaveAsTemplate = block.type !== 'plugin'
+
+  const handleSaveAsTemplate = async () => {
+    if (!block) return
+
+    const name = prompt('模板名称:', block.name)
+    if (!name) return
+
+    const description = prompt('模板描述（可选）:', '') || ''
+    const icon = prompt('图标（可选，如 📊）:', '') || '📦'
+
+    setSaving(true)
+    try {
+      await createTemplate({
+        type: block.type,
+        name,
+        description,
+        icon,
+        config: block.config,
+        output_schema: block.output_schema || null,
+      })
+      alert('模板保存成功！可在制造工坊中查看。')
+    } catch (e) {
+      alert(`保存失败: ${e}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* 头部 */}
       <div className="px-4 py-3 border-b border-sky-100 flex items-center justify-between bg-sky-50/30">
         <h3 className="text-sm font-semibold text-sky-700">配置: {block.name}</h3>
-        <button onClick={() => selectBlock(null)} className="text-gray-400 hover:text-gray-600">
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          {canSaveAsTemplate && (
+            <button
+              onClick={handleSaveAsTemplate}
+              disabled={saving}
+              className="p-1.5 text-sky-500 hover:text-sky-700 hover:bg-sky-100 rounded transition disabled:opacity-50"
+              title="保存为模板"
+            >
+              <Save size={14} />
+            </button>
+          )}
+          <button onClick={() => selectBlock(null)} className="text-gray-400 hover:text-gray-600">
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {/* 配置内容 */}
@@ -45,10 +88,13 @@ export function BlockConfigPanel() {
         {/* 块名称 */}
         <Field label="名称">
           <input
-            className="input-field"
+            className={`input-field ${block.name.includes('.') ? 'border-red-400 focus:ring-red-200 focus:border-red-400' : ''}`}
             value={block.name}
             onChange={(e) => updateBlock(block!.id, { name: e.target.value })}
           />
+          {block.name.includes('.') && (
+            <p className="text-[10px] text-red-500 mt-0.5">名称不能包含「.」，请修改</p>
+          )}
         </Field>
 
         {/* 连接信息（只读展示 + 可删除） */}
@@ -457,6 +503,68 @@ function OutputSchemaEditor({
 // ===== Plugin 块配置 =====
 
 function PluginBlockConfig({ block }: { block: Block }) {
+  const { updateBlock, workflow } = useWorkflowStore()
+  const [showVariables, setShowVariables] = useState(false)
+  const [pluginSchema, setPluginSchema] = useState<{
+    input_schema?: Record<string, unknown> | null
+    output_schema?: Record<string, unknown> | null
+  } | null>(null)
+
+  useEffect(() => {
+    if (!block.config.plugin_id) return
+    import('@/api/client').then(({ getEnabledPlugins }) => {
+      getEnabledPlugins().then((plugins) => {
+        const found = plugins.find((p) => p.id === block.config.plugin_id)
+        if (found) {
+          setPluginSchema({
+            input_schema: found.input_schema,
+            output_schema: found.output_schema,
+          })
+        }
+      })
+    })
+  }, [block.config.plugin_id])
+
+  // 计算可用变量（与 AI 块相同的逻辑）
+  const availableVariables = useMemo(() => {
+    const vars: Array<{ ref: string; desc: string }> = []
+    const columns = [...workflow.columns].sort((a, b) => a.order - b.order)
+
+    // 找到当前块所在的栏
+    let currentColumnOrder = -1
+    for (const col of columns) {
+      if (col.blocks.some((b) => b.id === block.id)) {
+        currentColumnOrder = col.order
+        break
+      }
+    }
+
+    // 只收集当前栏之前的块
+    for (const col of columns) {
+      if (col.order >= currentColumnOrder) break
+      for (const b of col.blocks) {
+        if (b.type === 'input' && b.config.fields) {
+          for (const field of b.config.fields) {
+            vars.push({
+              ref: `{{input.${field.name}}}`,
+              desc: `用户输入「${field.label || field.name}」`,
+            })
+          }
+        } else {
+          vars.push({ ref: `{{${b.name}}}`, desc: `块「${b.name}」的完整输出` })
+          if (b.output_schema?.keys) {
+            for (const key of b.output_schema.keys) {
+              vars.push({ ref: `{{${b.name}.${key}}}`, desc: `块「${b.name}」的 ${key}` })
+            }
+          }
+        }
+      }
+    }
+    return vars
+  }, [workflow, block.id])
+
+  const prompt = block.config.prompt || ''
+
   return (
     <>
       <div className="p-3 bg-teal-50 rounded-lg">
@@ -466,10 +574,109 @@ function PluginBlockConfig({ block }: { block: Block }) {
         </p>
         <p className="text-xs text-gray-500 mt-2">
           插件的参数（如 Token）在「插件管理」页面中配置。
-          此处无需额外设置，运行时会自动使用已配置的参数。
         </p>
       </div>
+
+      {/* 输入模板配置 */}
+      <Field label="输入模板（可选）">
+        <div className="space-y-2">
+          <textarea
+            className="input-field font-mono text-xs"
+            rows={6}
+            value={prompt}
+            onChange={(e) => updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })}
+            placeholder="留空则自动传递上游数据。可使用 {{变量}} 语法自定义输入格式，如：&#10;{&#10;  &quot;symbol&quot;: &quot;{{input.stock_code}}&quot;,&#10;  &quot;market&quot;: &quot;A&quot;&#10;}"
+          />
+          <button
+            onClick={() => setShowVariables(!showVariables)}
+            className="text-xs text-sky-500 hover:text-sky-700 flex items-center gap-1"
+          >
+            <Variable size={12} />
+            {showVariables ? '隐藏' : '显示'}可用变量
+          </button>
+          {showVariables && availableVariables.length > 0 && (
+            <div className="p-2 bg-sky-50 rounded text-xs space-y-1 max-h-40 overflow-y-auto">
+              {availableVariables.map((v, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <code className="text-sky-700 font-mono shrink-0">{v.ref}</code>
+                  <span className="text-gray-500">← {v.desc}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {showVariables && availableVariables.length === 0 && (
+            <p className="text-xs text-gray-400 p-2 bg-gray-50 rounded">
+              当前没有可用的上游变量（需要在前面的栏中添加输入块或其他块）
+            </p>
+          )}
+        </div>
+      </Field>
+
+      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+        <p className="font-medium mb-1">说明：</p>
+        <ul className="list-disc list-inside space-y-0.5">
+          <li>留空：插件自动接收上游数据（JSON 或文本格式）</li>
+          <li>填写模板：使用 {`{{变量}}`} 语法自定义输入格式</li>
+          <li>支持 JSON 格式：可精确控制传递给插件的数据结构</li>
+        </ul>
+      </div>
+
+      {/* 插件输入/输出格式参考 */}
+      {pluginSchema && (pluginSchema.input_schema || pluginSchema.output_schema) && (
+        <div className="space-y-3">
+          {pluginSchema.input_schema && (
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-xs font-medium text-amber-700 mb-1.5">插件期望的输入格式</p>
+              <PluginSchemaDisplay schema={pluginSchema.input_schema} />
+            </div>
+          )}
+          {pluginSchema.output_schema && (
+            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              <p className="text-xs font-medium text-emerald-700 mb-1.5">插件输出格式</p>
+              <PluginSchemaDisplay schema={pluginSchema.output_schema} />
+            </div>
+          )}
+        </div>
+      )}
     </>
+  )
+}
+
+function PluginSchemaDisplay({ schema }: { schema: Record<string, unknown> }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const description = schema.description as string | undefined
+  const examples = schema.examples as unknown[] | undefined
+  const notes = schema.notes as string | undefined
+
+  return (
+    <div className="space-y-1.5">
+      {description && <p className="text-[11px] text-gray-600">{description}</p>}
+      {notes && <p className="text-[11px] text-amber-600 font-medium">{notes}</p>}
+      {examples && examples.length > 0 && (
+        <div>
+          <p className="text-[10px] text-gray-500 mb-0.5">示例：</p>
+          <div className="space-y-1">
+            {examples.map((ex, i) => (
+              <code key={i} className="block text-[10px] bg-white/80 px-2 py-1 rounded border border-gray-200 font-mono text-gray-700 break-all">
+                {typeof ex === 'string' ? ex : JSON.stringify(ex)}
+              </code>
+            ))}
+          </div>
+        </div>
+      )}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="text-[10px] text-sky-500 hover:text-sky-700"
+      >
+        {expanded ? '收起' : '查看完整 Schema'}
+      </button>
+      {expanded && (
+        <pre className="text-[10px] bg-white/80 p-2 rounded border border-gray-200 font-mono text-gray-600 overflow-x-auto max-h-48 overflow-y-auto">
+          {JSON.stringify(schema, null, 2)}
+        </pre>
+      )}
+    </div>
   )
 }
 

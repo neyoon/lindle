@@ -14,6 +14,7 @@ from typing import Any
 
 from plugins.base import BasePlugin, PluginMeta
 from plugins.mock_tool import MockToolPlugin
+from plugins.stock_analysis import StockAnalysisPlugin
 
 # 存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -124,6 +125,8 @@ def get_enabled_plugins() -> list[dict[str, Any]]:
                 "name": plugin.meta.name,
                 "icon": plugin.meta.icon,
                 "description": plugin.meta.description,
+                "input_schema": plugin.meta.input_schema or None,
+                "output_schema": plugin.meta.output_schema or None,
             })
     return result
 
@@ -147,6 +150,7 @@ async def execute_plugin(plugin_id: str, input_data: str) -> Any:
 
 def _register_builtin_plugins() -> None:
     register_plugin(MockToolPlugin())
+    register_plugin(StockAnalysisPlugin())
 
 
 _register_builtin_plugins()

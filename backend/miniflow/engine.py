@@ -20,7 +20,7 @@ from typing import Any, AsyncGenerator
 
 from miniflow.blocks import BlockExecutor
 from miniflow.context import BlockResult, Context
-from miniflow.models import Column, Workflow
+from miniflow.models import BlockType, Column, Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +102,13 @@ class Engine:
         start_time = time.time()
 
         try:
-            for column in columns:
+            for col_idx, column in enumerate(columns):
                 repeat = max(column.repeat, 1)
+
+                # 检查下一栏是否有插件块，设置下游格式提示
+                context.downstream_plugin_hints = self._collect_downstream_plugin_hints(
+                    columns, col_idx
+                )
 
                 for iteration in range(repeat):
                     column_iter_id = f"{column.id}" if repeat == 1 else f"{column.id}@iter{iteration}"
@@ -154,6 +159,34 @@ class Engine:
                 error=str(e),
                 elapsed=time.time() - start_time,
             )
+
+    @staticmethod
+    def _collect_downstream_plugin_hints(
+        columns: list[Column], current_idx: int
+    ) -> list[dict]:
+        """检查下一栏是否包含插件块，收集其 input_schema 作为格式提示"""
+        from plugins.registry import get_plugin
+
+        next_idx = current_idx + 1
+        if next_idx >= len(columns):
+            return []
+
+        hints = []
+        next_column = columns[next_idx]
+        for block in next_column.blocks:
+            if block.type != BlockType.PLUGIN or not block.config.plugin_id:
+                continue
+            # 如果插件块已经配置了 prompt 模板，说明用户手动处理了格式转换
+            if block.config.prompt:
+                continue
+            plugin = get_plugin(block.config.plugin_id)
+            if plugin and plugin.meta.input_schema:
+                hints.append({
+                    "plugin_name": plugin.meta.name,
+                    "plugin_id": plugin.meta.id,
+                    "input_schema": plugin.meta.input_schema,
+                })
+        return hints
 
     async def _execute_column(self, column: Column, context: Context) -> list[BlockResult]:
         """并行执行一栏内的所有块"""

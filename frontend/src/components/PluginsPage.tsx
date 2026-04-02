@@ -129,9 +129,8 @@ function PluginCard({
     >
       <div className="flex items-start justify-between">
         {/* 左侧信息 */}
-        <div className="flex items-start gap-3">
-          <span className="text-3xl">{meta.icon}</span>
-          <div>
+        <div className="flex items-start gap-3 flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-gray-800">{meta.name}</h3>
             <p className="text-sm text-gray-500 mt-0.5">{meta.description}</p>
             {enabled && (
@@ -139,6 +138,32 @@ function PluginCard({
                 <Check size={12} />
                 已启用
               </span>
+            )}
+
+            {/* Schema 信息 */}
+            {(meta.input_schema || meta.output_schema) && (
+              <div className="mt-3 space-y-2">
+                {meta.input_schema && (
+                  <details className="text-xs">
+                    <summary className="Claude Code-pointer text-gray-600 hover:text-sky-600 font-medium">
+                      输入格式
+                    </summary>
+                    <pre className="mt-1 p-2 bg-gray-50 rounded text-[10px] overflow-x-auto text-gray-700 leading-relaxed">
+                      {JSON.stringify(meta.input_schema, null, 2)}
+                    </pre>
+                  </details>
+                )}
+                {meta.output_schema && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-gray-600 hover:text-sky-600 font-medium">
+                      输出格式
+                    </summary>
+                    <pre className="mt-1 p-2 bg-gray-50 rounded text-[10px] overflow-x-auto text-gray-700 leading-relaxed">
+                      {JSON.stringify(meta.output_schema, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
             )}
           </div>
         </div>

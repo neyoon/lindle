@@ -32,6 +32,8 @@ class PluginMeta:
     description: str
     icon: str = ""
     params: list[PluginParam] = field(default_factory=list)
+    input_schema: dict[str, Any] = field(default_factory=dict)
+    output_schema: dict[str, Any] = field(default_factory=dict)
 
 
 class BasePlugin(ABC):

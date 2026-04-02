@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -85,6 +86,39 @@ def _resolve_provider(provider_id: str | None) -> dict[str, Any]:
     }
 
 
+def _build_downstream_plugin_hint(context: Context) -> str:
+    """根据下游插件的 input_schema 构建格式提示，追加到 AI 块的 prompt 中"""
+    if not context.downstream_plugin_hints:
+        return ""
+
+    parts = [
+        "\n\n---\n"
+        "【重要】你的输出将直接作为下游插件的输入，请严格按照以下格式输出："
+    ]
+    for hint in context.downstream_plugin_hints:
+        schema = hint["input_schema"]
+        parts.append(f"\n插件「{hint['plugin_name']}」期望的输入格式：")
+        parts.append(json.dumps(schema, ensure_ascii=False, indent=2))
+
+        examples = schema.get("examples")
+        if examples:
+            parts.append("示例：")
+            for ex in examples:
+                if isinstance(ex, str):
+                    parts.append(f"  {ex}")
+                else:
+                    parts.append(f"  {json.dumps(ex, ensure_ascii=False)}")
+
+        notes = schema.get("notes")
+        if notes:
+            parts.append(f"注意：{notes}")
+
+    parts.append(
+        "\n请直接输出符合上述格式的内容（纯文本或 JSON），不要包含额外的解释或 markdown 格式。"
+    )
+    return "\n".join(parts)
+
+
 async def _execute_ai(block: Block, context: Context) -> BlockResult:
     """执行 AI 块
 
@@ -94,6 +128,8 @@ async def _execute_ai(block: Block, context: Context) -> BlockResult:
 
     block.config.model 存储的是 provider_id（如 "p_1234"），
     执行时自动查找对应 Provider 的完整配置。
+
+    如果下一栏有插件块且未配置输入模板，会自动追加插件期望的输入格式提示。
     """
     # 获取配置
     prompt = block.config.prompt or ""
@@ -102,24 +138,25 @@ async def _execute_ai(block: Block, context: Context) -> BlockResult:
     # 解析 Provider 配置
     provider_config = _resolve_provider(block.config.model)
 
+    # 构建下游插件格式提示
+    plugin_hint = _build_downstream_plugin_hint(context)
+
     # 尝试渲染模板变量
     rendered_prompt, has_template = render_prompt_template(prompt, context)
 
     if has_template:
-        # 模板模式: 变量已经嵌入到 prompt 中，不再自动追加上游数据
         logger.info("块 [%s] 使用模板模式，已渲染 {{变量}}", block.name)
         result = await call_llm(
-            prompt=rendered_prompt,
+            prompt=rendered_prompt + plugin_hint,
             context="",
             output_keys=output_keys,
             **provider_config,
         )
     else:
-        # 默认模式: 自动追加上游数据（原有行为）
         connections = [c.model_dump() for c in block.connections] if block.connections else None
         upstream_data = context.get_upstream_data(connections)
         result = await call_llm(
-            prompt=prompt,
+            prompt=prompt + plugin_hint,
             context=upstream_data,
             output_keys=output_keys,
             **provider_config,
@@ -136,20 +173,26 @@ async def _execute_ai(block: Block, context: Context) -> BlockResult:
 async def _execute_plugin(block: Block, context: Context) -> BlockResult:
     """执行插件块
 
-    1. 从上游获取数据
+    1. 从上游获取数据（或使用 prompt 模板）
     2. 调用已启用的插件
     3. 返回结果
     """
     from plugins.registry import execute_plugin
 
-    connections = [c.model_dump() for c in block.connections] if block.connections else None
-    upstream_data = context.get_upstream_data(connections)
-
     plugin_id = block.config.plugin_id
     if not plugin_id:
         raise ValueError(f"插件块 [{block.name}] 未配置 plugin_id")
 
-    result = await execute_plugin(plugin_id, upstream_data)
+    # 如果配置了 prompt 模板，使用模板渲染
+    if block.config.prompt:
+        from miniflow.context import render_prompt_template
+        input_data, _ = render_prompt_template(block.config.prompt, context)
+    else:
+        # 否则使用默认的上游数据
+        connections = [c.model_dump() for c in block.connections] if block.connections else None
+        input_data = context.get_upstream_data(connections)
+
+    result = await execute_plugin(plugin_id, input_data)
 
     return BlockResult(
         block_id=block.id,

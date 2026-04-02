@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(uv run python -c ':*)",
+      "Bash(./start.sh)",
+      "Bash(./start.sh restart:*)"
+    ]
+  }
+}
