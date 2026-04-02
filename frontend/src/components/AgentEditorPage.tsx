@@ -26,9 +26,10 @@ interface Provider {
 interface Props {
   agentId?: string
   onBack: () => void
+  onManualSave?: () => void
 }
 
-export function AgentEditorPage({ agentId, onBack }: Props) {
+export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   const [agent, setAgent] = useState<Agent>({
     id: agentId || `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     name: '新建 Agent',
@@ -62,9 +63,9 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
       setLoading(true)
       try {
         const [skills, providersList, customSkills] = await Promise.all([
-          listSkills(),
-          listProviders(),
-          listCustomSkills(),
+          listSkills().catch(() => []),
+          listProviders().catch(() => []),
+          listCustomSkills().catch(() => []),
         ])
 
         // 合并内置 Skills 和自定义 Skills
@@ -95,7 +96,8 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
         }
       } catch (e) {
         console.error('加载失败:', e)
-        alert(`加载失败: ${e}`)
+        // 不要 alert，只在控制台记录错误
+        // 继续加载，即使部分数据失败
       } finally {
         setLoading(false)
       }
@@ -133,11 +135,9 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
     }
 
     try {
-      if (agentId) {
-        await updateAgent(agentId, agent)
-      } else {
-        await createAgent(agent)
-      }
+      // agentId 始终存在（自动保存时已创建）
+      await updateAgent(agentId!, agent)
+      onManualSave?.() // 标记为手动保存
       alert('保存成功')
       onBack()
     } catch (e) {

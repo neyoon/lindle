@@ -24,7 +24,7 @@ import { AgentListPage } from './components/AgentListPage'
 import { AgentEditorPage } from './components/AgentEditorPage'
 import { SettingsPage } from './components/SettingsPage'
 import { useWorkflowStore } from './stores/workflow'
-import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow } from './api/client'
+import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent } from './api/client'
 
 type Page = 'home' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor'
 
@@ -32,6 +32,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('home')
   const [checkedSettings, setCheckedSettings] = useState(false)
   const [autoSaved, setAutoSaved] = useState(false)
+  const [autoSavedAgent, setAutoSavedAgent] = useState(false) // Agent 自动保存标记
   const [currentAgentId, setCurrentAgentId] = useState<string | undefined>(undefined)
   const settingsFrom = useRef<Page>('home')
   const manufactureFrom = useRef<Page>('flow-editor')
@@ -122,11 +123,30 @@ export default function App() {
       <AgentListPage
         onOpen={(agentId) => {
           setCurrentAgentId(agentId)
+          setAutoSavedAgent(false)
           setPage('agent-editor')
         }}
-        onCreateNew={() => {
-          setCurrentAgentId(undefined)
-          setPage('agent-editor')
+        onCreateNew={async () => {
+          // 自动保存新 Agent（与 Flow 一致）
+          const id = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+          const agent = {
+            id,
+            name: '新建 Agent',
+            description: '',
+            system_prompt: '',
+            model_provider_id: null,
+            skills: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+          try {
+            await createAgent(agent)
+            setCurrentAgentId(id)
+            setAutoSavedAgent(true)
+            setPage('agent-editor')
+          } catch (e) {
+            alert(`创建失败: ${e}`)
+          }
         }}
         onBack={() => setPage('home')}
       />
@@ -137,7 +157,17 @@ export default function App() {
     return (
       <AgentEditorPage
         agentId={currentAgentId}
-        onBack={() => setPage('agent-list')}
+        onBack={async () => {
+          // 如果是自动保存的且未手动保存，则删除
+          if (autoSavedAgent && currentAgentId) {
+            try {
+              await deleteAgent(currentAgentId)
+            } catch {}
+          }
+          setAutoSavedAgent(false)
+          setPage('agent-list')
+        }}
+        onManualSave={() => setAutoSavedAgent(false)}
       />
     )
   }

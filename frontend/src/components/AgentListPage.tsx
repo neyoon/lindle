@@ -73,12 +73,14 @@ export function AgentListPage({ onOpen, onCreateNew, onBack }: Props) {
             <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">Beta</span>
           </h1>
         </div>
-        <button
-          onClick={onCreateNew}
-          className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition shadow-sm"
-        >
-          创建 Agent
-        </button>
+        {agents.length > 0 && (
+          <button
+            onClick={onCreateNew}
+            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition shadow-sm"
+          >
+            创建 Agent
+          </button>
+        )}
       </div>
 
       {/* 内容区 */}
