@@ -133,7 +133,6 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
             </div>
           ) : workflows.length === 0 ? (
             <div className="text-center py-20">
-              <div className="text-lg text-gray-400 mb-4">开始使用</div>
               <p className="text-gray-500 text-lg mb-2">还没有工作流</p>
               <p className="text-gray-400 text-sm mb-6">点击「新建工作流」开始创建你的第一个 AI 工作流</p>
               <button
