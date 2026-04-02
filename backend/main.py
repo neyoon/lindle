@@ -14,7 +14,7 @@ import os
 import uvicorn
 
 from api.routes.settings import init_settings, get_default_provider
-from miniflow.llm import configure as configure_llm
+from shared_llm import configure as configure_llm
 
 
 def main():

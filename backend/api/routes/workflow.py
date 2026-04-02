@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from miniflow.models import BlockType, Workflow
+from flow.models import BlockType, Workflow
 from storage.file_store import delete_workflow, list_workflows, load_workflow, save_workflow
 
 logger = logging.getLogger(__name__)
@@ -354,7 +354,7 @@ def _build_plugins_info() -> str:
 async def ai_edit_workflow(workflow_id: str, body: AIEditRequest):
     """用自然语言指令修改工作流（SSE 流式返回）"""
     from api.routes.settings import get_ai_edit_provider
-    from miniflow.llm import _config
+    from shared_llm import _config
     from plugins.registry import get_enabled_plugins, get_plugin
 
     workflow = load_workflow(workflow_id)

@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import codegen, execution, plugins, settings, workflow, workspace
+from api.routes import agents, codegen, execution, plugins, settings, workflow, workspace
 from api.routes.settings import init_settings
 
 app = FastAPI(
@@ -46,6 +46,7 @@ app.include_router(codegen.router)
 app.include_router(plugins.router)
 app.include_router(workspace.router)
 app.include_router(settings.router)
+app.include_router(agents.router)
 
 
 @app.on_event("startup")

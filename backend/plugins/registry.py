@@ -13,6 +13,7 @@ from dataclasses import asdict
 from typing import Any
 
 from plugins.base import BasePlugin, PluginMeta
+from plugins.analyst_soul import AnalystSoulSkill
 from plugins.mock_tool import MockToolPlugin
 from plugins.stock_analysis import StockAnalysisPlugin
 
@@ -62,10 +63,30 @@ def _save_state(state: dict[str, Any]) -> None:
 
 
 def list_plugins() -> list[dict[str, Any]]:
-    """列出所有插件及其状态"""
+    """列出所有插件及其状态（只返回 category='plugin' 的）"""
     state = _load_state()
     result = []
     for plugin_id, plugin in _PLUGINS.items():
+        # 只返回 plugin 类型，不返回 skill 类型
+        if plugin.meta.category != "plugin":
+            continue
+        plugin_state = state.get(plugin_id, {})
+        result.append({
+            "meta": asdict(plugin.meta),
+            "enabled": plugin_state.get("enabled", False),
+            "config": plugin_state.get("config", {}),
+        })
+    return result
+
+
+def list_skills() -> list[dict[str, Any]]:
+    """列出所有 Skills（只返回 category='skill' 的）"""
+    state = _load_state()
+    result = []
+    for plugin_id, plugin in _PLUGINS.items():
+        # 只返回 skill 类型
+        if plugin.meta.category != "skill":
+            continue
         plugin_state = state.get(plugin_id, {})
         result.append({
             "meta": asdict(plugin.meta),
@@ -149,6 +170,7 @@ async def execute_plugin(plugin_id: str, input_data: str) -> Any:
 # ===== 注册内置插件 =====
 
 def _register_builtin_plugins() -> None:
+    register_plugin(AnalystSoulSkill())
     register_plugin(MockToolPlugin())
     register_plugin(StockAnalysisPlugin())
 

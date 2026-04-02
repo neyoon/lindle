@@ -18,9 +18,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator
 
-from miniflow.blocks import BlockExecutor
-from miniflow.context import BlockResult, Context
-from miniflow.models import BlockType, Column, Workflow
+from flow.blocks import BlockExecutor
+from flow.context import BlockResult, Context
+from flow.models import BlockType, Column, Workflow
 
 logger = logging.getLogger(__name__)
 

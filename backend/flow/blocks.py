@@ -20,9 +20,9 @@ import json
 import logging
 from typing import Any
 
-from miniflow.context import BlockResult, Context, render_prompt_template
-from miniflow.llm import call_llm
-from miniflow.models import Block, BlockType
+from flow.context import BlockResult, Context, render_prompt_template
+from shared_llm import call_llm
+from flow.models import Block, BlockType
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ async def _execute_plugin(block: Block, context: Context) -> BlockResult:
 
     # 如果配置了 prompt 模板，使用模板渲染
     if block.config.prompt:
-        from miniflow.context import render_prompt_template
+        from flow.context import render_prompt_template
         input_data, _ = render_prompt_template(block.config.prompt, context)
     else:
         # 否则使用默认的上游数据

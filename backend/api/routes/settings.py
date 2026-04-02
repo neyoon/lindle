@@ -25,7 +25,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from miniflow.llm import configure as configure_llm
+from shared_llm import configure as configure_llm
 
 logger = logging.getLogger(__name__)
 

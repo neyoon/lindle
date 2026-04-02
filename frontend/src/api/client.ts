@@ -2,6 +2,7 @@
  * API 客户端
  */
 import type { BlockTemplate, EnabledPlugin, PluginInfo, RunResult, Workflow } from '@/types/workflow'
+import type { Agent, ChatMessage } from '@/types/agent'
 
 const BASE = '/api'
 
@@ -85,6 +86,10 @@ export async function downloadCode(id: string) {
 
 export async function listPlugins() {
   return request<PluginInfo[]>('/plugins/')
+}
+
+export async function listSkills() {
+  return request<PluginInfo[]>('/plugins/skills')
 }
 
 export async function getEnabledPlugins() {
@@ -203,3 +208,39 @@ export async function updateTemplate(id: string, template: BlockTemplate) {
 export async function deleteTemplate(id: string) {
   return request<{ ok: boolean }>(`/workspace/${id}`, { method: 'DELETE' })
 }
+
+// ===== Agents =====
+
+export async function listAgents() {
+  return request<{ id: string; name: string; description: string; skill_count: number; created_at: string; updated_at: string }[]>('/agents/')
+}
+
+export async function getAgent(id: string) {
+  return request<Agent>(`/agents/${id}`)
+}
+
+export async function createAgent(agent: Agent) {
+  return request<Agent>('/agents/', {
+    method: 'POST',
+    body: JSON.stringify(agent),
+  })
+}
+
+export async function updateAgent(id: string, agent: Agent) {
+  return request<Agent>(`/agents/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(agent),
+  })
+}
+
+export async function deleteAgent(id: string) {
+  return request<{ success: boolean }>(`/agents/${id}`, { method: 'DELETE' })
+}
+
+export async function generateSystemPrompt(agentName: string, skills: { skill_id: string; name: string; description: string }[]) {
+  return request<{ system_prompt: string }>('/agents/generate-prompt', {
+    method: 'POST',
+    body: JSON.stringify({ agent_name: agentName, skills }),
+  })
+}
+

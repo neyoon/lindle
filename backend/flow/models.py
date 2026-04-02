@@ -12,13 +12,13 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class BlockType(StrEnum):
+class BlockType(str, Enum):
     """块类型 - 3 种核心 + 插件"""
 
     INPUT = "input"

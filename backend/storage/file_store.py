@@ -13,7 +13,7 @@ import json
 import os
 from typing import Any
 
-from miniflow.models import BlockTemplate, Workflow
+from flow.models import BlockTemplate, Workflow
 
 # 默认存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "workflows")

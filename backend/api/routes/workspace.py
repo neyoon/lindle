@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from miniflow.models import BlockTemplate
+from flow.models import BlockTemplate
 from storage.file_store import (
     delete_template,
     list_templates,

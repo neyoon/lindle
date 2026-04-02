@@ -31,6 +31,7 @@ class PluginMeta:
     name: str
     description: str
     icon: str = ""
+    category: str = "plugin"  # "plugin" 或 "skill"，skill 只在 Agent 中显示
     params: list[PluginParam] = field(default_factory=list)
     input_schema: dict[str, Any] = field(default_factory=dict)
     output_schema: dict[str, Any] = field(default_factory=dict)

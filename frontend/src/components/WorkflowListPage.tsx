@@ -8,7 +8,7 @@
  * - 删除工作流
  */
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Clock, Layers, FileCode, Settings, Puzzle, Factory } from 'lucide-react'
+import { Plus, Trash2, Clock, Layers, FileCode, Settings, Puzzle, Factory, Bot } from 'lucide-react'
 import { listWorkflows, deleteWorkflow } from '@/api/client'
 
 interface WorkflowSummary {
@@ -24,9 +24,10 @@ interface Props {
   onOpenPlugins?: () => void
   onOpenManufacture?: () => void
   onOpenSettings?: () => void
+  onBack?: () => void
 }
 
-export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenManufacture, onOpenSettings }: Props) {
+export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenManufacture, onOpenSettings, onBack }: Props) {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -60,10 +61,20 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
     <div className="h-screen flex flex-col bg-slate-50">
       {/* 顶栏 */}
       <div className="h-14 bg-white border-b px-6 flex items-center justify-between shadow-sm">
-        <h1 className="text-lg font-bold text-sky-600 flex items-center gap-2">
-          <Layers size={20} />
-          MiniFlow
-        </h1>
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="text-gray-400 hover:text-gray-600 transition"
+            >
+              ← 返回
+            </button>
+          )}
+          <h1 className="text-lg font-bold text-sky-600 flex items-center gap-2">
+            <Layers size={20} />
+            我的工作流
+          </h1>
+        </div>
         <div className="flex items-center gap-2">
           {onOpenPlugins && (
             <button

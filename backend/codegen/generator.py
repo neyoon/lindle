@@ -35,7 +35,7 @@ import os
 import re
 from typing import Any
 
-from miniflow.models import Block, BlockType, Column, Workflow
+from flow.models import Block, BlockType, Column, Workflow
 
 
 class CodeGenerator:

@@ -11,6 +11,7 @@ from plugins.registry import (
     get_enabled_plugins,
     get_plugin_detail,
     list_plugins,
+    list_skills,
     set_plugin_enabled,
     update_plugin_config,
 )
@@ -34,8 +35,14 @@ class ConfigRequest(BaseModel):
 
 @router.get("/")
 async def get_plugins():
-    """获取所有插件列表（含状态）"""
+    """获取所有插件列表（含状态，只返回 plugin 类型）"""
     return list_plugins()
+
+
+@router.get("/skills")
+async def get_skills():
+    """获取所有 Skills 列表（含状态，只返回 skill 类型）"""
+    return list_skills()
 
 
 @router.get("/enabled")
