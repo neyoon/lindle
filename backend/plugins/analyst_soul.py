@@ -24,7 +24,7 @@ class AnalystSoulSkill(BasePlugin):
     meta = PluginMeta(
         id="analyst_soul",
         name="分析师的灵魂",
-        icon="📊",
+        icon="",
         description="提供数据计算、统计分析等能力，是分析师的得力助手",
         category="skill",  # 标记为 skill，只在 Agent 中显示
         params=[],  # 不需要配置参数
