@@ -1,15 +1,18 @@
 /**
- * Agent 编辑器页面 - 左中右三栏布局
+ * Agent 编辑器页面 - 左中右三栏布局（改进版）
  *
- * 左栏：Agent 配置 + 已激活 Skills
- * 中栏：正式对话界面
- * 右栏：可用 Skills 列表
- * 右下角：测试对话框（保持不变）
+ * 改进：
+ * 1. 默认折叠高级选项（系统提示词、模型选择）
+ * 2. 快速创建功能
+ * 3. Skills 推荐标签
+ * 4. 保持拖拽交互
+ * 5. 导出功能
  */
 import { useEffect, useState } from 'react'
-import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, Settings } from 'lucide-react'
-import { getAgent, createAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgent, listProviders } from '@/api/client'
+import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap } from 'lucide-react'
+import { getAgent, createAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgent, listProviders, createCustomSkill, listCustomSkills } from '@/api/client'
 import { AgentTestChat } from './AgentTestChat'
+import { SkillEditor } from './SkillEditor'
 import type { Agent, AgentSkill, ChatMessage } from '@/types/agent'
 import type { PluginInfo } from '@/types/workflow'
 
@@ -42,22 +45,48 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [draggedSkillId, setDraggedSkillId] = useState<string | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false) // 默认折叠高级选项
+  const [showSkillEditor, setShowSkillEditor] = useState(false) // Skill 编辑器
 
   // 对话相关状态
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
 
-  // 加载 Agent 数据和可用 Skills
+  // 推荐的 Skills（标记为推荐）
+  const recommendedSkillIds = ['analyst_soul'] // 可以根据需要添加更多
+
+  // 加载数据
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       try {
-        const [skills, providersList] = await Promise.all([
+        const [skills, providersList, customSkills] = await Promise.all([
           listSkills(),
           listProviders(),
+          listCustomSkills(),
         ])
-        setAvailableSkills(skills)
+
+        // 合并内置 Skills 和自定义 Skills
+        const allSkills = [
+          ...skills,
+          ...customSkills.map((cs: any) => ({
+            meta: {
+              id: cs.id,
+              name: cs.name,
+              description: cs.description,
+              icon: cs.icon,
+              category: 'skill',
+              params: [],
+              input_schema: cs.input_schema,
+              output_schema: cs.output_schema,
+            },
+            enabled: false,
+            config: {},
+          })),
+        ]
+
+        setAvailableSkills(allSkills)
         setProviders(providersList)
 
         if (agentId) {
@@ -73,6 +102,28 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
     }
     load()
   }, [agentId])
+
+  // 快速创建 Agent
+  const handleQuickCreate = async () => {
+    // 自动添加推荐的 Skill
+    const recommendedSkill = availableSkills.find(s => s.meta.id === 'analyst_soul')
+    if (!recommendedSkill) return
+
+    const newAgent = {
+      ...agent,
+      name: '数据分析助手',
+      description: '帮你进行数据计算和分析',
+      skills: [{
+        skill_id: recommendedSkill.meta.id,
+        order: 0,
+        config: {},
+      }],
+    }
+
+    setAgent(newAgent)
+    await autoGeneratePrompt(newAgent)
+    alert('已快速创建数据分析助手！你可以继续添加更多 Skills 或直接保存。')
+  }
 
   // 保存 Agent
   const handleSave = async () => {
@@ -92,6 +143,43 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
     } catch (e) {
       alert(`保存失败: ${e}`)
     }
+  }
+
+  // 导出 Agent
+  const handleExport = () => {
+    const exportData = {
+      agent: {
+        name: agent.name,
+        description: agent.description,
+        system_prompt: agent.system_prompt,
+        skills: agent.skills.map(s => {
+          const skill = availableSkills.find(sk => sk.meta.id === s.skill_id)
+          return {
+            id: s.skill_id,
+            name: skill?.meta.name || '',
+            description: skill?.meta.description || '',
+            order: s.order,
+          }
+        }),
+      },
+      usage: {
+        description: '这是一个 MiniFlow Agent 配置文件',
+        how_to_use: [
+          '1. 在 MiniFlow 中创建新 Agent',
+          '2. 按照 skills 列表添加对应的 Skills',
+          '3. 复制 system_prompt 到系统提示词',
+          '4. 保存并开始使用',
+        ],
+      },
+    }
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${agent.name.replace(/\s+/g, '_')}_agent.json`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   // 添加 Skill
@@ -168,11 +256,46 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
     }
   }
 
+  // 保存自定义 Skill
+  const handleSaveCustomSkill = async (skillData: any) => {
+    try {
+      await createCustomSkill(skillData)
+
+      // 重新加载 Skills 列表
+      const [skills, customSkills] = await Promise.all([
+        listSkills(),
+        listCustomSkills(),
+      ])
+
+      const allSkills = [
+        ...skills,
+        ...customSkills.map((cs: any) => ({
+          meta: {
+            id: cs.id,
+            name: cs.name,
+            description: cs.description,
+            icon: cs.icon,
+            category: 'skill',
+            params: [],
+            input_schema: cs.input_schema,
+            output_schema: cs.output_schema,
+          },
+          enabled: false,
+          config: {},
+        })),
+      ]
+
+      setAvailableSkills(allSkills)
+      alert('Skill 创建成功！')
+    } catch (e) {
+      throw e
+    }
+  }
+
   // 发送消息
   const handleSendMessage = async () => {
     if (!input.trim() || chatLoading) return
 
-    // 检查是否已保存 Agent
     if (!agentId) {
       alert('请先保存 Agent 后再进行对话')
       return
@@ -188,7 +311,6 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
     setChatLoading(true)
 
     try {
-      // 调用真实的 Agent API
       const history = messages.map(m => ({ role: m.role, content: m.content }))
       const response = await chatWithAgent(agentId, userMessage.content, history)
 
@@ -244,13 +366,34 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
           />
           <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">Beta</span>
         </div>
-        <button
-          onClick={handleSave}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition"
-        >
-          <Save size={16} />
-          保存
-        </button>
+        <div className="flex items-center gap-2">
+          {!agentId && (
+            <button
+              onClick={handleQuickCreate}
+              className="flex items-center gap-2 px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm"
+              title="快速创建一个预配置的 Agent"
+            >
+              <Zap size={14} />
+              快速创建
+            </button>
+          )}
+          {agentId && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm"
+            >
+              <Download size={14} />
+              导出
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition"
+          >
+            <Save size={16} />
+            保存
+          </button>
+        </div>
       </div>
 
       {/* 主内容区 - 左中右三栏 */}
@@ -272,45 +415,60 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
               />
             </div>
 
-            {/* 模型选择 */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                模型
-              </label>
-              <select
-                value={agent.model_provider_id || ''}
-                onChange={(e) => setAgent({ ...agent, model_provider_id: e.target.value || null })}
-                className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            {/* 高级选项（可折叠） */}
+            <div className="border rounded-lg">
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full px-3 py-2 flex items-center justify-between text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
               >
-                <option value="">使用默认模型</option>
-                {providers.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.name} ({provider.model})
-                  </option>
-                ))}
-              </select>
-            </div>
+                <span>高级设置</span>
+                {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
 
-            {/* 系统提示词 */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-gray-700">
-                  系统提示词
-                </label>
-                {generating && (
-                  <span className="text-xs text-purple-500 flex items-center gap-1">
-                    <Sparkles size={10} className="animate-pulse" />
-                    加载中...
-                  </span>
-                )}
-              </div>
-              <textarea
-                value={agent.system_prompt}
-                onChange={(e) => setAgent({ ...agent, system_prompt: e.target.value })}
-                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono"
-                rows={5}
-                placeholder="添加 Skills 后自动生成..."
-              />
+              {showAdvanced && (
+                <div className="p-3 space-y-3 border-t">
+                  {/* 模型选择 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      模型
+                    </label>
+                    <select
+                      value={agent.model_provider_id || ''}
+                      onChange={(e) => setAgent({ ...agent, model_provider_id: e.target.value || null })}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="">使用默认模型</option>
+                      {providers.map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name} ({provider.model})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 系统提示词 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-gray-700">
+                        系统提示词
+                      </label>
+                      {generating && (
+                        <span className="text-xs text-purple-500 flex items-center gap-1">
+                          <Sparkles size={10} className="animate-pulse" />
+                          生成中...
+                        </span>
+                      )}
+                    </div>
+                    <textarea
+                      value={agent.system_prompt}
+                      onChange={(e) => setAgent({ ...agent, system_prompt: e.target.value })}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono"
+                      rows={6}
+                      placeholder="添加 Skills 后自动生成..."
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 已激活的 Skills */}
@@ -336,7 +494,7 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
                         key={skill.skill_id}
                         className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded p-2 group text-xs"
                       >
-                        <GripVertical size={12} className="text-gray-400 Claude Code-move" />
+                        <GripVertical size={12} className="text-gray-400 cursor-move" />
                         <span className="font-medium">{index + 1}</span>
                         <span className="text-lg">{skillInfo?.meta.icon}</span>
                         <div className="flex-1 min-w-0">
@@ -359,7 +517,6 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
 
         {/* 中栏：对话界面 */}
         <div className="flex-1 flex flex-col bg-white">
-          {/* 对话区域 */}
           <div className="flex-1 overflow-y-auto p-6">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
@@ -409,7 +566,6 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
             )}
           </div>
 
-          {/* 输入框 */}
           <div className="border-t p-4 bg-gray-50">
             <div className="max-w-3xl mx-auto flex gap-3">
               <input
@@ -424,7 +580,7 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
               <button
                 onClick={handleSendMessage}
                 disabled={!input.trim() || chatLoading}
-                className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50 disabled:Claude Code-not-allowed flex items-center gap-2"
               >
                 <Send size={18} />
                 发送
@@ -438,7 +594,10 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-gray-700">可用 Skills</h3>
-              <button className="text-xs text-purple-500 hover:text-purple-600 flex items-center gap-1">
+              <button
+                onClick={() => setShowSkillEditor(true)}
+                className="text-xs text-purple-500 hover:text-purple-600 flex items-center gap-1"
+              >
                 <Plus size={12} />
                 新建
               </button>
@@ -447,6 +606,7 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
             <div className="space-y-2">
               {availableSkills.map((skill) => {
                 const isActive = agent.skills.some(s => s.skill_id === skill.meta.id)
+                const isRecommended = recommendedSkillIds.includes(skill.meta.id)
                 return (
                   <div
                     key={skill.meta.id}
@@ -454,13 +614,20 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
                     onDragStart={() => handleDragStart(skill.meta.id)}
                     onClick={() => !isActive && handleAddSkill(skill.meta.id)}
                     className={`
-                      p-3 rounded-lg border transition cursor-pointer text-sm
+                      p-3 rounded-lg border transition cursor-pointer text-sm relative
                       ${isActive
                         ? 'bg-purple-50 border-purple-300 opacity-50 cursor-not-allowed'
                         : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-sm'
                       }
                     `}
                   >
+                    {isRecommended && !isActive && (
+                      <div className="absolute top-2 right-2">
+                        <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded font-medium">
+                          推荐
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-start gap-2">
                       <span className="text-2xl">{skill.meta.icon}</span>
                       <div className="flex-1 min-w-0">
@@ -485,8 +652,16 @@ export function AgentEditorPage({ agentId, onBack }: Props) {
         </div>
       </div>
 
-      {/* 测试对话框（右下角浮动） */}
+      {/* 测试对话框 */}
       {agentId && <AgentTestChat agentId={agentId} agentName={agent.name} />}
+
+      {/* Skill 编辑器 */}
+      {showSkillEditor && (
+        <SkillEditor
+          onClose={() => setShowSkillEditor(false)}
+          onSave={handleSaveCustomSkill}
+        />
+      )}
     </div>
   )
 }

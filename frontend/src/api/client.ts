@@ -251,3 +251,26 @@ export async function chatWithAgent(agentId: string, message: string, history: {
   })
 }
 
+// ===== Custom Skills =====
+
+export async function listCustomSkills() {
+  return request<any[]>('/plugins/custom-skills')
+}
+
+export async function createCustomSkill(skill: any) {
+  return request<{ ok: boolean; skill: any }>('/plugins/custom-skills', {
+    method: 'POST',
+    body: JSON.stringify(skill),
+  })
+}
+
+export async function getCustomSkill(skillId: string) {
+  return request<any>(`/plugins/custom-skills/${skillId}`)
+}
+
+export async function deleteCustomSkill(skillId: string) {
+  return request<{ ok: boolean }>(`/plugins/custom-skills/${skillId}`, {
+    method: 'DELETE',
+  })
+}
+

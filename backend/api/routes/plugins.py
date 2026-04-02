@@ -15,6 +15,12 @@ from plugins.registry import (
     set_plugin_enabled,
     update_plugin_config,
 )
+from plugins.custom_skills import (
+    save_custom_skill,
+    load_custom_skill,
+    list_custom_skills,
+    delete_custom_skill,
+)
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
@@ -76,3 +82,51 @@ async def set_config(plugin_id: str, body: ConfigRequest):
     if not ok:
         raise HTTPException(404, "插件不存在")
     return {"ok": True}
+
+
+# ===== 自定义 Skills =====
+
+
+class CustomSkillRequest(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str = "🔧"
+    code: str
+    input_schema: dict = {}
+    output_schema: dict = {}
+
+
+@router.get("/custom-skills")
+async def get_custom_skills():
+    """获取所有自定义 Skills"""
+    return list_custom_skills()
+
+
+@router.post("/custom-skills")
+async def create_custom_skill(body: CustomSkillRequest):
+    """创建自定义 Skill"""
+    skill_data = body.model_dump()
+    ok = save_custom_skill(skill_data)
+    if not ok:
+        raise HTTPException(500, "保存失败")
+    return {"ok": True, "skill": skill_data}
+
+
+@router.get("/custom-skills/{skill_id}")
+async def get_custom_skill(skill_id: str):
+    """获取单个自定义 Skill"""
+    skill = load_custom_skill(skill_id)
+    if not skill:
+        raise HTTPException(404, "Skill 不存在")
+    return skill
+
+
+@router.delete("/custom-skills/{skill_id}")
+async def remove_custom_skill(skill_id: str):
+    """删除自定义 Skill"""
+    ok = delete_custom_skill(skill_id)
+    if not ok:
+        raise HTTPException(404, "Skill 不存在")
+    return {"ok": True}
+
