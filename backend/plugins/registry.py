@@ -16,6 +16,8 @@ from plugins.base import BasePlugin, PluginMeta
 from plugins.analyst_soul import AnalystSoulSkill
 from plugins.mock_tool import MockToolPlugin
 from plugins.stock_analysis import StockAnalysisPlugin
+from plugins.workflow_executor import WorkflowExecutorSkill
+from plugins.workflow_designer import WorkflowDesignerSkill
 
 # 存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -173,6 +175,8 @@ def _register_builtin_plugins() -> None:
     register_plugin(AnalystSoulSkill())
     register_plugin(MockToolPlugin())
     register_plugin(StockAnalysisPlugin())
+    register_plugin(WorkflowExecutorSkill())
+    register_plugin(WorkflowDesignerSkill())
 
 
 _register_builtin_plugins()

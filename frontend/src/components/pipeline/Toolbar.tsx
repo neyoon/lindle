@@ -268,7 +268,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
             <span className="text-gray-200">|</span>
           </>
         )}
-        <h1 className="text-lg font-bold text-sky-600">MiniFlow</h1>
+        <h1 className="text-lg font-bold text-sky-600">Tweak</h1>
         <span className="text-sm text-gray-300">|</span>
         <input
           className="text-sm font-medium bg-transparent border-none outline-none text-gray-700 w-48"

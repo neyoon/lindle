@@ -25,7 +25,7 @@ from api.routes import agents, codegen, execution, plugins, settings, workflow, 
 from api.routes.settings import init_settings
 
 app = FastAPI(
-    title="MiniFlow",
+    title="Tweak",
     description="极简 AI 工作流引擎",
     version="0.1.0",
 )
@@ -84,7 +84,7 @@ else:
     @app.get("/")
     async def root():
         return {
-            "message": "MiniFlow API 运行中",
+            "message": "Tweak API 运行中",
             "docs": "http://localhost:8000/docs",
             "frontend": "http://localhost:3000",
         }

@@ -1,7 +1,7 @@
 /**
  * API 客户端
  */
-import type { BlockTemplate, EnabledPlugin, PluginInfo, RunResult, Workflow } from '@/types/workflow'
+import type { BlockTemplate, EnabledPlugin, PluginInfo, RunResult, Workflow, WorkflowSummary } from '@/types/workflow'
 import type { Agent, ChatMessage } from '@/types/agent'
 
 const BASE = '/api'
@@ -21,7 +21,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 // ===== Workflow (Pipeline) =====
 
 export async function listWorkflows() {
-  return request<{ id: string; name: string; description: string; column_count: number }[]>('/workflows/')
+  return request<WorkflowSummary[]>('/workflows/')
 }
 
 export async function getWorkflow(id: string) {

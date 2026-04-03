@@ -72,11 +72,50 @@ class AgentEngine:
         """构建消息列表"""
         messages = []
 
-        # 系统提示词
+        # 系统提示词（包含自动注入的 flows 信息）
         if self.agent.system_prompt:
+            system_content = self.agent.system_prompt
+
+            # 自动注入绑定的 Flows 信息（从 workflow_executor Skill 的 config 中读取）
+            executor_skill = next(
+                (s for s in self.agent.skills if s.skill_id == "workflow_executor"), None
+            )
+            if executor_skill and executor_skill.config.get("flows"):
+                flow_ids = executor_skill.config["flows"].split(",")
+                if flow_ids:
+                    system_content += "\n\n## 可用的 Flow\n\n"
+                    system_content += "你可以使用 workflow_executor Skill 执行以下 Flow：\n\n"
+
+                    from api.routes.workflow import load_workflow
+
+                    for flow_id in flow_ids:
+                        flow_id = flow_id.strip()
+                        if not flow_id:
+                            continue
+                        workflow = load_workflow(flow_id)
+                        if not workflow:
+                            continue
+
+                        # 提取输入字段
+                        input_fields = []
+                        for col in workflow.columns:
+                            for block in col.blocks:
+                                if block.type == "input" and block.config.get("fields"):
+                                    for field in block.config["fields"]:
+                                        input_fields.append(
+                                            f"  - {field['name']}: {field.get('label', field['name'])}"
+                                        )
+
+                        system_content += f"### {workflow.name}\n"
+                        system_content += f"- workflow_id: `{workflow.id}`\n"
+                        system_content += f"- 描述: {workflow.description}\n"
+                        if input_fields:
+                            system_content += "- 输入参数:\n" + "\n".join(input_fields) + "\n"
+                        system_content += "\n"
+
             messages.append({
                 "role": "system",
-                "content": self.agent.system_prompt,
+                "content": system_content,
             })
 
         # 历史消息

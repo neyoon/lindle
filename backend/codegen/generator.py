@@ -118,7 +118,7 @@ class CodeGenerator:
 {workflow.name}
 {workflow.description or ""}
 
-自动生成 by MiniFlow
+自动生成 by Tweak
 使用方式: python main.py
 """
 

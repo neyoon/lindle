@@ -1,5 +1,5 @@
 /**
- * MiniFlow 主应用
+ * Tweak 主应用
  *
  * 页面:
  * 0. 首页（选择 Flow 或 Agent）

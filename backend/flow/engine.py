@@ -7,7 +7,7 @@
 3. 处理重复栏（repeat）
 4. 收集结果并返回
 
-这是整个 MiniFlow 的"心脏"。
+这是整个 Tweak 的"心脏"。
 """
 
 from __future__ import annotations

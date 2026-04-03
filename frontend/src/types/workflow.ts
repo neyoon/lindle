@@ -1,5 +1,5 @@
 /**
- * MiniFlow 类型定义
+ * Tweak 类型定义
  *
  * 核心概念:
  * - Workflow: 工作流，由有序的 Column 组成
@@ -57,6 +57,13 @@ export interface Workflow {
   name: string
   description: string
   columns: Column[]
+}
+
+export interface WorkflowSummary {
+  id: string
+  name: string
+  description: string
+  column_count: number
 }
 
 // ===== 块模板 (制造工坊) =====

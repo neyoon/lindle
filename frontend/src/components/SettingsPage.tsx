@@ -351,7 +351,7 @@ export function SettingsPage({ onBack }: Props) {
           <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-xl">
             <p className="text-sm text-amber-800 font-medium mb-1">兼容提示</p>
             <p className="text-xs text-amber-700 leading-relaxed">
-              MiniFlow 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面、Ollama 本地部署等。
+              Tweak 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面、Ollama 本地部署等。
               你可以添加多个 Provider，在创建 AI 块时选择使用哪一个。
             </p>
           </div>

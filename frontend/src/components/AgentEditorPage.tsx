@@ -10,11 +10,11 @@
  */
 import { useEffect, useState } from 'react'
 import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap } from 'lucide-react'
-import { getAgent, createAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgent, listProviders, createCustomSkill, listCustomSkills } from '@/api/client'
+import { getAgent, createAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgent, listProviders, createCustomSkill, listCustomSkills, listWorkflows } from '@/api/client'
 import { AgentTestChat } from './AgentTestChat'
 import { SkillEditor } from './SkillEditor'
 import type { Agent, AgentSkill, ChatMessage } from '@/types/agent'
-import type { PluginInfo } from '@/types/workflow'
+import type { PluginInfo, WorkflowSummary } from '@/types/workflow'
 
 interface Provider {
   id: string
@@ -42,12 +42,14 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   })
 
   const [availableSkills, setAvailableSkills] = useState<PluginInfo[]>([])
+  const [availableFlows, setAvailableFlows] = useState<WorkflowSummary[]>([])
   const [providers, setProviders] = useState<Provider[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [draggedSkillId, setDraggedSkillId] = useState<string | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(false) // 默认折叠高级选项
-  const [showSkillEditor, setShowSkillEditor] = useState(false) // Skill 编辑器
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showSkillEditor, setShowSkillEditor] = useState(false)
+  const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null) // 展开的 Skill ID
 
   // 对话相关状态
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -62,10 +64,11 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
     const load = async () => {
       setLoading(true)
       try {
-        const [skills, providersList, customSkills] = await Promise.all([
+        const [skills, providersList, customSkills, workflows] = await Promise.all([
           listSkills().catch(() => []),
           listProviders().catch(() => []),
           listCustomSkills().catch(() => []),
+          listWorkflows().catch(() => []),
         ])
 
         // 合并内置 Skills 和自定义 Skills
@@ -89,6 +92,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
         setAvailableSkills(allSkills)
         setProviders(providersList)
+        setAvailableFlows(workflows)
 
         if (agentId) {
           const data = await getAgent(agentId)
@@ -163,9 +167,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
         }),
       },
       usage: {
-        description: '这是一个 MiniFlow Agent 配置文件',
+        description: '这是一个 Tweak Agent 配置文件',
         how_to_use: [
-          '1. 在 MiniFlow 中创建新 Agent',
+          '1. 在 Tweak 中创建新 Agent',
           '2. 按照 skills 列表添加对应的 Skills',
           '3. 复制 system_prompt 到系统提示词',
           '4. 保存并开始使用',
@@ -213,6 +217,38 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
     if (newAgent.skills.length > 0) {
       autoGeneratePrompt(newAgent)
     }
+  }
+
+  // 添加/移除 Flow 到 workflow_executor Skill 的 config
+  const handleToggleFlow = (skillId: string, flowId: string) => {
+    const skill = agent.skills.find(s => s.skill_id === skillId)
+    if (!skill) return
+
+    const currentFlows = skill.config.flows ? skill.config.flows.split(',').filter(Boolean) : []
+    const newFlows = currentFlows.includes(flowId)
+      ? currentFlows.filter(id => id !== flowId)
+      : [...currentFlows, flowId]
+
+    setAgent({
+      ...agent,
+      skills: agent.skills.map(s =>
+        s.skill_id === skillId
+          ? { ...s, config: { ...s.config, flows: newFlows.join(',') } }
+          : s
+      ),
+    })
+  }
+
+  // 判断 Skill 是否需要绑定 Flows
+  const isFlowSkill = (skillId: string) => {
+    return skillId === 'workflow_executor'
+  }
+
+  // 获取 Skill 绑定的 Flow IDs
+  const getSkillFlows = (skillId: string): string[] => {
+    const skill = agent.skills.find(s => s.skill_id === skillId)
+    if (!skill || !skill.config.flows) return []
+    return skill.config.flows.split(',').filter(Boolean)
   }
 
   // 自动生成系统提示词，生成完后自动同步到后端
@@ -341,6 +377,11 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   // 获取 Skill 信息
   const getSkillInfo = (skillId: string) => {
     return availableSkills.find(s => s.meta.id === skillId)
+  }
+
+  // 获取 Flow 信息
+  const getFlowInfo = (flowId: string) => {
+    return availableFlows.find(f => f.id === flowId)
   }
 
   if (loading) {
@@ -495,23 +536,55 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                 ) : (
                   agent.skills.map((skill, index) => {
                     const skillInfo = getSkillInfo(skill.skill_id)
+                    const isFlowSkillType = isFlowSkill(skill.skill_id)
+                    const isExpanded = expandedSkillId === skill.skill_id
+                    const skillFlows = getSkillFlows(skill.skill_id)
+
                     return (
-                      <div
-                        key={skill.skill_id}
-                        className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded p-2 group text-xs"
-                      >
-                        <GripVertical size={12} className="text-gray-400 cursor-move" />
-                        <span className="font-medium">{index + 1}</span>
-                        <span className="text-lg">{skillInfo?.meta.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-800 truncate">{skillInfo?.meta.name}</div>
+                      <div key={skill.skill_id} className="space-y-1">
+                        <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded p-2 group text-xs">
+                          <GripVertical size={12} className="text-gray-400 cursor-move" />
+                          <span className="font-medium">{index + 1}</span>
+                          <span className="text-lg">{skillInfo?.meta.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-800 truncate">{skillInfo?.meta.name}</div>
+                          </div>
+                          {isFlowSkillType && (
+                            <button
+                              onClick={() => setExpandedSkillId(isExpanded ? null : skill.skill_id)}
+                              className="text-gray-500 hover:text-purple-600 transition"
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveSkill(skill.skill_id)}
+                            className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleRemoveSkill(skill.skill_id)}
-                          className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+
+                        {/* Flow 选择器（展开时显示） */}
+                        {isFlowSkillType && isExpanded && (
+                          <div className="ml-6 pl-4 border-l-2 border-purple-200 space-y-1">
+                            <div className="text-xs text-gray-500 mb-2">选择可用的 Flows:</div>
+                            {availableFlows.map(flow => (
+                              <label
+                                key={flow.id}
+                                className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded Claude Code-pointer text-xs"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={skillFlows.includes(flow.id)}
+                                  onChange={() => handleToggleFlow(skill.skill_id, flow.id)}
+                                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span className="flex-1 truncate">{flow.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )
                   })

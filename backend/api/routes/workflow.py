@@ -176,14 +176,14 @@ def _generate_description(workflow: Workflow) -> str:
 # ===== AI 编辑 =====
 
 _AI_EDIT_SYSTEM_PROMPT = """\
-你是一个工作流编辑助手。用户会给你一个 MiniFlow 工作流的 JSON 和一条修改指令。
+你是一个工作流编辑助手。用户会给你一个 Tweak 工作流的 JSON 和一条修改指令。
 你需要根据指令修改工作流 JSON，并返回修改后的**完整** JSON。
 
 **重要：你必须只返回有效的 JSON 对象，不要包含任何解释、思考过程或 markdown 代码块。**
 
 ## 核心概念
 
-MiniFlow 是一个**多步骤流水线**：
+Tweak 是一个**多步骤流水线**：
 - **Column**（栏）= 一个执行步骤。Column 按 order 字段从小到大依次执行。
 - **Block**（块）= 最小执行单元。同一个 Column 内的多个 Block **并行**执行。
 

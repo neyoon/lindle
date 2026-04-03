@@ -14,7 +14,7 @@ export function HomePage({ onSelectFlow, onSelectAgent }: Props) {
       {/* 顶栏 */}
       <div className="h-16 bg-white/80 backdrop-blur-sm border-b px-8 flex items-center shadow-sm">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent">
-          MiniFlow
+          Tweak
         </h1>
       </div>
 
@@ -100,7 +100,7 @@ export function HomePage({ onSelectFlow, onSelectAgent }: Props) {
 
       {/* 底部提示 */}
       <div className="pb-8 text-center text-gray-400 text-sm">
-        选择一个模式开始使用 MiniFlow
+        选择一个模式开始使用 Tweak
       </div>
     </div>
   )
