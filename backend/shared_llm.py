@@ -255,7 +255,8 @@ async def call_llm_with_messages_stream(
         #     payload["enable_thinking"] = True
 
         print(f"[shared_llm] 准备发送流式请求...")
-        async with client.stream(
+
+        stream_context = client.stream(
             "POST",
             f"{effective_url}/chat/completions",
             json=payload,
@@ -263,8 +264,12 @@ async def call_llm_with_messages_stream(
                 "Authorization": f"Bearer {effective_key}",
                 "Content-Type": "application/json",
             },
-        ) as response:
-            print(f"[shared_llm] 收到响应，状态码: {response.status_code}")
+        )
+
+        print(f"[shared_llm] 创建了 stream context，准备进入 async with...")
+
+        async with stream_context as response:
+            print(f"[shared_llm] 进入 async with，收到响应，状态码: {response.status_code}")
             response.raise_for_status()
             print(f"[shared_llm] 状态检查通过，开始读取流式响应...")
 
