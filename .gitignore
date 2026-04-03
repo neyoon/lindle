@@ -29,7 +29,9 @@ build/
 backend/.python-version
 
 # 工作流 JSON 存储（运行时生成）
-backend/data/
+backend/data/*
+!backend/data/custom_skills/
+!backend/data/custom_skills/*.json
 
 # ----- Node / 前端 -----
 frontend/node_modules/
