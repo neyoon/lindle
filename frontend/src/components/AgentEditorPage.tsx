@@ -50,6 +50,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showSkillEditor, setShowSkillEditor] = useState(false)
   const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null) // 展开的 Skill ID
+  const [skillsDirty, setSkillsDirty] = useState(false) // Skills 是否有变化，需要在发送时刷新 prompt
 
   // 对话相关状态
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -135,6 +136,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
     setAgent(newAgent)
     await autoGeneratePrompt(newAgent)
+    setSkillsDirty(false)
     alert('已快速创建智能助手！你可以在 Flow 执行器中绑定已有的 Flow，或直接保存。')
   }
 
@@ -210,7 +212,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
       skills: [...agent.skills, newSkill],
     }
     setAgent(newAgent)
-    autoGeneratePrompt(newAgent)
+    setSkillsDirty(true) // 标记 skills 有变化
   }
 
   // 删除 Skill
@@ -220,10 +222,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
       skills: agent.skills.filter(s => s.skill_id !== skillId).map((s, i) => ({ ...s, order: i })),
     }
     setAgent(newAgent)
-
-    if (newAgent.skills.length > 0) {
-      autoGeneratePrompt(newAgent)
-    }
+    setSkillsDirty(true) // 标记 skills 有变化
   }
 
   // 添加/移除 Flow 到 workflow_executor Skill 的 config
@@ -256,8 +255,8 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
       }
     }
 
-    // 刷新 system prompt，让 Agent 知道新绑定的 Flow
-    autoGeneratePrompt(updatedAgent)
+    // 标记 skills 有变化，发送消息时再刷新 prompt
+    setSkillsDirty(true)
   }
 
   // 判断 Skill 是否需要绑定 Flows
@@ -274,7 +273,15 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
   // 自动生成系统提示词，生成完后自动同步到后端
   const autoGeneratePrompt = async (currentAgent: Agent) => {
-    if (currentAgent.skills.length === 0) return
+    // 如果没有 skills，清空 prompt
+    if (currentAgent.skills.length === 0) {
+      const updated = { ...currentAgent, system_prompt: '' }
+      setAgent(updated)
+      if (agentId) {
+        await updateAgent(agentId, updated)
+      }
+      return
+    }
 
     setGenerating(true)
     try {
@@ -375,6 +382,12 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
     if (!agentId) {
       alert('请先保存 Agent 后再进行对话')
       return
+    }
+
+    // 如果 skills 有变化，先刷新 prompt 再发送
+    if (skillsDirty) {
+      await autoGeneratePrompt(agent)
+      setSkillsDirty(false)
     }
 
     const userMessage: ChatMessage = {

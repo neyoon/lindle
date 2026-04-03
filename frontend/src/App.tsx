@@ -22,11 +22,12 @@ import { ManufacturePage } from './components/blocks/ManufacturePage'
 import { WorkflowListPage } from './components/WorkflowListPage'
 import { AgentListPage } from './components/AgentListPage'
 import { AgentEditorPage } from './components/AgentEditorPage'
+import { SkillLibraryPage } from './components/SkillLibraryPage'
 import { SettingsPage } from './components/SettingsPage'
 import { useWorkflowStore } from './stores/workflow'
 import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent } from './api/client'
 
-type Page = 'home' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor'
+type Page = 'home' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
@@ -149,6 +150,15 @@ export default function App() {
           }
         }}
         onBack={() => setPage('home')}
+        onOpenSkillLibrary={() => setPage('skill-library')}
+      />
+    )
+  }
+
+  if (page === 'skill-library') {
+    return (
+      <SkillLibraryPage
+        onBack={() => setPage('agent-list')}
       />
     )
   }

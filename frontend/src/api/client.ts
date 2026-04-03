@@ -261,3 +261,18 @@ export async function deleteCustomSkill(skillId: string) {
   })
 }
 
+export async function exportFlowsToSkill(
+  flowIds: string[],
+  skillName?: string,
+  skillDescription?: string
+) {
+  return request<{ ok: boolean; skill: any }>('/plugins/generate-flow-skill', {
+    method: 'POST',
+    body: JSON.stringify({
+      flow_ids: flowIds,
+      skill_name: skillName,
+      skill_description: skillDescription,
+    }),
+  })
+}
+

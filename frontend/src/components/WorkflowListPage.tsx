@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, Clock, Workflow, FileCode, Settings, Puzzle, Factory } from 'lucide-react'
-import { listWorkflows, deleteWorkflow } from '@/api/client'
+import { listWorkflows, deleteWorkflow, exportFlowsToSkill } from '@/api/client'
 
 interface WorkflowSummary {
   id: string
@@ -30,6 +30,8 @@ interface Props {
 export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenManufacture, onOpenSettings, onBack }: Props) {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isExporting, setIsExporting] = useState(false)
 
   const loadWorkflows = async () => {
     try {
@@ -52,8 +54,39 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
     try {
       await deleteWorkflow(id)
       setWorkflows((prev) => prev.filter((w) => w.id !== id))
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     } catch (e) {
       alert(`删除失败: ${e}`)
+    }
+  }
+
+  const handleToggleSelect = (id: string, e: React.MouseEvent | React.ChangeEvent) => {
+    e.stopPropagation()
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleExportToSkill = async () => {
+    const skillName = prompt('请输入 Skill 名称（留空使用默认名称）:')
+    if (skillName === null) return
+
+    setIsExporting(true)
+    try {
+      await exportFlowsToSkill(Array.from(selectedIds), skillName || undefined)
+      alert('Skill 创建成功！可在 Agent 编辑页中使用。')
+      setSelectedIds(new Set())
+    } catch (e) {
+      alert(`创建失败: ${e}`)
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -126,6 +159,31 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
             )}
           </div>
 
+          {/* 批量操作栏 */}
+          {selectedIds.size > 0 && (
+            <div className="mb-4 bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-center justify-between">
+              <span className="text-sm text-gray-700">
+                已选择 <strong>{selectedIds.size}</strong> 个工作流
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition"
+                >
+                  取消选择
+                </button>
+                <button
+                  onClick={handleExportToSkill}
+                  disabled={isExporting}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-sm text-white bg-sky-500 hover:bg-sky-600 rounded-lg transition disabled:opacity-50"
+                >
+                  <FileCode size={16} />
+                  {isExporting ? '导出中...' : '导出为 Skill'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 工作流列表 */}
           {loading ? (
             <div className="text-center py-20">
@@ -153,6 +211,13 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(wf.id)}
+                        onChange={(e) => handleToggleSelect(wf.id, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                      />
                       <div className="w-10 h-10 shrink-0 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center">
                         <Workflow size={20} className="text-sky-500" />
                       </div>

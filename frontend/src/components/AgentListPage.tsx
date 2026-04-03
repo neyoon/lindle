@@ -24,9 +24,10 @@ interface Props {
   onOpen: (agentId: string) => void
   onCreateNew: () => void
   onBack: () => void
+  onOpenSkillLibrary?: () => void
 }
 
-export function AgentListPage({ onOpen, onCreateNew, onBack }: Props) {
+export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary }: Props) {
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -73,14 +74,25 @@ export function AgentListPage({ onOpen, onCreateNew, onBack }: Props) {
             <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">Beta</span>
           </h1>
         </div>
-        {agents.length > 0 && (
-          <button
-            onClick={onCreateNew}
-            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition shadow-sm"
-          >
-            创建 Agent
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onOpenSkillLibrary && (
+            <button
+              onClick={onOpenSkillLibrary}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
+            >
+              <Wrench size={16} />
+              Skill 库
+            </button>
+          )}
+          {agents.length > 0 && (
+            <button
+              onClick={onCreateNew}
+              className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition shadow-sm"
+            >
+              创建 Agent
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 内容区 */}
