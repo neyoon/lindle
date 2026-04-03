@@ -482,9 +482,22 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
             }
             toolExecutingMessage = statusMsg
             setMessages(prev => [...prev, statusMsg])
+          } else if (event.data.status === 'completed' || event.data.status === 'failed') {
+            // 工具执行完成或失败，移除提示消息
+            if (toolExecutingMessage) {
+              setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
+              toolExecutingMessage = null
+            }
           }
         } else if (event.type === 'message') {
           console.log('Message:', event.data)
+
+          // 如果收到任何消息且有工具执行提示，先移除它
+          if (toolExecutingMessage && event.data.role !== 'tool_call') {
+            setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
+            toolExecutingMessage = null
+          }
+
           const msg: ChatMessage = {
             role: event.data.role,
             content: event.data.content,
@@ -499,16 +512,16 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
             isStreaming = false
             currentContent = ''
           } else {
-            // 如果有工具执行提示消息，先移除它
-            if (toolExecutingMessage && msg.role === 'tool_result') {
-              setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
-              toolExecutingMessage = null
-            }
             setMessages(prev => [...prev, msg])
             allMessages.push(msg)
           }
         } else if (event.type === 'error') {
           console.error('Error event:', event.data)
+          // 移除工具执行提示
+          if (toolExecutingMessage) {
+            setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
+            toolExecutingMessage = null
+          }
           const errorMsg: ChatMessage = {
             role: 'assistant',
             content: `错误：${event.data?.message || '未知错误'}`,
@@ -518,6 +531,11 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
           break
         } else if (event.type === 'done') {
           console.log('Done')
+          // 确保移除工具执行提示
+          if (toolExecutingMessage) {
+            setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
+            toolExecutingMessage = null
+          }
           break
         }
       }

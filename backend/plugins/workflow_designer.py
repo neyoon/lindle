@@ -95,7 +95,6 @@ class WorkflowDesignerSkill(BasePlugin):
 
             # 使用 AI 编辑功能生成工作流内容
             # 导入 AI 编辑相关模块
-            import httpx
             from api.routes.settings import get_ai_edit_provider
             from shared_llm import _config
 
@@ -123,44 +122,37 @@ class WorkflowDesignerSkill(BasePlugin):
             plugins_info = _build_plugins_info()
             workflow_json = workflow.model_dump_json(indent=2)
 
+            # 强制要求 JSON 输出
+            system_prompt = _AI_EDIT_SYSTEM_PROMPT + plugins_info + "\n\n**重要：你必须只返回有效的 JSON 对象，不要包含任何其他内容。**"
+
             messages = [
-                {"role": "system", "content": _AI_EDIT_SYSTEM_PROMPT + plugins_info},
+                {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
                     "content": f"当前工作流 JSON：\n{workflow_json}\n\n修改指令：{instruction}",
                 },
             ]
 
-            # 调用 LLM 生成工作流
-            full_text = ""
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                is_reasoning_model = "o1" in model.lower() or "o3" in model.lower()
-                request_body = {
-                    "model": model,
-                    "messages": messages,
-                    "temperature": 0.3,
-                    "stream": True,
-                }
-                if not is_reasoning_model:
-                    request_body["response_format"] = {"type": "json_object"}
+            # 调用 LLM 生成工作流（使用非流式调用，更稳定）
+            from shared_llm import call_llm_with_messages
 
-                async with client.stream(
-                    "POST",
-                    f"{base_url}/chat/completions",
-                    json=request_body,
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                ) as resp:
-                    resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: ") or line == "data: [DONE]":
-                            continue
-                        try:
-                            chunk = json.loads(line[6:])
-                            delta = chunk["choices"][0].get("delta", {})
-                            if content := delta.get("content"):
-                                full_text += content
-                        except (json.JSONDecodeError, KeyError, IndexError):
-                            continue
+            try:
+                # 使用非流式调用，等待完整结果
+                result = await call_llm_with_messages(
+                    messages=messages,
+                    model=model,
+                    temperature=0.3,
+                    api_key=api_key,
+                    base_url=base_url,
+                )
+                full_text = result.get("content", "")
+            except Exception as e:
+                return {
+                    "success": False,
+                    "workflow_id": "",
+                    "workflow_name": "",
+                    "error": f"LLM 调用失败: {type(e).__name__} - {str(e)}",
+                }
 
             # 解析 JSON
             text = full_text.strip()
