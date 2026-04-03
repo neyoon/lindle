@@ -98,6 +98,7 @@ export default function App() {
       <HomePage
         onSelectFlow={() => setPage('flow-list')}
         onSelectAgent={() => setPage('agent-list')}
+        onOpenSettings={() => { settingsFrom.current = 'home'; setPage('settings') }}
       />
     )
   }
@@ -151,6 +152,7 @@ export default function App() {
         }}
         onBack={() => setPage('home')}
         onOpenSkillLibrary={() => setPage('skill-library')}
+        onOpenSettings={() => { settingsFrom.current = 'agent-list'; setPage('settings') }}
       />
     )
   }

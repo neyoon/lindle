@@ -1,21 +1,31 @@
 /**
  * 首页 - 选择进入 Flow 还是 Agent
  */
-import { Workflow, Sparkles, ArrowRight } from 'lucide-react'
+import { Workflow, Sparkles, ArrowRight, Settings } from 'lucide-react'
 
 interface Props {
   onSelectFlow: () => void
   onSelectAgent: () => void
+  onOpenSettings?: () => void
 }
 
-export function HomePage({ onSelectFlow, onSelectAgent }: Props) {
+export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props) {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-sky-50 to-blue-50">
       {/* 顶栏 */}
-      <div className="h-16 bg-white/80 backdrop-blur-sm border-b px-8 flex items-center shadow-sm">
+      <div className="h-16 bg-white/80 backdrop-blur-sm border-b px-8 flex items-center justify-between shadow-sm">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent">
           Tweak
         </h1>
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
+          >
+            <Settings size={16} />
+            设置
+          </button>
+        )}
       </div>
 
       {/* 内容区 */}

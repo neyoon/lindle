@@ -8,7 +8,7 @@
  * - 删除 Agent
  */
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Sparkles, Wrench } from 'lucide-react'
+import { Plus, Trash2, Sparkles, Wrench, Settings } from 'lucide-react'
 import { listAgents, deleteAgent } from '@/api/client'
 
 interface AgentSummary {
@@ -25,9 +25,10 @@ interface Props {
   onCreateNew: () => void
   onBack: () => void
   onOpenSkillLibrary?: () => void
+  onOpenSettings?: () => void
 }
 
-export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary }: Props) {
+export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary, onOpenSettings }: Props) {
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -75,6 +76,15 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary 
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
+            >
+              <Settings size={16} />
+              设置
+            </button>
+          )}
           {onOpenSkillLibrary && (
             <button
               onClick={onOpenSkillLibrary}
