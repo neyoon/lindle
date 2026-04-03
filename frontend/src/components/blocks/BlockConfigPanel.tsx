@@ -41,7 +41,7 @@ export function BlockConfigPanel() {
     if (!name) return
 
     const description = prompt('模板描述（可选）:', '') || ''
-    const icon = prompt('图标（可选，如 📊）:', '') || '📦'
+    const icon = prompt('图标（可选）:', '') || ''
 
     setSaving(true)
     try {
@@ -792,12 +792,12 @@ function InputConfig({ block }: { block: Block }) {
               </p>
               {otherFieldNames.has(field.name) && (
                 <p className="text-[10px] text-amber-600 font-medium mt-0.5">
-                  ⚠ 字段名「{field.name}」与其他 Input 块中的字段重复，运行时会互相覆盖
+                  字段名「{field.name}」与其他 Input 块中的字段重复，运行时会互相覆盖
                 </p>
               )}
               {fields.filter((f) => f.name === field.name).length > 1 && (
                 <p className="text-[10px] text-red-500 font-medium mt-0.5">
-                  ⚠ 当前块内存在同名字段，请修改
+                  当前块内存在同名字段，请修改
                 </p>
               )}
             </div>

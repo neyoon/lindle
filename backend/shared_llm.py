@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator
+from typing import Any
 
 import httpx
 
@@ -115,39 +115,6 @@ async def call_llm(
         return _parse_json_output(result_text)
 
     return result_text
-
-
-async def call_llm_stream(
-    prompt: str,
-    context: str = "",
-    model: str | None = None,
-    temperature: float = 0.7,
-) -> AsyncGenerator[str, None]:
-    """流式调用 LLM"""
-    model = model or _config.default_model
-
-    messages = [
-        {"role": "system", "content": "你是一个专业的 AI 助手。请根据用户的指令完成任务。"},
-        {"role": "user", "content": f"{prompt}\n\n---以下是上游数据---\n{context}" if context else prompt},
-    ]
-
-    async with httpx.AsyncClient(timeout=_config.timeout) as client:
-        async with client.stream(
-            "POST",
-            f"{_config.base_url}/chat/completions",
-            json={"model": model, "messages": messages, "temperature": temperature, "stream": True},
-            headers={"Authorization": f"Bearer {_config.api_key}", "Content-Type": "application/json"},
-        ) as response:
-            async for line in response.aiter_lines():
-                if line.startswith("data: ") and line != "data: [DONE]":
-                    try:
-                        chunk = json.loads(line[6:])
-                        delta = chunk["choices"][0].get("delta", {})
-                        if content := delta.get("content"):
-                            yield content
-                    except (json.JSONDecodeError, KeyError, IndexError):
-                        continue
-
 
 async def _call_api(
     messages: list[dict[str, str]],

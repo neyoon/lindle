@@ -143,13 +143,13 @@ export function AgentTestChat({ agentId, agentName }: Props) {
 
       {/* 提示 */}
       <div className="px-4 py-2 bg-yellow-50 border-b border-yellow-100 text-xs text-yellow-700">
-        ⚠️ 这是测试环境，用于验证 Agent 配置
+        这是测试环境，用于验证 Agent 配置
       </div>
 
       {/* Reasoning 展示 */}
       {reasoning && (
         <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700">
-          💭 思考：{reasoning.slice(0, 100)}{reasoning.length > 100 ? '...' : ''}
+          思考：{reasoning.slice(0, 100)}{reasoning.length > 100 ? '...' : ''}
         </div>
       )}
 
@@ -239,7 +239,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
           </div>
           {message.tool_calls?.map((tc, i) => (
             <div key={i} className="text-xs text-gray-700 space-y-1">
-              <div className="font-medium">🔧 {tc.name}</div>
+              <div className="font-medium">{tc.name}</div>
               <div className="text-gray-500">
                 参数: <code className="bg-white px-1 rounded">{tc.arguments?.slice(0, 50)}...</code>
               </div>

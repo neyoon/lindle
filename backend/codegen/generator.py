@@ -557,7 +557,7 @@ class Engine:
                 if step_type == "input":
                     # 输入步骤：数据已在 user_inputs 中
                     ctx.add_result(step["name"], user_inputs)
-                    print(f"  ✓ [{step['name']}] 输入已接收")
+                    print(f"  [{step['name']}] 输入已接收")
 
                 elif step_type == "ai":
                     # AI 步骤：调用 run 函数
@@ -566,13 +566,13 @@ class Engine:
                     result = await run_fn(upstream)
                     ctx.add_result(step["name"], result)
                     elapsed = time.time() - start
-                    print(f"  ✓ [{step['name']}] 完成 ({elapsed:.1f}s)")
+                    print(f"  [{step['name']}] 完成 ({elapsed:.1f}s)")
 
                 elif step_type == "output":
                     # 输出步骤：透传上游数据
                     upstream_text = ctx.get_upstream_text()
                     ctx.add_result(step["name"], upstream_text)
-                    print(f"  ✓ [{step['name']}] 输出就绪")
+                    print(f"  [{step['name']}] 输出就绪")
 
             return {
                 "success": True,

@@ -91,7 +91,7 @@ class CustomSkillRequest(BaseModel):
     id: str
     name: str
     description: str
-    icon: str = "🔧"
+    icon: str = ""
     code: str
     input_schema: dict = {}
     output_schema: dict = {}

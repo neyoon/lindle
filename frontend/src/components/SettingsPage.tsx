@@ -312,7 +312,7 @@ export function SettingsPage({ onBack }: Props) {
             <div className="mt-8 bg-white rounded-xl border-2 border-violet-100 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-sm">
-                  ✨
+                  AI
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-violet-700">AI 编辑 Provider</h3>

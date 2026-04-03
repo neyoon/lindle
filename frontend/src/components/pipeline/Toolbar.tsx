@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
-import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode, previewCode } from '@/api/client'
+import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode } from '@/api/client'
 import type { Workflow, Block } from '@/types/workflow'
 
 const API_BASE = '/api'

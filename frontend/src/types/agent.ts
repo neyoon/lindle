@@ -35,8 +35,3 @@ export interface ToolCallInfo {
   name: string
   arguments: string
 }
-
-export interface ChatResponse {
-  messages: ChatMessage[]
-  reasoning: string
-}

@@ -28,7 +28,7 @@ export function SkillEditor({ onClose, onSave, initialSkill }: Props) {
       id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       name: '',
       description: '',
-      icon: '🔧',
+      icon: '',
       code: `# 处理输入数据并返回结果
 # input_data: 输入的字符串
 # config: 配置参数（字典）
@@ -120,7 +120,7 @@ result = {
                 value={skill.icon}
                 onChange={(e) => setSkill({ ...skill, icon: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="🔧"
+                placeholder="图标"
               />
             </div>
           </div>

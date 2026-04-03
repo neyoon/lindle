@@ -57,12 +57,3 @@ class ChatMessage(BaseModel):
         default=None,
         description="工具名称（role=tool_result 时使用）",
     )
-
-
-class ToolCall(BaseModel):
-    """工具调用记录"""
-
-    skill_id: str = Field(description="Skill ID")
-    skill_name: str = Field(description="Skill 名称")
-    input: str = Field(description="输入数据")
-    output: str = Field(description="输出结果")

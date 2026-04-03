@@ -46,13 +46,6 @@ export async function deleteWorkflow(id: string) {
   return request(`/workflows/${id}`, { method: 'DELETE' })
 }
 
-export async function aiEditWorkflow(id: string, instruction: string) {
-  return request<Workflow>(`/workflows/${id}/ai-edit`, {
-    method: 'POST',
-    body: JSON.stringify({ instruction }),
-  })
-}
-
 // ===== Execution =====
 
 export async function runWorkflow(id: string, inputs: Record<string, unknown>) {
@@ -63,12 +56,6 @@ export async function runWorkflow(id: string, inputs: Record<string, unknown>) {
 }
 
 // ===== Code Generation =====
-
-export async function previewCode(id: string) {
-  return request<{ project_name: string; files: Record<string, string> }>(`/codegen/${id}/preview`, {
-    method: 'POST',
-  })
-}
 
 export async function downloadCode(id: string) {
   const response = await fetch(`${BASE}/codegen/${id}/download`, { method: 'POST' })
