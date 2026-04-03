@@ -264,8 +264,9 @@ async def call_llm_with_messages_stream(
                 "Content-Type": "application/json",
             },
         ) as response:
+            print(f"[shared_llm] 收到响应，状态码: {response.status_code}")
             response.raise_for_status()
-            print(f"[shared_llm] 开始读取流式响应...")
+            print(f"[shared_llm] 状态检查通过，开始读取流式响应...")
 
             full_content = ""
             full_reasoning = ""
