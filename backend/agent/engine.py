@@ -65,6 +65,7 @@ class AgentEngine:
                     tools=tools,
                     **provider_config,
                 ):
+                    print(f"[Agent] 收到 chunk: type={chunk['type']}")
                     if chunk["type"] == "reasoning":
                         # 实时发送 reasoning
                         full_reasoning += chunk["data"]
@@ -75,6 +76,7 @@ class AgentEngine:
                     elif chunk["type"] == "content":
                         # 实时发送 content
                         full_content += chunk["data"]
+                        print(f"[Agent] 收到 content: {len(chunk['data'])} 字符, 累计: {len(full_content)}")
                         yield {
                             "type": "content",
                             "data": chunk["data"],
@@ -89,6 +91,7 @@ class AgentEngine:
                 if not tool_calls:
                     # 没有工具调用 → 最终回复（已经通过 content 流式发送）
                     # 发送完整的 assistant 消息
+                    print(f"[Agent] 最终回复，content 长度: {len(full_content)}")
                     msg = ChatMessage(role="assistant", content=full_content)
                     yield {
                         "type": "message",
