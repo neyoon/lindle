@@ -69,7 +69,6 @@ class AgentEngine:
                     if done_received:
                         # done 之后忽略意外增量，等待底层 generator 自然结束
                         continue
-                    print(f"[Agent] 收到 chunk: type={chunk['type']}")
                     if chunk["type"] == "reasoning":
                         # 实时发送 reasoning
                         full_reasoning += chunk["data"]
@@ -80,7 +79,6 @@ class AgentEngine:
                     elif chunk["type"] == "content":
                         # 实时发送 content
                         full_content += chunk["data"]
-                        print(f"[Agent] 收到 content: {len(chunk['data'])} 字符, 累计: {len(full_content)}")
                         yield {
                             "type": "content",
                             "data": chunk["data"],
@@ -94,14 +92,12 @@ class AgentEngine:
                         done_received = True
                         # 不要 break，让 generator 自然结束，确保资源被正确释放
 
-                print(f"[Agent] LLM 调用完成，done_received={done_received}")
                 if not done_received:
                     raise RuntimeError("LLM 流式响应未正常结束（未收到 done 事件）")
 
                 if not tool_calls:
                     # 没有工具调用 → 最终回复（已经通过 content 流式发送）
                     # 发送完整的 assistant 消息
-                    print(f"[Agent] 最终回复，content 长度: {len(full_content)}")
                     msg = ChatMessage(role="assistant", content=full_content)
                     yield {
                         "type": "message",
@@ -176,7 +172,6 @@ class AgentEngine:
                                 }
                             }
                         elif event["type"] == "result":
-                            print(f"[Agent] 收到工具结果")
                             tool_result = event["data"]
 
                     tool_result_str = (
@@ -221,7 +216,6 @@ class AgentEngine:
                 }
 
             yield {"type": "done", "data": None}
-            print(f"[Agent] chat_stream 完成")
 
         except Exception as e:
             logger.exception("Agent 执行失败")

@@ -233,13 +233,9 @@ async def call_llm_with_messages_stream(
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
 
-    print(f"[shared_llm] call_llm_with_messages_stream: model={effective_model}, base_url={effective_url}")
-
     try:
         # 暂时不使用全局客户端，每次创建新的，避免连接池问题
-        print(f"[shared_llm] 创建新的 httpx 客户端")
         client = httpx.AsyncClient(timeout=_config.timeout)
-        print(f"[shared_llm] 客户端创建完成")
         payload = {
             "model": effective_model,
             "messages": messages,
@@ -256,8 +252,6 @@ async def call_llm_with_messages_stream(
         # if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
         #     payload["enable_thinking"] = True
 
-        print(f"[shared_llm] 准备发送流式请求...")
-
         async with client:  # 确保客户端会被正确关闭
             stream_context = client.stream(
                 "POST",
@@ -269,12 +263,8 @@ async def call_llm_with_messages_stream(
                 },
             )
 
-            print(f"[shared_llm] 创建了 stream context，准备进入 async with...")
-
             async with stream_context as response:
-                print(f"[shared_llm] 进入 async with，收到响应，状态码: {response.status_code}")
                 response.raise_for_status()
-                print(f"[shared_llm] 状态检查通过，开始读取流式响应...")
 
                 full_content = ""
                 full_reasoning = ""
@@ -285,13 +275,10 @@ async def call_llm_with_messages_stream(
                 line_count = 0
                 async for line in response.aiter_lines():
                     line_count += 1
-                    if line_count % 10 == 0:
-                        print(f"[shared_llm] 已读取 {line_count} 行")
 
                     if not line.startswith("data: "):
                         continue
                     if line == "data: [DONE]":
-                        print(f"[shared_llm] 收到 [DONE] 信号")
                         got_done_signal = True
                         break
 
@@ -307,14 +294,14 @@ async def call_llm_with_messages_stream(
 
                         choices = data.get("choices") if isinstance(data, dict) else None
                         if not choices or not isinstance(choices, list):
-                            print(f"[shared_llm] 非标准流式帧，已忽略: {line[:120]}")
+                            logger.debug("忽略非标准流式帧: %s", line[:120])
                             continue
 
                         delta = choices[0].get("delta", {})
 
                         # 打印前几个 delta 看看结构
                         if line_count <= 5:
-                            print(f"[shared_llm] delta #{line_count}: {delta}")
+                            logger.debug("stream delta #%d: %s", line_count, delta)
 
                         # 处理 reasoning
                         if reasoning := delta.get("reasoning_content"):
@@ -350,10 +337,8 @@ async def call_llm_with_messages_stream(
                                         tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
 
                     except json.JSONDecodeError as e:
-                        print(f"[shared_llm] 解析行失败: {e}, line={line[:100]}")
+                        logger.debug("解析流式行失败: %s, line=%s", e, line[:100])
                         continue
-
-                print(f"[shared_llm] 流式读取完成，共 {line_count} 行，内容长度 {len(full_content)}")
 
                 # 转换累积的 tool_calls 为列表
                 tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
@@ -379,14 +364,11 @@ async def call_llm_with_messages_stream(
                         },
                     }
 
-            # async with client 块结束，客户端会自动关闭
-            print(f"[shared_llm] 退出 async with client 块")
-
     except httpx.HTTPError as e:
-        print(f"[shared_llm] HTTP error: {type(e).__name__}: {str(e)}")
+        logger.exception("shared_llm HTTP error: %s", e)
         raise
     except Exception as e:
-        print(f"[shared_llm] Error: {type(e).__name__}: {str(e)}")
+        logger.exception("shared_llm error: %s", e)
         raise
 
 

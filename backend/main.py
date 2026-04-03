@@ -52,7 +52,7 @@ def main():
         host=host,
         port=port,
         reload=dev,
-        log_level="debug",  # 显示详细日志
+        log_level="info",  # 默认使用较低噪音日志级别
         access_log=True,
     )
 

@@ -203,13 +203,11 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
         import logging
 
         log = logging.getLogger(__name__)
-        print(f"[SSE] 开始生成事件流，agent_id={agent_id}")
 
         try:
             async for event in engine.chat_stream(req.message, history):
                 # event 格式: {"type": "reasoning"|"message"|"done", "data": ...}
                 event_json = json.dumps(event, ensure_ascii=False)
-                log.debug(f"SSE event: {event_json[:200]}")
                 yield f"data: {event_json}\n\n"
         except Exception as e:
             log.exception("Agent 流式对话失败")
@@ -218,8 +216,6 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
                 "data": {"message": str(e)}
             }
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
-        finally:
-            print(f"[SSE] 事件流结束，agent_id={agent_id}")
 
     return StreamingResponse(
         event_generator(),
