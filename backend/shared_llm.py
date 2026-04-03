@@ -233,39 +233,43 @@ async def call_llm_with_messages_stream(
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
 
-    client = _get_client()
-    payload = {
-        "model": effective_model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": True,
-    }
+    print(f"[shared_llm] call_llm_with_messages_stream: model={effective_model}, base_url={effective_url}")
+    logger.info(f"call_llm_with_messages_stream: model={effective_model}, base_url={effective_url}")
 
-    if tools:
-        payload["tools"] = tools
-        if tool_choice != "auto":
-            payload["tool_choice"] = tool_choice
+    try:
+        client = _get_client()
+        payload = {
+            "model": effective_model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True,
+        }
 
-    # 阿里云 Qwen 模型支持思考模式
-    if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
-        payload["enable_thinking"] = True
+        if tools:
+            payload["tools"] = tools
+            if tool_choice != "auto":
+                payload["tool_choice"] = tool_choice
 
-    async with client.stream(
-        "POST",
-        f"{effective_url}/chat/completions",
-        json=payload,
-        headers={
-            "Authorization": f"Bearer {effective_key}",
-            "Content-Type": "application/json",
-        },
-    ) as response:
-        response.raise_for_status()
+        # 阿里云 Qwen 模型支持思考模式
+        if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
+            payload["enable_thinking"] = True
 
-        full_content = ""
-        full_reasoning = ""
-        tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
+        async with client.stream(
+            "POST",
+            f"{effective_url}/chat/completions",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {effective_key}",
+                "Content-Type": "application/json",
+            },
+        ) as response:
+            response.raise_for_status()
 
-        async for line in response.aiter_lines():
+            full_content = ""
+            full_reasoning = ""
+            tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
+
+            async for line in response.aiter_lines():
             if not line.startswith("data: "):
                 continue
             if line == "data: [DONE]":
@@ -323,6 +327,14 @@ async def call_llm_with_messages_stream(
                 "tool_calls": tool_calls_data or None,
             },
         }
+    except httpx.HTTPError as e:
+        print(f"[shared_llm] HTTP error: {type(e).__name__}: {str(e)}")
+        logger.error(f"call_llm_with_messages_stream HTTP error: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise
+    except Exception as e:
+        print(f"[shared_llm] Error: {type(e).__name__}: {str(e)}")
+        logger.error(f"call_llm_with_messages_stream error: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise
 
 
 async def call_llm_with_messages(

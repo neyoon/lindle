@@ -10,11 +10,22 @@ LLM 配置加载优先级:
 """
 
 import os
+import logging
+import sys
 
 import uvicorn
 
 from api.routes.settings import init_settings, get_default_provider
 from shared_llm import configure as configure_llm
+
+# 配置日志输出到标准输出
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 
 def main():
@@ -41,6 +52,8 @@ def main():
         host=host,
         port=port,
         reload=dev,
+        log_level="debug",  # 显示详细日志
+        access_log=True,
     )
 
 
