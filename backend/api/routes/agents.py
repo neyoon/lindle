@@ -11,7 +11,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agent.models import Agent, AgentSkill, ChatMessage
 from agent.engine import AgentEngine
@@ -154,7 +154,7 @@ class ChatRequest(BaseModel):
     """对话请求"""
 
     message: str
-    history: list[dict] = []  # [{"role": "user", "content": "..."}, ...]
+    history: list[dict] = Field(default_factory=list)  # [{"role": "user", "content": "..."}, ...]
 
 
 class ChatResponse(BaseModel):
@@ -203,6 +203,7 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
         import logging
 
         log = logging.getLogger(__name__)
+        print(f"[SSE] 开始生成事件流，agent_id={agent_id}")
 
         try:
             async for event in engine.chat_stream(req.message, history):
@@ -217,6 +218,8 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
                 "data": {"message": str(e)}
             }
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+        finally:
+            print(f"[SSE] 事件流结束，agent_id={agent_id}")
 
     return StreamingResponse(
         event_generator(),

@@ -236,8 +236,10 @@ async def call_llm_with_messages_stream(
     print(f"[shared_llm] call_llm_with_messages_stream: model={effective_model}, base_url={effective_url}")
 
     try:
-        client = _get_client()
-        print(f"[shared_llm] 获取到 httpx 客户端")
+        # 暂时不使用全局客户端，每次创建新的，避免连接池问题
+        print(f"[shared_llm] 创建新的 httpx 客户端")
+        client = httpx.AsyncClient(timeout=_config.timeout)
+        print(f"[shared_llm] 客户端创建完成")
         payload = {
             "model": effective_model,
             "messages": messages,
@@ -256,98 +258,130 @@ async def call_llm_with_messages_stream(
 
         print(f"[shared_llm] 准备发送流式请求...")
 
-        stream_context = client.stream(
-            "POST",
-            f"{effective_url}/chat/completions",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {effective_key}",
-                "Content-Type": "application/json",
-            },
-        )
-
-        print(f"[shared_llm] 创建了 stream context，准备进入 async with...")
-
-        async with stream_context as response:
-            print(f"[shared_llm] 进入 async with，收到响应，状态码: {response.status_code}")
-            response.raise_for_status()
-            print(f"[shared_llm] 状态检查通过，开始读取流式响应...")
-
-            full_content = ""
-            full_reasoning = ""
-            tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
-
-            line_count = 0
-            async for line in response.aiter_lines():
-                line_count += 1
-                if line_count % 10 == 0:
-                    print(f"[shared_llm] 已读取 {line_count} 行")
-
-                if not line.startswith("data: "):
-                    continue
-                if line == "data: [DONE]":
-                    print(f"[shared_llm] 收到 [DONE] 信号")
-                    break
-
-                try:
-                    data = json.loads(line[6:])
-                    delta = data["choices"][0].get("delta", {})
-
-                    # 打印前几个 delta 看看结构
-                    if line_count <= 5:
-                        print(f"[shared_llm] delta #{line_count}: {delta}")
-
-                    # 处理 reasoning
-                    if reasoning := delta.get("reasoning_content"):
-                        full_reasoning += reasoning
-                        yield {"type": "reasoning", "data": reasoning}
-
-                    # 处理 content
-                    if content := delta.get("content"):
-                        full_content += content
-                        yield {"type": "content", "data": content}
-
-                    # 处理 tool_calls（增量累积）
-                    if tool_calls_delta := delta.get("tool_calls"):
-                        for tc_delta in tool_calls_delta:
-                            index = tc_delta.get("index", 0)
-                            if index not in tool_calls_accumulator:
-                                tool_calls_accumulator[index] = {
-                                    "id": "",
-                                    "type": "function",
-                                    "function": {"name": "", "arguments": ""}
-                                }
-
-                            # 累积各个字段
-                            if "id" in tc_delta:
-                                tool_calls_accumulator[index]["id"] += tc_delta["id"]
-                            if "type" in tc_delta:
-                                tool_calls_accumulator[index]["type"] = tc_delta["type"]
-                            if "function" in tc_delta:
-                                func_delta = tc_delta["function"]
-                                if "name" in func_delta:
-                                    tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
-                                if "arguments" in func_delta:
-                                    tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
-
-                except (json.JSONDecodeError, KeyError, IndexError) as e:
-                    print(f"[shared_llm] 解析行失败: {e}, line={line[:100]}")
-                    continue
-
-            print(f"[shared_llm] 流式读取完成，共 {line_count} 行，内容长度 {len(full_content)}")
-
-            # 转换累积的 tool_calls 为列表
-            tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
-
-            # 返回完整结果
-            yield {
-                "type": "done",
-                "data": {
-                    "content": full_content,
-                    "reasoning": full_reasoning or None,
-                    "tool_calls": tool_calls_data or None,
+        async with client:  # 确保客户端会被正确关闭
+            stream_context = client.stream(
+                "POST",
+                f"{effective_url}/chat/completions",
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {effective_key}",
+                    "Content-Type": "application/json",
                 },
-            }
+            )
+
+            print(f"[shared_llm] 创建了 stream context，准备进入 async with...")
+
+            async with stream_context as response:
+                print(f"[shared_llm] 进入 async with，收到响应，状态码: {response.status_code}")
+                response.raise_for_status()
+                print(f"[shared_llm] 状态检查通过，开始读取流式响应...")
+
+                full_content = ""
+                full_reasoning = ""
+                tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
+                done_emitted = False
+                got_done_signal = False
+
+                line_count = 0
+                async for line in response.aiter_lines():
+                    line_count += 1
+                    if line_count % 10 == 0:
+                        print(f"[shared_llm] 已读取 {line_count} 行")
+
+                    if not line.startswith("data: "):
+                        continue
+                    if line == "data: [DONE]":
+                        print(f"[shared_llm] 收到 [DONE] 信号")
+                        got_done_signal = True
+                        break
+
+                    try:
+                        data = json.loads(line[6:])
+
+                        # Provider 流式错误帧（例如 DashScope 会返回 {"error": {...}}）
+                        if isinstance(data, dict) and data.get("error"):
+                            err = data["error"] or {}
+                            code = err.get("code", "provider_error")
+                            msg = err.get("message", "未知错误")
+                            raise RuntimeError(f"LLM provider error ({code}): {msg}")
+
+                        choices = data.get("choices") if isinstance(data, dict) else None
+                        if not choices or not isinstance(choices, list):
+                            print(f"[shared_llm] 非标准流式帧，已忽略: {line[:120]}")
+                            continue
+
+                        delta = choices[0].get("delta", {})
+
+                        # 打印前几个 delta 看看结构
+                        if line_count <= 5:
+                            print(f"[shared_llm] delta #{line_count}: {delta}")
+
+                        # 处理 reasoning
+                        if reasoning := delta.get("reasoning_content"):
+                            full_reasoning += reasoning
+                            yield {"type": "reasoning", "data": reasoning}
+
+                        # 处理 content
+                        if content := delta.get("content"):
+                            full_content += content
+                            yield {"type": "content", "data": content}
+
+                        # 处理 tool_calls（增量累积）
+                        if tool_calls_delta := delta.get("tool_calls"):
+                            for tc_delta in tool_calls_delta:
+                                index = tc_delta.get("index", 0)
+                                if index not in tool_calls_accumulator:
+                                    tool_calls_accumulator[index] = {
+                                        "id": "",
+                                        "type": "function",
+                                        "function": {"name": "", "arguments": ""}
+                                    }
+
+                                # 累积各个字段
+                                if "id" in tc_delta:
+                                    tool_calls_accumulator[index]["id"] += tc_delta["id"]
+                                if "type" in tc_delta:
+                                    tool_calls_accumulator[index]["type"] = tc_delta["type"]
+                                if "function" in tc_delta:
+                                    func_delta = tc_delta["function"]
+                                    if "name" in func_delta:
+                                        tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
+                                    if "arguments" in func_delta:
+                                        tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
+
+                    except json.JSONDecodeError as e:
+                        print(f"[shared_llm] 解析行失败: {e}, line={line[:100]}")
+                        continue
+
+                print(f"[shared_llm] 流式读取完成，共 {line_count} 行，内容长度 {len(full_content)}")
+
+                # 转换累积的 tool_calls 为列表
+                tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
+
+                # 防止把空响应误当成功，导致前端表现为“无回复”
+                if (
+                    not got_done_signal
+                    and not full_content
+                    and not full_reasoning
+                    and not tool_calls_data
+                ):
+                    raise RuntimeError("LLM 流式响应提前结束且无有效内容")
+
+                # 返回完整结果（防重：done 只发送一次）
+                if not done_emitted:
+                    done_emitted = True
+                    yield {
+                        "type": "done",
+                        "data": {
+                            "content": full_content,
+                            "reasoning": full_reasoning or None,
+                            "tool_calls": tool_calls_data or None,
+                        },
+                    }
+
+            # async with client 块结束，客户端会自动关闭
+            print(f"[shared_llm] 退出 async with client 块")
+
     except httpx.HTTPError as e:
         print(f"[shared_llm] HTTP error: {type(e).__name__}: {str(e)}")
         raise

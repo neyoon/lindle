@@ -3,9 +3,10 @@
 # MiniFlow 一键启动脚本
 #
 # 用法:
-#   ./start.sh          启动前端 + 后端（开发模式）
+#   ./start.sh          启动前端 + 后端（默认稳定模式，后端不热重载）
 #   ./start.sh stop     停止所有服务
 #   ./start.sh restart  重启所有服务
+#   BACKEND_DEV=1 ./start.sh   启动后端热重载（开发调试）
 #
 set -e
 
@@ -22,6 +23,8 @@ BACKEND_PID_FILE="$PID_DIR/backend.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
 BACKEND_LOG="$ROOT_DIR/.pids/backend.log"
 FRONTEND_LOG="$ROOT_DIR/.pids/frontend.log"
+# 后端是否启用热重载：默认关闭，避免流式会话被 StatReload 打断
+BACKEND_DEV="${BACKEND_DEV:-0}"
 
 # ---------- 工具函数 ----------
 
@@ -62,7 +65,12 @@ start_backend() {
   uv sync --quiet 2>/dev/null || true
 
   echo "[后端] 启动 (http://localhost:8000)..."
-  DEV=1 uv run python main.py > "$BACKEND_LOG" 2>&1 &
+  if [ "$BACKEND_DEV" = "1" ]; then
+    echo "[后端] 模式: 开发模式（热重载开启）"
+  else
+    echo "[后端] 模式: 稳定模式（热重载关闭）"
+  fi
+  DEV="$BACKEND_DEV" uv run python main.py > "$BACKEND_LOG" 2>&1 &
   local pid=$!
   echo "$pid" > "$BACKEND_PID_FILE"
   echo "[后端] 已启动 (PID: $pid, 日志: .pids/backend.log)"

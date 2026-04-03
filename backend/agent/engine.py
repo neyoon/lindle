@@ -59,12 +59,16 @@ class AgentEngine:
                 full_content = ""
                 full_reasoning = ""
                 tool_calls = None
+                done_received = False
 
                 async for chunk in call_llm_with_messages_stream(
                     messages=api_messages,
                     tools=tools,
                     **provider_config,
                 ):
+                    if done_received:
+                        # done 之后忽略意外增量，等待底层 generator 自然结束
+                        continue
                     print(f"[Agent] 收到 chunk: type={chunk['type']}")
                     if chunk["type"] == "reasoning":
                         # 实时发送 reasoning
@@ -87,6 +91,12 @@ class AgentEngine:
                         # 获取完整结果
                         result = chunk["data"]
                         tool_calls = result.get("tool_calls")
+                        done_received = True
+                        # 不要 break，让 generator 自然结束，确保资源被正确释放
+
+                print(f"[Agent] LLM 调用完成，done_received={done_received}")
+                if not done_received:
+                    raise RuntimeError("LLM 流式响应未正常结束（未收到 done 事件）")
 
                 if not tool_calls:
                     # 没有工具调用 → 最终回复（已经通过 content 流式发送）
@@ -97,6 +107,7 @@ class AgentEngine:
                         "type": "message",
                         "data": msg.model_dump(),
                     }
+                    # 退出主循环
                     break
 
                 # 有工具调用
@@ -210,6 +221,7 @@ class AgentEngine:
                 }
 
             yield {"type": "done", "data": None}
+            print(f"[Agent] chat_stream 完成")
 
         except Exception as e:
             logger.exception("Agent 执行失败")
@@ -411,39 +423,93 @@ class AgentEngine:
             messages.append({"role": "system", "content": system_content})
 
         # 历史消息 — 将 tool_call/tool_result 转换为 OpenAI 格式
-        for msg in history:
+        # 容错规则：
+        # 1) assistant(tool_calls) 必须和后续 tool(tool_call_id) 完整配对
+        # 2) 不完整或孤立的工具消息会被丢弃，避免 Provider 参数校验失败
+        pending_assistant_msg: dict[str, Any] | None = None
+        pending_tool_ids: set[str] = set()
+        pending_tool_results: list[dict[str, Any]] = []
+
+        idx = 0
+        while idx < len(history):
+            msg = history[idx]
+
+            # 正在等待 tool_result 配对
+            if pending_tool_ids:
+                if msg.role == "tool_result" and msg.tool_call_id in pending_tool_ids:
+                    pending_tool_results.append({
+                        "role": "tool",
+                        "tool_call_id": msg.tool_call_id,
+                        "content": msg.content,
+                    })
+                    pending_tool_ids.remove(msg.tool_call_id)
+
+                    # 配对完成后再提交这段 assistant+tool 对话
+                    if not pending_tool_ids and pending_assistant_msg is not None:
+                        messages.append(pending_assistant_msg)
+                        messages.extend(pending_tool_results)
+                        pending_assistant_msg = None
+                        pending_tool_results = []
+                else:
+                    # 当前消息打断了配对链：丢弃这段不完整 tool 链，并重试当前消息
+                    logger.warning("检测到不完整工具调用历史，已跳过该段无效 tool 链")
+                    pending_assistant_msg = None
+                    pending_tool_ids = set()
+                    pending_tool_results = []
+                    continue
+
+                idx += 1
+                continue
+
             if msg.role == "tool_call":
-                # 还原 assistant + tool_calls 消息
-                api_msg: dict[str, Any] = {
-                    "role": "assistant",
-                    "content": msg.content or None,
-                }
-                if msg.tool_calls:
-                    api_msg["tool_calls"] = [
-                        {
-                            "id": tc.get("id", ""),
-                            "type": "function",
-                            "function": {
-                                "name": tc.get("name", ""),
-                                "arguments": tc.get("arguments", "{}"),
-                            },
-                        }
-                        for tc in msg.tool_calls
-                    ]
-                messages.append(api_msg)
+                raw_tool_calls = msg.tool_calls or []
+                cleaned_tool_calls = []
+
+                for tc in raw_tool_calls:
+                    tc_id = tc.get("id", "").strip()
+                    func_name = tc.get("name", "").strip()
+                    arguments = tc.get("arguments", "{}")
+                    if not tc_id or not func_name:
+                        continue
+                    cleaned_tool_calls.append({
+                        "id": tc_id,
+                        "type": "function",
+                        "function": {
+                            "name": func_name,
+                            "arguments": arguments,
+                        },
+                    })
+
+                if cleaned_tool_calls:
+                    pending_assistant_msg = {
+                        "role": "assistant",
+                        "content": msg.content or None,
+                        "tool_calls": cleaned_tool_calls,
+                    }
+                    pending_tool_ids = {tc["id"] for tc in cleaned_tool_calls}
+                    pending_tool_results = []
+                elif msg.content:
+                    # tool_calls 不合法时，降级为普通 assistant 文本
+                    messages.append({
+                        "role": "assistant",
+                        "content": msg.content,
+                    })
 
             elif msg.role == "tool_result":
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": msg.tool_call_id or "",
-                    "content": msg.content,
-                })
+                # 没有对应 tool_call 的孤立结果，直接忽略
+                logger.warning("检测到孤立 tool_result，已忽略: tool_call_id=%s", msg.tool_call_id)
 
             elif msg.role in ("user", "assistant"):
                 messages.append({
                     "role": msg.role,
                     "content": msg.content,
                 })
+
+            idx += 1
+
+        # 结束时仍未闭合，说明 tool 链不完整，丢弃该段
+        if pending_tool_ids:
+            logger.warning("历史消息末尾存在未闭合 tool_calls，已丢弃该段")
 
         # 当前用户消息
         messages.append({"role": "user", "content": user_message})
