@@ -58,7 +58,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   const [chatLoading, setChatLoading] = useState(false)
   const [reasoning, setReasoning] = useState('')
   const [toolExecutingMessageIndex, setToolExecutingMessageIndex] = useState<number | null>(null) // 记录工具执行消息的索引
-  const [toolContentMessageIndex, setToolContentMessageIndex] = useState<number | null>(null) // 记录工具内容消息的索引
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动到底部
@@ -500,31 +499,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
               setToolExecutingMessageIndex(null)
             }
           }
-        } else if (event.type === 'tool_content') {
-          // 工具的流式内容输出
-          console.log('Tool content:', event.data)
-          const contentChunk = event.data.content
-
-          setMessages(prev => {
-            if (toolContentMessageIndex !== null) {
-              // 更新现有的内容消息
-              const newMessages = [...prev]
-              const existingMsg = newMessages[toolContentMessageIndex]
-              newMessages[toolContentMessageIndex] = {
-                ...existingMsg,
-                content: existingMsg.content + contentChunk
-              }
-              return newMessages
-            } else {
-              // 第一次显示内容，创建新消息
-              const contentMsg: ChatMessage = {
-                role: 'assistant',
-                content: contentChunk,
-              }
-              setToolContentMessageIndex(prev.length)
-              return [...prev, contentMsg]
-            }
-          })
         } else if (event.type === 'message') {
           console.log('Message:', event.data)
 
@@ -532,11 +506,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
           if (toolExecutingMessageIndex !== null && event.data.role !== 'tool_call') {
             setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
             setToolExecutingMessageIndex(null)
-          }
-
-          // 如果收到 tool_result，清理工具内容消息索引
-          if (event.data.role === 'tool_result' && toolContentMessageIndex !== null) {
-            setToolContentMessageIndex(null)
           }
 
           const msg: ChatMessage = {
@@ -576,10 +545,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
           if (toolExecutingMessageIndex !== null) {
             setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
             setToolExecutingMessageIndex(null)
-          }
-          // 清理工具内容索引
-          if (toolContentMessageIndex !== null) {
-            setToolContentMessageIndex(null)
           }
           break
         }

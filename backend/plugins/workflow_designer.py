@@ -165,9 +165,9 @@ class WorkflowDesignerSkill(BasePlugin):
             from shared_llm import call_llm_with_messages_stream
 
             full_text = ""
+            last_progress_length = 0
             try:
-                # 使用流式调用，实时显示生成内容
-                print(f"[workflow_designer] 开始流式调用 LLM, model={model}, base_url={base_url}")
+                # 使用流式调用，每 1000 字符显示一次进度
                 async for chunk in call_llm_with_messages_stream(
                     messages=messages,
                     model=model,
@@ -178,9 +178,13 @@ class WorkflowDesignerSkill(BasePlugin):
                     if chunk["type"] == "content":
                         content = chunk["data"]
                         full_text += content
-                        # 实时发送生成的内容片段
-                        print(f"[workflow_designer] 收到内容片段: {len(content)} 字符")
-                        yield {"type": "content", "data": content}
+
+                        # 每 1000 字符发送一次进度
+                        if len(full_text) - last_progress_length >= 1000:
+                            progress_msg = f"AI 正在生成工作流... ({len(full_text)} 字符)"
+                            print(f"[workflow_designer] {progress_msg}")
+                            yield {"type": "progress", "data": progress_msg}
+                            last_progress_length = len(full_text)
                     elif chunk["type"] == "done":
                         # 流式完成
                         print(f"[workflow_designer] LLM 流式调用完成，共生成 {len(full_text)} 字符")

@@ -249,9 +249,9 @@ async def call_llm_with_messages_stream(
             if tool_choice != "auto":
                 payload["tool_choice"] = tool_choice
 
-        # 阿里云 Qwen 模型支持思考模式
-        if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
-            payload["enable_thinking"] = True
+        # 阿里云 Qwen 模型支持思考模式（但会导致 content 为空，暂时禁用）
+        # if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
+        #     payload["enable_thinking"] = True
 
         async with client.stream(
             "POST",
