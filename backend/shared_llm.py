@@ -237,6 +237,7 @@ async def call_llm_with_messages_stream(
 
     try:
         client = _get_client()
+        print(f"[shared_llm] 获取到 httpx 客户端")
         payload = {
             "model": effective_model,
             "messages": messages,
@@ -253,6 +254,7 @@ async def call_llm_with_messages_stream(
         # if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
         #     payload["enable_thinking"] = True
 
+        print(f"[shared_llm] 准备发送流式请求...")
         async with client.stream(
             "POST",
             f"{effective_url}/chat/completions",
