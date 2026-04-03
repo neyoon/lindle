@@ -263,15 +263,22 @@ async def call_llm_with_messages_stream(
             },
         ) as response:
             response.raise_for_status()
+            print(f"[shared_llm] 开始读取流式响应...")
 
             full_content = ""
             full_reasoning = ""
             tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
 
+            line_count = 0
             async for line in response.aiter_lines():
+                line_count += 1
+                if line_count % 10 == 0:
+                    print(f"[shared_llm] 已读取 {line_count} 行")
+
                 if not line.startswith("data: "):
                     continue
                 if line == "data: [DONE]":
+                    print(f"[shared_llm] 收到 [DONE] 信号")
                     break
 
                 try:
@@ -311,8 +318,11 @@ async def call_llm_with_messages_stream(
                                 if "arguments" in func_delta:
                                     tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
 
-                except (json.JSONDecodeError, KeyError, IndexError):
+                except (json.JSONDecodeError, KeyError, IndexError) as e:
+                    print(f"[shared_llm] 解析行失败: {e}, line={line[:100]}")
                     continue
+
+            print(f"[shared_llm] 流式读取完成，共 {line_count} 行，内容长度 {len(full_content)}")
 
             # 转换累积的 tool_calls 为列表
             tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
