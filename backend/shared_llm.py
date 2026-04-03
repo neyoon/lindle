@@ -234,7 +234,6 @@ async def call_llm_with_messages_stream(
     effective_url = base_url or _config.base_url
 
     print(f"[shared_llm] call_llm_with_messages_stream: model={effective_model}, base_url={effective_url}")
-    logger.info(f"call_llm_with_messages_stream: model={effective_model}, base_url={effective_url}")
 
     try:
         client = _get_client()
@@ -329,11 +328,9 @@ async def call_llm_with_messages_stream(
             }
     except httpx.HTTPError as e:
         print(f"[shared_llm] HTTP error: {type(e).__name__}: {str(e)}")
-        logger.error(f"call_llm_with_messages_stream HTTP error: {type(e).__name__}: {str(e)}", exc_info=True)
         raise
     except Exception as e:
         print(f"[shared_llm] Error: {type(e).__name__}: {str(e)}")
-        logger.error(f"call_llm_with_messages_stream error: {type(e).__name__}: {str(e)}", exc_info=True)
         raise
 
 

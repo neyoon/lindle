@@ -151,6 +151,7 @@ class AgentEngine:
                     async for event in self._execute_tool_stream(
                         tool_name, arguments_str
                     ):
+                        print(f"[Agent] 收到工具事件: type={event['type']}")
                         if event["type"] == "progress":
                             # 转发工具的进度事件
                             yield {
@@ -163,6 +164,7 @@ class AgentEngine:
                             }
                         elif event["type"] == "content":
                             # 转发工具的内容流式输出
+                            print(f"[Agent] 转发工具内容: {len(event['data'])} 字符")
                             yield {
                                 "type": "tool_content",
                                 "data": {
@@ -171,6 +173,7 @@ class AgentEngine:
                                 }
                             }
                         elif event["type"] == "result":
+                            print(f"[Agent] 收到工具结果")
                             tool_result = event["data"]
 
                     tool_result_str = (

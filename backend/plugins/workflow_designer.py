@@ -101,10 +101,6 @@ class WorkflowDesignerSkill(BasePlugin):
             from datetime import datetime
             from storage.file_store import save_workflow
             from flow.models import Workflow
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.info("workflow_designer: 开始创建工作流")
 
             # 创建空白工作流
             workflow_id = f"wf_{int(datetime.now().timestamp() * 1000)}_{id(self) % 1000000}"
@@ -120,7 +116,6 @@ class WorkflowDesignerSkill(BasePlugin):
 
             yield {"type": "progress", "data": "正在调用 AI 生成工作流内容..."}
             print(f"[workflow_designer] 正在调用 AI 生成工作流内容...")
-            logger.info("workflow_designer: 开始调用 LLM")
 
             # 使用 AI 编辑功能生成工作流内容
             # 导入 AI 编辑相关模块
@@ -173,7 +168,6 @@ class WorkflowDesignerSkill(BasePlugin):
             try:
                 # 使用流式调用，实时显示生成内容
                 print(f"[workflow_designer] 开始流式调用 LLM, model={model}, base_url={base_url}")
-                logger.info(f"workflow_designer: 开始流式调用 LLM, model={model}, base_url={base_url}")
                 async for chunk in call_llm_with_messages_stream(
                     messages=messages,
                     model=model,
@@ -185,15 +179,14 @@ class WorkflowDesignerSkill(BasePlugin):
                         content = chunk["data"]
                         full_text += content
                         # 实时发送生成的内容片段
+                        print(f"[workflow_designer] 收到内容片段: {len(content)} 字符")
                         yield {"type": "content", "data": content}
                     elif chunk["type"] == "done":
                         # 流式完成
                         print(f"[workflow_designer] LLM 流式调用完成，共生成 {len(full_text)} 字符")
-                        logger.info(f"workflow_designer: LLM 流式调用完成，共生成 {len(full_text)} 字符")
                         break
             except Exception as e:
                 print(f"[workflow_designer] LLM 调用失败 - {type(e).__name__}: {str(e)}")
-                logger.error(f"workflow_designer: LLM 调用失败 - {type(e).__name__}: {str(e)}", exc_info=True)
                 yield {
                     "type": "result",
                     "data": {
