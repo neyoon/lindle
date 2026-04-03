@@ -52,6 +52,8 @@ async def call_llm(
     *,
     api_key: str | None = None,
     base_url: str | None = None,
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
 ) -> Any:
     """调用 LLM
 
@@ -61,11 +63,14 @@ async def call_llm(
         model: 模型名称，默认使用全局配置
         output_keys: 如果指定，要求 LLM 输出 JSON 格式
         temperature: 温度参数
-        api_key: 可选，覆盖全局 API Key（用于指定 Provider）
-        base_url: 可选，覆盖全局 Base URL（用于指定 Provider）
+        api_key: 可选，覆盖全局 API Key
+        base_url: 可选，覆盖全局 Base URL
+        tools: 可选，function calling 工具列表
+        tool_choice: 工具选择策略（auto/required/none）
 
     Returns:
-        LLM 的输出。如果指定了 output_keys，返回 dict；否则返回 str。
+        如果没有 tools：指定了 output_keys 返回 dict，否则返回 str
+        如果有 tools：返回 dict {"content", "tool_calls", "reasoning"}
     """
     effective_model = model or _config.default_model
     effective_key = api_key or _config.api_key
@@ -90,17 +95,22 @@ async def call_llm(
 
     user_message = "\n".join(user_parts)
 
-    # 调用 API
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
     ]
 
+    if tools:
+        result = await _call_api_with_tools(
+            messages, effective_model, temperature, tools, tool_choice,
+            api_key=effective_key, base_url=effective_url
+        )
+        return result
+
     result_text = await _call_api(
         messages, effective_model, temperature, api_key=effective_key, base_url=effective_url
     )
 
-    # 如果要求 JSON 输出，尝试解析
     if output_keys:
         return _parse_json_output(result_text)
 
@@ -167,6 +177,85 @@ async def _call_api(
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
+
+
+async def _call_api_with_tools(
+    messages: list[dict],
+    model: str,
+    temperature: float,
+    tools: list[dict],
+    tool_choice: str,
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> dict:
+    """调用 OpenAI 兼容 API（带 function calling）"""
+    effective_key = api_key or _config.api_key
+    effective_url = base_url or _config.base_url
+
+    async with httpx.AsyncClient(timeout=_config.timeout) as client:
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "tools": tools,
+        }
+
+        if tool_choice != "auto":
+            payload["tool_choice"] = tool_choice
+
+        response = await client.post(
+            f"{effective_url}/chat/completions",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {effective_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        message = data["choices"][0]["message"]
+
+        result = {
+            "content": message.get("content"),
+            "tool_calls": message.get("tool_calls"),
+            "reasoning": message.get("reasoning_content"),
+        }
+
+        return result
+
+
+async def call_llm_with_messages(
+    messages: list[dict],
+    model: str | None = None,
+    temperature: float = 0.7,
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> dict:
+    """直接使用消息列表调用 LLM（用于 Agent 多轮对话）"""
+    effective_model = model or _config.default_model
+    effective_key = api_key or _config.api_key
+    effective_url = base_url or _config.base_url
+
+    if tools:
+        return await _call_api_with_tools(
+            messages, effective_model, temperature, tools, tool_choice,
+            api_key=effective_key, base_url=effective_url
+        )
+
+    result_text = await _call_api(
+        messages, effective_model, temperature,
+        api_key=effective_key, base_url=effective_url
+    )
+    return {
+        "content": result_text,
+        "tool_calls": None,
+        "reasoning": None,
+    }
 
 
 def _parse_json_output(text: str) -> dict[str, Any]:

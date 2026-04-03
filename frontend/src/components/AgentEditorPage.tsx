@@ -57,7 +57,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   const [chatLoading, setChatLoading] = useState(false)
 
   // 推荐的 Skills（标记为推荐）
-  const recommendedSkillIds = ['analyst_soul'] // 可以根据需要添加更多
+  const recommendedSkillIds = ['workflow_executor', 'workflow_designer']
 
   // 加载数据
   useEffect(() => {
@@ -111,24 +111,31 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
   // 快速创建 Agent
   const handleQuickCreate = async () => {
-    // 自动添加推荐的 Skill
-    const recommendedSkill = availableSkills.find(s => s.meta.id === 'analyst_soul')
-    if (!recommendedSkill) return
+    // 自动添加推荐的 Skills
+    const skills: { skill_id: string; order: number; config: Record<string, string> }[] = []
+
+    const executor = availableSkills.find(s => s.meta.id === 'workflow_executor')
+    if (executor) {
+      skills.push({ skill_id: executor.meta.id, order: 0, config: {} })
+    }
+
+    const designer = availableSkills.find(s => s.meta.id === 'workflow_designer')
+    if (designer) {
+      skills.push({ skill_id: designer.meta.id, order: 1, config: {} })
+    }
+
+    if (skills.length === 0) return
 
     const newAgent = {
       ...agent,
-      name: '数据分析助手',
-      description: '帮你进行数据计算和分析',
-      skills: [{
-        skill_id: recommendedSkill.meta.id,
-        order: 0,
-        config: {},
-      }],
+      name: '智能助手',
+      description: '可以执行和创建工作流的智能助手',
+      skills,
     }
 
     setAgent(newAgent)
     await autoGeneratePrompt(newAgent)
-    alert('已快速创建数据分析助手！你可以继续添加更多 Skills 或直接保存。')
+    alert('已快速创建智能助手！你可以在 Flow 执行器中绑定已有的 Flow，或直接保存。')
   }
 
   // 保存 Agent
@@ -220,7 +227,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   }
 
   // 添加/移除 Flow 到 workflow_executor Skill 的 config
-  const handleToggleFlow = (skillId: string, flowId: string) => {
+  const handleToggleFlow = async (skillId: string, flowId: string) => {
     const skill = agent.skills.find(s => s.skill_id === skillId)
     if (!skill) return
 
@@ -229,14 +236,28 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
       ? currentFlows.filter(id => id !== flowId)
       : [...currentFlows, flowId]
 
-    setAgent({
+    const updatedAgent = {
       ...agent,
       skills: agent.skills.map(s =>
         s.skill_id === skillId
           ? { ...s, config: { ...s.config, flows: newFlows.join(',') } }
           : s
       ),
-    })
+    }
+
+    setAgent(updatedAgent)
+
+    // 自动保存到后端
+    if (agentId) {
+      try {
+        await updateAgent(agentId, updatedAgent)
+      } catch (e) {
+        console.error('保存失败:', e)
+      }
+    }
+
+    // 刷新 system prompt，让 Agent 知道新绑定的 Flow
+    autoGeneratePrompt(updatedAgent)
   }
 
   // 判断 Skill 是否需要绑定 Flows
@@ -259,10 +280,23 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
     try {
       const skillsInfo = currentAgent.skills.map(s => {
         const skill = availableSkills.find(sk => sk.meta.id === s.skill_id)
+        let description = skill?.meta.description || ''
+
+        // 如果是 workflow_executor，附上绑定的 Flow 名称
+        if (s.skill_id === 'workflow_executor' && s.config.flows) {
+          const flowNames = s.config.flows.split(',').filter(Boolean).map(fid => {
+            const flow = availableFlows.find(f => f.id === fid)
+            return flow ? flow.name : fid
+          })
+          if (flowNames.length > 0) {
+            description += `（已绑定: ${flowNames.join('、')}）`
+          }
+        }
+
         return {
           skill_id: s.skill_id,
           name: skill?.meta.name || '',
-          description: skill?.meta.description || '',
+          description,
         }
       })
 
@@ -353,15 +387,33 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
     setChatLoading(true)
 
     try {
-      const history = messages.map(m => ({ role: m.role, content: m.content }))
+      const history = messages.map(m => ({
+        role: m.role,
+        content: m.content,
+        tool_calls: m.tool_calls,
+        tool_call_id: m.tool_call_id,
+        tool_name: m.tool_name,
+      }))
       const response = await chatWithAgent(agentId, userMessage.content, history)
 
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: response.message.content,
-        reasoning: response.reasoning,
+      // 添加所有返回的消息（包括 tool_call/tool_result）
+      const newMessages: ChatMessage[] = response.messages.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+        tool_calls: msg.tool_calls,
+        tool_call_id: msg.tool_call_id,
+        tool_name: msg.tool_name,
+      }))
+      setMessages(prev => [...prev, ...newMessages])
+
+      // 如果 workflow_designer 创建了新 Flow，刷新 Flow 列表
+      const hasNewFlow = newMessages.some(
+        m => m.role === 'tool_result' && m.tool_name === 'workflow_designer'
+          && m.content && m.content.includes('"success": true')
+      )
+      if (hasNewFlow) {
+        listWorkflows().then(setAvailableFlows).catch(() => {})
       }
-      setMessages(prev => [...prev, assistantMessage])
     } catch (e) {
       console.error('发送失败:', e)
       const errorMessage: ChatMessage = {
@@ -491,6 +543,10 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                         </option>
                       ))}
                     </select>
+                    <p className="mt-1.5 text-xs text-gray-500 flex items-center gap-1">
+                      <Zap size={12} className="text-amber-500" />
+                      建议使用支持 function calling 的模型（如 GPT-4、Claude 3.5 等）以获得更好的 Skill 调用效果
+                    </p>
                   </div>
 
                   {/* 系统提示词 */}

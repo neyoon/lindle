@@ -78,11 +78,11 @@ class WorkflowDesignerSkill(BasePlugin):
 
             # 导入工作流相关模块
             from datetime import datetime
-            from api.routes.workflow import save_workflow
-            from workflow.models import Workflow
+            from storage.file_store import save_workflow
+            from flow.models import Workflow
 
             # 创建空白工作流
-            workflow_id = f"wf_{int(datetime.now().timestamp())}_{id(self) % 1000000}"
+            workflow_id = f"wf_{int(datetime.now().timestamp() * 1000)}_{id(self) % 1000000}"
             workflow = Workflow(
                 id=workflow_id,
                 name=name,

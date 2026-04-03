@@ -15,7 +15,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class BlockType(str, Enum):
@@ -92,6 +92,13 @@ class Column(BaseModel):
     blocks: list[Block] = Field(default_factory=list, description="栏内的块列表")
     repeat: int = Field(default=1, description="重复执行次数（默认 1）")
 
+    @field_validator("repeat", mode="before")
+    @classmethod
+    def _coerce_repeat(cls, v: object) -> int:
+        if v is None:
+            return 1
+        return int(v)
+
 
 class Workflow(BaseModel):
     """工作流 - 顶层数据结构"""
@@ -100,6 +107,7 @@ class Workflow(BaseModel):
     name: str = Field(description="工作流名称")
     description: str = Field(default="", description="工作流描述")
     columns: list[Column] = Field(default_factory=list, description="栏列表（有序）")
+    stop_on_error: bool = Field(default=True, description="遇到错误时停止执行")
 
     def get_block_by_id(self, block_id: str) -> Block | None:
         for column in self.columns:

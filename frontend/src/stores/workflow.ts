@@ -44,6 +44,7 @@ interface WorkflowState {
   // 工作流操作
   setWorkflow: (workflow: Workflow) => void
   updateWorkflowMeta: (name: string, description: string) => void
+  setStopOnError: (stop: boolean) => void
 
   // 栏操作
   addColumn: (afterOrder?: number) => void
@@ -78,6 +79,7 @@ const defaultWorkflow: Workflow = {
   name: '新建工作流',
   description: '',
   columns: [],
+  stop_on_error: true,
 }
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
@@ -97,6 +99,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set((state) => ({
       workflow: { ...state.workflow, name, description },
       blockDiffMap: null,
+    })),
+
+  setStopOnError: (stop) =>
+    set((state) => ({
+      workflow: { ...state.workflow, stop_on_error: stop },
     })),
 
   addColumn: (afterOrder) => {

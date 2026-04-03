@@ -1,8 +1,13 @@
 """
 Agent 执行引擎
 
-负责处理 Agent 的对话和 Skill 调用
-使用 LLM 的 function calling 功能
+负责处理 Agent 的对话和 Skill 调用。
+使用 LLM 的 function calling 功能实现多轮工具调用。
+
+核心流程:
+  用户消息 → LLM(带 tools) → tool_calls?
+    ├─ 是 → 执行工具 → 注入结果 → 继续调用 LLM → 循环
+    └─ 否 → 返回最终回复
 """
 
 from __future__ import annotations
@@ -13,9 +18,12 @@ from typing import Any
 
 from agent.models import Agent, ChatMessage
 from plugins.registry import execute_plugin, get_plugin
-from shared_llm import call_llm
+from shared_llm import call_llm_with_messages
 
 logger = logging.getLogger(__name__)
+
+# 最大工具调用轮数
+MAX_TOOL_ROUNDS = 5
 
 
 class AgentEngine:
@@ -24,116 +32,308 @@ class AgentEngine:
     def __init__(self, agent: Agent):
         self.agent = agent
 
-    async def chat(self, user_message: str, history: list[ChatMessage] | None = None) -> dict[str, Any]:
+    async def chat(
+        self, user_message: str, history: list[ChatMessage] | None = None
+    ) -> dict[str, Any]:
         """处理用户消息并返回 Agent 响应
 
-        Args:
-            user_message: 用户消息
-            history: 对话历史
+        返回完整的消息列表，包含 tool_call 和 tool_result 消息，
+        前端可以展示完整的调用链路。
 
         Returns:
             {
-                "message": ChatMessage,
-                "tool_calls": [ToolCall, ...],  # 如果调用了工具
-                "reasoning": str,  # 思考过程（如果有）
+                "messages": [ChatMessage, ...],
+                "reasoning": str,  # 思考过程（如果模型支持）
             }
         """
         history = history or []
 
-        # 构建消息列表
-        messages = self._build_messages(user_message, history)
+        # 构建初始消息列表
+        api_messages = self._build_messages(user_message, history)
 
-        # 构建可用的 tools（如果有 skills）
+        # 构建可用的 tools
         tools = self._build_tools() if self.agent.skills else None
 
-        try:
-            # 调用 LLM
-            if tools:
-                # 有 tools，使用 function calling
-                response = await self._call_with_tools(messages, tools)
-            else:
-                # 没有 tools，普通对话
-                response = await self._call_simple(messages)
+        # 解析 Provider 配置
+        provider_config = self._resolve_provider()
 
-            return response
+        # 存储要返回给前端的消息
+        output_messages: list[ChatMessage] = []
+        reasoning = ""
+
+        try:
+            for round_num in range(MAX_TOOL_ROUNDS + 1):
+                # 调用 LLM
+                llm_response = await call_llm_with_messages(
+                    messages=api_messages,
+                    tools=tools,
+                    **provider_config,
+                )
+
+                # 收集 reasoning
+                if llm_response.get("reasoning"):
+                    if reasoning:
+                        reasoning += "\n\n"
+                    reasoning += llm_response["reasoning"]
+
+                tool_calls = llm_response.get("tool_calls")
+
+                if not tool_calls:
+                    # 没有工具调用 → 最终回复
+                    content = llm_response.get("content") or ""
+                    output_messages.append(
+                        ChatMessage(role="assistant", content=content)
+                    )
+                    break
+
+                # 有工具调用
+                # 1) 添加 assistant 消息（包含 tool_calls 信息）
+                assistant_content = llm_response.get("content") or ""
+                tool_call_infos = []
+                for tc in tool_calls:
+                    func = tc.get("function", {})
+                    tool_call_infos.append({
+                        "id": tc.get("id", ""),
+                        "name": func.get("name", ""),
+                        "arguments": func.get("arguments", "{}"),
+                    })
+
+                output_messages.append(
+                    ChatMessage(
+                        role="tool_call",
+                        content=assistant_content,
+                        tool_calls=tool_call_infos,
+                    )
+                )
+
+                # 2) 将 assistant 消息添加到 api_messages（OpenAI 格式）
+                api_messages.append({
+                    "role": "assistant",
+                    "content": assistant_content or None,
+                    "tool_calls": tool_calls,
+                })
+
+                # 3) 逐个执行工具
+                for tc in tool_calls:
+                    tc_id = tc.get("id", "")
+                    func = tc.get("function", {})
+                    tool_name = func.get("name", "")
+                    arguments_str = func.get("arguments", "{}")
+
+                    logger.info(
+                        "Agent [%s] 调用工具: %s, 参数: %s",
+                        self.agent.name, tool_name, arguments_str[:200],
+                    )
+
+                    # 执行工具
+                    tool_result = await self._execute_tool(
+                        tool_name, arguments_str
+                    )
+                    tool_result_str = (
+                        json.dumps(tool_result, ensure_ascii=False, indent=2)
+                        if isinstance(tool_result, dict | list)
+                        else str(tool_result)
+                    )
+
+                    # 添加 tool_result 消息给前端
+                    output_messages.append(
+                        ChatMessage(
+                            role="tool_result",
+                            content=tool_result_str,
+                            tool_call_id=tc_id,
+                            tool_name=tool_name,
+                        )
+                    )
+
+                    # 添加 tool result 到 api_messages（OpenAI 格式）
+                    api_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "content": tool_result_str,
+                    })
+
+                logger.info(
+                    "Agent [%s] 完成第 %d 轮工具调用",
+                    self.agent.name, round_num + 1,
+                )
+
+            else:
+                # 超过最大轮数
+                output_messages.append(
+                    ChatMessage(
+                        role="assistant",
+                        content="工具调用次数已达上限，我将基于已有结果进行回复。"
+                    )
+                )
+
+            return {
+                "messages": output_messages,
+                "reasoning": reasoning,
+            }
 
         except Exception as e:
             logger.exception("Agent 执行失败")
-            return {
-                "message": ChatMessage(
+            output_messages.append(
+                ChatMessage(
                     role="assistant",
                     content=f"抱歉，处理消息时出错：{str(e)}",
-                ),
-                "tool_calls": [],
-                "reasoning": "",
+                )
+            )
+            return {
+                "messages": output_messages,
+                "reasoning": reasoning,
             }
 
-    def _build_messages(self, user_message: str, history: list[ChatMessage]) -> list[dict]:
+    def _resolve_provider(self) -> dict[str, Any]:
+        """解析 Agent 的 Provider 配置"""
+        from api.routes.settings import get_default_provider, get_provider_by_id
+
+        provider = None
+        if self.agent.model_provider_id:
+            provider = get_provider_by_id(self.agent.model_provider_id)
+
+        if provider is None:
+            provider = get_default_provider()
+
+        if provider is None:
+            return {}
+
+        return {
+            "model": provider.get("model"),
+            "api_key": provider.get("api_key"),
+            "base_url": provider.get("base_url"),
+        }
+
+    def _build_messages(
+        self, user_message: str, history: list[ChatMessage]
+    ) -> list[dict]:
         """构建消息列表"""
         messages = []
 
-        # 系统提示词（包含自动注入的 flows 信息）
-        if self.agent.system_prompt:
-            system_content = self.agent.system_prompt
+        # 系统提示词
+        system_content = self.agent.system_prompt or ""
 
-            # 自动注入绑定的 Flows 信息（从 workflow_executor Skill 的 config 中读取）
-            executor_skill = next(
-                (s for s in self.agent.skills if s.skill_id == "workflow_executor"), None
-            )
-            if executor_skill and executor_skill.config.get("flows"):
-                flow_ids = executor_skill.config["flows"].split(",")
-                if flow_ids:
-                    system_content += "\n\n## 可用的 Flow\n\n"
-                    system_content += "你可以使用 workflow_executor Skill 执行以下 Flow：\n\n"
+        # 自动注入绑定的 Flows 信息
+        system_content += self._build_flow_info()
 
-                    from api.routes.workflow import load_workflow
+        if system_content:
+            messages.append({"role": "system", "content": system_content})
 
-                    for flow_id in flow_ids:
-                        flow_id = flow_id.strip()
-                        if not flow_id:
-                            continue
-                        workflow = load_workflow(flow_id)
-                        if not workflow:
-                            continue
-
-                        # 提取输入字段
-                        input_fields = []
-                        for col in workflow.columns:
-                            for block in col.blocks:
-                                if block.type == "input" and block.config.get("fields"):
-                                    for field in block.config["fields"]:
-                                        input_fields.append(
-                                            f"  - {field['name']}: {field.get('label', field['name'])}"
-                                        )
-
-                        system_content += f"### {workflow.name}\n"
-                        system_content += f"- workflow_id: `{workflow.id}`\n"
-                        system_content += f"- 描述: {workflow.description}\n"
-                        if input_fields:
-                            system_content += "- 输入参数:\n" + "\n".join(input_fields) + "\n"
-                        system_content += "\n"
-
-            messages.append({
-                "role": "system",
-                "content": system_content,
-            })
-
-        # 历史消息
+        # 历史消息 — 将 tool_call/tool_result 转换为 OpenAI 格式
         for msg in history:
-            messages.append({
-                "role": msg.role,
-                "content": msg.content,
-            })
+            if msg.role == "tool_call":
+                # 还原 assistant + tool_calls 消息
+                api_msg: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": msg.content or None,
+                }
+                if msg.tool_calls:
+                    api_msg["tool_calls"] = [
+                        {
+                            "id": tc.get("id", ""),
+                            "type": "function",
+                            "function": {
+                                "name": tc.get("name", ""),
+                                "arguments": tc.get("arguments", "{}"),
+                            },
+                        }
+                        for tc in msg.tool_calls
+                    ]
+                messages.append(api_msg)
+
+            elif msg.role == "tool_result":
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": msg.tool_call_id or "",
+                    "content": msg.content,
+                })
+
+            elif msg.role in ("user", "assistant"):
+                messages.append({
+                    "role": msg.role,
+                    "content": msg.content,
+                })
 
         # 当前用户消息
-        messages.append({
-            "role": "user",
-            "content": user_message,
-        })
+        messages.append({"role": "user", "content": user_message})
 
         return messages
 
-    def _build_tools(self) -> list[dict]:
+    def _build_flow_info(self) -> str:
+        """自动注入绑定的 Flows 信息到 system prompt"""
+        executor_skill = next(
+            (s for s in self.agent.skills if s.skill_id == "workflow_executor"),
+            None,
+        )
+        if not executor_skill or not executor_skill.config.get("flows"):
+            return ""
+
+        flow_ids = executor_skill.config["flows"].split(",")
+        if not flow_ids:
+            return ""
+
+        from flow.models import BlockType
+        from storage.file_store import load_workflow
+
+        parts = ["\n\n## 可用的 Flow\n"]
+        parts.append("你可以使用 workflow_executor 工具执行以下 Flow。")
+        parts.append("调用时需要传入 workflow_id 和对应的 inputs 参数。\n")
+
+        for flow_id in flow_ids:
+            flow_id = flow_id.strip()
+            if not flow_id:
+                continue
+            workflow = load_workflow(flow_id)
+            if not workflow:
+                continue
+
+            # 提取输入字段
+            input_fields = []
+            for col in workflow.columns:
+                for block in col.blocks:
+                    if block.type == BlockType.INPUT and block.config.fields:
+                        for field in block.config.fields:
+                            label = field.label or field.name
+                            required = "必填" if field.required else "可选"
+                            default_str = f"，默认: {field.default}" if field.default else ""
+                            input_fields.append(
+                                f"  - `{field.name}` ({required}): {label}{default_str}"
+                            )
+
+            # 提取输出信息
+            output_info = []
+            sorted_cols = workflow.get_sorted_columns()
+            if sorted_cols:
+                last_col = sorted_cols[-1]
+                for block in last_col.blocks:
+                    if block.type == BlockType.OUTPUT:
+                        output_info.append(f"  - [{block.name}]: 透传上游结果")
+                    elif block.type == BlockType.AI:
+                        if block.output_schema and block.output_schema.keys:
+                            keys_str = ", ".join(block.output_schema.keys)
+                            output_info.append(
+                                f"  - [{block.name}]: JSON 输出, keys: {keys_str}"
+                            )
+                        else:
+                            output_info.append(f"  - [{block.name}]: 文本输出")
+
+            parts.append(f"### {workflow.name}")
+            parts.append(f"- workflow_id: `{workflow.id}`")
+            if workflow.description:
+                parts.append(f"- 描述: {workflow.description}")
+            if input_fields:
+                parts.append("- 输入参数:")
+                parts.extend(input_fields)
+            else:
+                parts.append("- 输入参数: 无（传空对象 `{}` 即可）")
+            if output_info:
+                parts.append("- 输出:")
+                parts.extend(output_info)
+            parts.append("")
+
+        return "\n".join(parts)
+
+    def _build_tools(self) -> list[dict] | None:
         """构建 tools 定义（OpenAI function calling 格式）"""
         tools = []
 
@@ -142,7 +342,6 @@ class AgentEngine:
             if not plugin:
                 continue
 
-            # 构建 function 定义
             function_def = {
                 "type": "function",
                 "function": {
@@ -156,74 +355,26 @@ class AgentEngine:
             }
             tools.append(function_def)
 
-        return tools
+        return tools if tools else None
 
-    async def _call_simple(self, messages: list[dict]) -> dict[str, Any]:
-        """简单对话（无 tools）"""
-        # 将消息转换为 prompt + context 格式
-        system_msg = next((m["content"] for m in messages if m["role"] == "system"), "")
-        user_messages = [m["content"] for m in messages if m["role"] == "user"]
-        assistant_messages = [m["content"] for m in messages if m["role"] == "assistant"]
+    async def _execute_tool(
+        self, tool_name: str, arguments_str: str
+    ) -> Any:
+        """执行工具调用
 
-        # 构建 context（历史对话）
-        context_parts = []
-        for i in range(min(len(user_messages) - 1, len(assistant_messages))):
-            context_parts.append(f"用户: {user_messages[i]}")
-            context_parts.append(f"助手: {assistant_messages[i]}")
-        context = "\n".join(context_parts)
+        Args:
+            tool_name: 工具名称（plugin_id）
+            arguments_str: JSON 格式的参数字符串
 
-        # 当前用户消息
-        current_message = user_messages[-1] if user_messages else ""
-
-        # 调用 LLM
-        result = await call_llm(
-            prompt=system_msg,
-            context=context + f"\n用户: {current_message}" if context else current_message,
-        )
-
-        # 检查是否是 reasoning 模型（如 o1, o3）
-        # 这些模型会在响应中包含思考过程
-        reasoning = ""
-        content = result
-
-        # 简单检测：如果响应很长且包含"思考"、"分析"等关键词，可能是 reasoning
-        if len(result) > 500 and any(keyword in result for keyword in ["思考", "分析", "推理", "考虑"]):
-            # 尝试分离 reasoning 和最终回复
-            # 这里简化处理，实际应该根据模型的具体格式来解析
-            parts = result.split("\n\n", 1)
-            if len(parts) == 2:
-                reasoning = parts[0]
-                content = parts[1]
-
-        return {
-            "message": ChatMessage(
-                role="assistant",
-                content=content,
-            ),
-            "tool_calls": [],
-            "reasoning": reasoning,
-        }
-
-    async def _call_with_tools(self, messages: list[dict], tools: list[dict]) -> dict[str, Any]:
-        """使用 function calling 的对话"""
-        # TODO: 这里需要使用支持 function calling 的 LLM API
-        # 目前先简化实现，直接调用普通 LLM
-
-        # 在 system prompt 中添加 tools 信息
-        tools_desc = "\n\n你可以使用以下工具：\n"
-        for tool in tools:
-            func = tool["function"]
-            tools_desc += f"- {func['name']}: {func['description']}\n"
-
-        tools_desc += "\n如果需要使用工具，请在回复中明确说明要使用哪个工具以及参数。"
-
-        # 修改 system message
-        for msg in messages:
-            if msg["role"] == "system":
-                msg["content"] += tools_desc
-                break
-        else:
-            messages.insert(0, {"role": "system", "content": tools_desc})
-
-        # 调用简单对话
-        return await self._call_simple(messages)
+        Returns:
+            工具执行结果
+        """
+        try:
+            # execute_plugin 期望的是 input_data (str) + config (dict)
+            # function calling 传来的是 arguments (JSON str)
+            # 对于 workflow_executor，arguments 本身就是 JSON str
+            result = await execute_plugin(tool_name, arguments_str)
+            return result
+        except Exception as e:
+            logger.error("工具 [%s] 执行失败: %s", tool_name, e)
+            return {"error": f"工具执行失败: {str(e)}"}

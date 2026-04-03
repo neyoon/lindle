@@ -244,8 +244,8 @@ export async function generateSystemPrompt(agentName: string, skills: { skill_id
   })
 }
 
-export async function chatWithAgent(agentId: string, message: string, history: { role: string; content: string }[]) {
-  return request<{ message: { role: string; content: string }; tool_calls: any[]; reasoning?: string }>(`/agents/${agentId}/chat`, {
+export async function chatWithAgent(agentId: string, message: string, history: Record<string, any>[]) {
+  return request<{ messages: Record<string, any>[]; reasoning: string }>(`/agents/${agentId}/chat`, {
     method: 'POST',
     body: JSON.stringify({ message, history }),
   })

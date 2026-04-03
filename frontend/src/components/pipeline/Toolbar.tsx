@@ -2,7 +2,7 @@
  * 顶部工具栏
  */
 import { useState, useRef, useEffect } from 'react'
-import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles, X, Loader2, Square, Undo2, Check } from 'lucide-react'
+import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode, previewCode } from '@/api/client'
 import type { Workflow, Block } from '@/types/workflow'
@@ -43,7 +43,7 @@ function computeBlockDiff(
 }
 
 export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onManualSave }: ToolbarProps) {
-  const { workflow, setWorkflow, setRunResult, setIsRunning, isRunning, setBlockDiffMap } = useWorkflowStore()
+  const { workflow, setWorkflow, setRunResult, setIsRunning, isRunning, setBlockDiffMap, setStopOnError } = useWorkflowStore()
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [aiInstruction, setAIInstruction] = useState('')
@@ -268,8 +268,6 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
             <span className="text-gray-200">|</span>
           </>
         )}
-        <h1 className="text-lg font-bold text-sky-600">Tweak</h1>
-        <span className="text-sm text-gray-300">|</span>
         <input
           className="text-sm font-medium bg-transparent border-none outline-none text-gray-700 w-48"
           value={workflow.name}
@@ -346,6 +344,21 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
         >
           <Settings size={16} />
           设置
+        </button>
+        <span className="text-gray-200">|</span>
+
+        {/* 失败即停止开关 */}
+        <button
+          onClick={() => setStopOnError(!workflow.stop_on_error)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition ${
+            workflow.stop_on_error
+              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+              : 'text-gray-500 hover:bg-gray-50'
+          }`}
+          title={workflow.stop_on_error ? '遇到错误时停止执行' : '遇到错误时继续执行'}
+        >
+          <ShieldAlert size={16} />
+          {workflow.stop_on_error ? '失败即停' : '忽略错误'}
         </button>
         <span className="text-gray-200">|</span>
 

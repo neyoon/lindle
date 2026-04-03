@@ -257,6 +257,26 @@ async def update_provider(provider_id: str, body: ProviderInput) -> ProviderResp
 @router.delete("/providers/{provider_id}")
 async def delete_provider(provider_id: str) -> dict[str, str]:
     """删除 Provider"""
+    from storage.file_store import list_workflows, load_workflow
+
+    # 检查是否有工作流正在使用该 Provider
+    workflows_using_provider = []
+    for workflow_summary in list_workflows():
+        workflow = load_workflow(workflow_summary["id"])
+        if workflow:
+            for column in workflow.columns:
+                for block in column.blocks:
+                    if block.type == "ai" and block.config.model == provider_id:
+                        workflows_using_provider.append(workflow.name)
+                        break
+
+    if workflows_using_provider:
+        workflow_names = "、".join(set(workflows_using_provider))
+        raise HTTPException(
+            status_code=400,
+            detail=f"无法删除：以下工作流正在使用该 Provider：{workflow_names}"
+        )
+
     data = _load_raw()
     providers = data.get("providers", [])
 

@@ -206,7 +206,10 @@ class Engine:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error("块 [%s] 执行失败: %s", column.blocks[i].name, result)
-                # 将错误也包装为 BlockResult
+                # 如果启用了 stop_on_error，立即抛出异常
+                if self.workflow.stop_on_error:
+                    raise result
+                # 否则将错误包装为 BlockResult
                 final_results.append(
                     BlockResult(
                         block_id=column.blocks[i].id,

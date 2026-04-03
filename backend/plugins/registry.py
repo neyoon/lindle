@@ -162,7 +162,10 @@ async def execute_plugin(plugin_id: str, input_data: str) -> Any:
 
     state = _load_state()
     plugin_state = state.get(plugin_id, {})
-    if not plugin_state.get("enabled", False):
+
+    # Skill 类型（Agent 使用）不需要手动启用，添加到 Agent 即视为可用
+    # Plugin 类型（Flow Block 使用）需要在插件页面手动启用
+    if plugin.meta.category != "skill" and not plugin_state.get("enabled", False):
         raise ValueError(f"插件未启用: {plugin.meta.name}")
 
     config = plugin_state.get("config", {})

@@ -57,6 +57,7 @@ export interface Workflow {
   name: string
   description: string
   columns: Column[]
+  stop_on_error?: boolean
 }
 
 export interface WorkflowSummary {

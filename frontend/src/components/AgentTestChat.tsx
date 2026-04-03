@@ -2,9 +2,10 @@
  * Agent 测试对话框
  *
  * 浮动在右下角的小对话框，用于测试 Agent
+ * 支持展示工具调用过程（tool_call/tool_result）
  */
-import { useState } from 'react'
-import { Send, X, MessageCircle, Minimize2, Maximize2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Send, X, MessageCircle, Minimize2, Maximize2, Wrench, CheckCircle, ChevronDown, ChevronUp, StopCircle } from 'lucide-react'
 import { chatWithAgent } from '@/api/client'
 import type { ChatMessage } from '@/types/agent'
 
@@ -19,6 +20,12 @@ export function AgentTestChat({ agentId, agentName }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [reasoning, setReasoning] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -31,17 +38,30 @@ export function AgentTestChat({ agentId, agentName }: Props) {
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setLoading(true)
+    setReasoning('')
 
     try {
-      // 调用真实的 Agent API
-      const history = messages.map(m => ({ role: m.role, content: m.content }))
+      // 调用 Agent API
+      const history = messages.map(m => ({
+        role: m.role,
+        content: m.content,
+        tool_calls: m.tool_calls,
+        tool_call_id: m.tool_call_id,
+        tool_name: m.tool_name,
+      }))
       const response = await chatWithAgent(agentId, userMessage.content, history)
 
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: response.message.content,
-      }
-      setMessages(prev => [...prev, assistantMessage])
+      // 添加所有返回的消息（包括 tool_call/tool_result）
+      const newMessages: ChatMessage[] = response.messages.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+        tool_calls: msg.tool_calls,
+        tool_call_id: msg.tool_call_id,
+        tool_name: msg.tool_name,
+      }))
+
+      setMessages(prev => [...prev, ...newMessages])
+      setReasoning(response.reasoning || '')
     } catch (e) {
       console.error('发送失败:', e)
       const errorMessage: ChatMessage = {
@@ -52,6 +72,11 @@ export function AgentTestChat({ agentId, agentName }: Props) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleStop = () => {
+    // TODO: 实现打断功能（需要后端支持）
+    setLoading(false)
   }
 
   if (!isOpen) {
@@ -121,6 +146,13 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         ⚠️ 这是测试环境，用于验证 Agent 配置
       </div>
 
+      {/* Reasoning 展示 */}
+      {reasoning && (
+        <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700">
+          💭 思考：{reasoning.slice(0, 100)}{reasoning.length > 100 ? '...' : ''}
+        </div>
+      )}
+
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
@@ -129,29 +161,24 @@ export function AgentTestChat({ agentId, agentName }: Props) {
           </div>
         ) : (
           messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 text-gray-800'
-                }`}
-              >
-                {msg.content}
-              </div>
-            </div>
+            <MessageItem key={i} message={msg} />
           ))
         )}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-500">
+            <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-500 flex items-center gap-2">
               <span className="inline-block animate-pulse">思考中...</span>
+              <button
+                onClick={handleStop}
+                className="text-red-500 hover:text-red-700"
+                title="停止"
+              >
+                <StopCircle size={14} />
+              </button>
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* 输入框 */}
@@ -177,4 +204,121 @@ export function AgentTestChat({ agentId, agentName }: Props) {
       </div>
     </div>
   )
+}
+
+function MessageItem({ message }: { message: ChatMessage }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (message.role === 'user') {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[80%] px-3 py-2 rounded-lg text-sm bg-purple-500 text-white">
+          {message.content}
+        </div>
+      </div>
+    )
+  }
+
+  if (message.role === 'assistant') {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[80%] px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-800 whitespace-pre-wrap">
+          {message.content}
+        </div>
+      </div>
+    )
+  }
+
+  if (message.role === 'tool_call') {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[80%] border border-amber-200 bg-amber-50 rounded-lg p-3 text-sm">
+          <div className="flex items-center gap-2 text-amber-700 font-medium mb-2">
+            <Wrench size={14} />
+            工具调用
+          </div>
+          {message.tool_calls?.map((tc, i) => (
+            <div key={i} className="text-xs text-gray-700 space-y-1">
+              <div className="font-medium">🔧 {tc.name}</div>
+              <div className="text-gray-500">
+                参数: <code className="bg-white px-1 rounded">{tc.arguments?.slice(0, 50)}...</code>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (message.role === 'tool_result') {
+    const content = message.content || ''
+
+    // 尝试解析 JSON
+    let jsonContent: any = null
+    try {
+      jsonContent = JSON.parse(content)
+    } catch {}
+
+    // 对 workflow_executor 的结果做友好展示：提取 output，元信息变标签
+    const isFlowResult = jsonContent && typeof jsonContent === 'object' && 'success' in jsonContent && 'output' in jsonContent
+    let displayData: any = null
+    let metaLine = ''
+
+    if (isFlowResult) {
+      displayData = jsonContent.output
+      const status = jsonContent.success ? '成功' : '失败'
+      const elapsed = jsonContent.elapsed != null ? `${jsonContent.elapsed.toFixed(1)}s` : ''
+      metaLine = `${status}${elapsed ? ` · ${elapsed}` : ''}${jsonContent.error ? ` · ${jsonContent.error}` : ''}`
+    } else if (jsonContent) {
+      displayData = jsonContent
+    }
+
+    const displayStr = displayData != null
+      ? (typeof displayData === 'string' ? displayData : JSON.stringify(displayData, null, 2))
+      : content
+    const isLong = displayStr.length > 500
+
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[80%] border border-green-200 bg-green-50 rounded-lg p-3 text-sm">
+          <div className="flex items-center gap-2 text-green-700 font-medium mb-1">
+            <CheckCircle size={14} />
+            工具结果: {message.tool_name}
+          </div>
+          {metaLine && (
+            <div className="text-xs text-gray-500 mb-2">{metaLine}</div>
+          )}
+          <div className="text-xs">
+            {typeof displayData === 'string' ? (
+              <div className="bg-white p-2 rounded text-gray-700 whitespace-pre-wrap">
+                {expanded || !isLong ? displayStr : displayStr.slice(0, 500) + '...'}
+              </div>
+            ) : (
+              <pre className="bg-white p-2 rounded overflow-x-auto text-gray-700">
+                {expanded || !isLong ? displayStr : displayStr.slice(0, 500) + '...'}
+              </pre>
+            )}
+            {isLong && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="mt-2 text-green-600 hover:text-green-800 flex items-center gap-1"
+              >
+                {expanded ? (
+                  <>
+                    <ChevronUp size={12} /> 收起
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={12} /> 展开
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return null
 }

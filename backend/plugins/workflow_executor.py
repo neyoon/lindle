@@ -77,8 +77,8 @@ class WorkflowExecutorSkill(BasePlugin):
                 }
 
             # 导入工作流相关模块
-            from api.routes.workflow import load_workflow
-            from workflow.executor import execute_workflow
+            from storage.file_store import load_workflow
+            from flow.engine import Engine
 
             # 加载工作流
             workflow = load_workflow(workflow_id)
@@ -91,7 +91,8 @@ class WorkflowExecutorSkill(BasePlugin):
                 }
 
             # 执行工作流
-            result = await execute_workflow(workflow, inputs)
+            engine = Engine(workflow)
+            result = await engine.run(user_inputs=inputs)
 
             return {
                 "success": result.success,

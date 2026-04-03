@@ -23,20 +23,20 @@ export interface Agent {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant' | 'tool_call' | 'tool_result'
   content: string
-  tool_calls?: ToolCall[]
-  reasoning?: string  // 思考过程
+  tool_calls?: ToolCallInfo[]      // role=tool_call 时包含工具调用信息
+  tool_call_id?: string | null     // role=tool_result 时关联的调用 ID
+  tool_name?: string | null        // role=tool_result 时的工具名称
 }
 
-export interface ToolCall {
-  skill_id: string
-  skill_name: string
-  input: string
-  output: string
+export interface ToolCallInfo {
+  id: string
+  name: string
+  arguments: string
 }
 
 export interface ChatResponse {
-  message: ChatMessage
-  finish_reason: string
+  messages: ChatMessage[]
+  reasoning: string
 }

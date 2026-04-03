@@ -43,8 +43,20 @@ class Agent(BaseModel):
 class ChatMessage(BaseModel):
     """对话消息"""
 
-    role: str = Field(description="角色: user, assistant, system")
+    role: str = Field(description="角色: user, assistant, tool_call, tool_result")
     content: str = Field(description="消息内容")
+    tool_calls: list[dict] | None = Field(
+        default=None,
+        description="工具调用列表（role=tool_call 时使用）",
+    )
+    tool_call_id: str | None = Field(
+        default=None,
+        description="关联的工具调用 ID（role=tool_result 时使用）",
+    )
+    tool_name: str | None = Field(
+        default=None,
+        description="工具名称（role=tool_result 时使用）",
+    )
 
 
 class ToolCall(BaseModel):

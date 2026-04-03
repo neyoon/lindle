@@ -159,8 +159,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """对话响应"""
 
-    message: dict  # {"role": "assistant", "content": "..."}
-    tool_calls: list[dict] = []
+    messages: list[dict]  # 完整的消息列表（包含 tool_call/tool_result）
     reasoning: str = ""  # 思考过程
 
 
@@ -179,8 +178,7 @@ async def chat_with_agent(agent_id: str, req: ChatRequest):
     result = await engine.chat(req.message, history)
 
     return ChatResponse(
-        message=result["message"].model_dump(),
-        tool_calls=[tc.model_dump() for tc in result.get("tool_calls", [])],
+        messages=[msg.model_dump() for msg in result["messages"]],
         reasoning=result.get("reasoning", ""),
     )
 
