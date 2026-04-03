@@ -18,7 +18,7 @@ from typing import Any
 
 from agent.models import Agent, ChatMessage
 from plugins.registry import execute_plugin, get_plugin
-from shared_llm import call_llm_with_messages
+from shared_llm import call_llm_with_messages, call_llm_with_messages_stream
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,179 @@ class AgentEngine:
 
     def __init__(self, agent: Agent):
         self.agent = agent
+
+    async def chat_stream(
+        self, user_message: str, history: list[ChatMessage] | None = None
+    ):
+        """流式处理用户消息，实时返回 reasoning 和消息
+
+        Yields:
+            {"type": "reasoning", "data": str}  # 思考过程
+            {"type": "message", "data": ChatMessage}  # 消息（tool_call/tool_result/assistant）
+            {"type": "done", "data": None}  # 完成
+        """
+        history = history or []
+
+        # 构建初始消息列表
+        api_messages = self._build_messages(user_message, history)
+
+        # 构建可用的 tools
+        tools = self._build_tools() if self.agent.skills else None
+
+        # 解析 Provider 配置
+        provider_config = self._resolve_provider()
+
+        try:
+            for round_num in range(MAX_TOOL_ROUNDS + 1):
+                # 流式调用 LLM
+                full_content = ""
+                full_reasoning = ""
+                tool_calls = None
+
+                async for chunk in call_llm_with_messages_stream(
+                    messages=api_messages,
+                    tools=tools,
+                    **provider_config,
+                ):
+                    if chunk["type"] == "reasoning":
+                        # 实时发送 reasoning
+                        full_reasoning += chunk["data"]
+                        yield {
+                            "type": "reasoning",
+                            "data": chunk["data"],
+                        }
+                    elif chunk["type"] == "content":
+                        # 实时发送 content
+                        full_content += chunk["data"]
+                        yield {
+                            "type": "content",
+                            "data": chunk["data"],
+                        }
+                    elif chunk["type"] == "tool_calls":
+                        tool_calls = chunk["data"]
+                    elif chunk["type"] == "done":
+                        # 获取完整结果
+                        result = chunk["data"]
+                        tool_calls = result.get("tool_calls")
+
+                if not tool_calls:
+                    # 没有工具调用 → 最终回复（已经通过 content 流式发送）
+                    # 发送完整的 assistant 消息
+                    msg = ChatMessage(role="assistant", content=full_content)
+                    yield {
+                        "type": "message",
+                        "data": msg.model_dump(),
+                    }
+                    break
+
+                # 有工具调用
+                assistant_content = full_content or ""
+                tool_call_infos = []
+                for tc in tool_calls:
+                    func = tc.get("function", {})
+                    tool_call_infos.append({
+                        "id": tc.get("id", ""),
+                        "name": func.get("name", ""),
+                        "arguments": func.get("arguments", "{}"),
+                    })
+
+                msg = ChatMessage(
+                    role="tool_call",
+                    content=assistant_content,
+                    tool_calls=tool_call_infos,
+                )
+                yield {
+                    "type": "message",
+                    "data": msg.model_dump(),
+                }
+
+                # 将 assistant 消息添加到 api_messages
+                api_messages.append({
+                    "role": "assistant",
+                    "content": assistant_content or None,
+                    "tool_calls": tool_calls,
+                })
+
+                # 执行工具
+                for tc in tool_calls:
+                    tc_id = tc.get("id", "")
+                    func = tc.get("function", {})
+                    tool_name = func.get("name", "")
+                    arguments_str = func.get("arguments", "{}")
+
+                    logger.info(
+                        "Agent [%s] 调用工具: %s, 参数: %s",
+                        self.agent.name, tool_name, arguments_str[:200],
+                    )
+
+                    # 发送工具执行开始的提示
+                    yield {
+                        "type": "tool_status",
+                        "data": {
+                            "tool_name": tool_name,
+                            "status": "executing",
+                            "message": f"正在执行 {tool_name}..."
+                        }
+                    }
+
+                    # 执行工具
+                    tool_result = await self._execute_tool(
+                        tool_name, arguments_str
+                    )
+                    tool_result_str = (
+                        json.dumps(tool_result, ensure_ascii=False, indent=2)
+                        if isinstance(tool_result, dict | list)
+                        else str(tool_result)
+                    )
+
+                    # 发送 tool_result
+                    msg = ChatMessage(
+                        role="tool_result",
+                        content=tool_result_str,
+                        tool_call_id=tc_id,
+                        tool_name=tool_name,
+                    )
+                    yield {
+                        "type": "message",
+                        "data": msg.model_dump(),
+                    }
+
+                    # 添加到 api_messages
+                    api_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "content": tool_result_str,
+                    })
+
+                logger.info(
+                    "Agent [%s] 完成第 %d 轮工具调用",
+                    self.agent.name, round_num + 1,
+                )
+
+            else:
+                # 超过最大轮数
+                msg = ChatMessage(
+                    role="assistant",
+                    content="工具调用次数已达上限，我将基于已有结果进行回复。"
+                )
+                yield {
+                    "type": "message",
+                    "data": msg.model_dump(),
+                }
+
+            yield {"type": "done", "data": None}
+
+        except Exception as e:
+            logger.exception("Agent 执行失败")
+            msg = ChatMessage(
+                role="assistant",
+                content=f"抱歉，处理消息时出错：{str(e)}",
+            )
+            yield {
+                "type": "message",
+                "data": msg.model_dump(),
+            }
+            yield {"type": "done", "data": None}
 
     async def chat(
         self, user_message: str, history: list[ChatMessage] | None = None

@@ -6,7 +6,7 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import { Send, X, MessageCircle, Minimize2, Maximize2, Wrench, CheckCircle, ChevronDown, ChevronUp, StopCircle } from 'lucide-react'
-import { chatWithAgent } from '@/api/client'
+import { chatWithAgentStream } from '@/api/client'
 import type { ChatMessage } from '@/types/agent'
 
 interface Props {
@@ -41,7 +41,7 @@ export function AgentTestChat({ agentId, agentName }: Props) {
     setReasoning('')
 
     try {
-      // 调用 Agent API
+      // 使用流式 API
       const history = messages.map(m => ({
         role: m.role,
         content: m.content,
@@ -49,19 +49,74 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         tool_call_id: m.tool_call_id,
         tool_name: m.tool_name,
       }))
-      const response = await chatWithAgent(agentId, userMessage.content, history)
 
-      // 添加所有返回的消息（包括 tool_call/tool_result）
-      const newMessages: ChatMessage[] = response.messages.map((msg: any) => ({
-        role: msg.role,
-        content: msg.content,
-        tool_calls: msg.tool_calls,
-        tool_call_id: msg.tool_call_id,
-        tool_name: msg.tool_name,
-      }))
+      let currentReasoning = ''
+      let currentContent = ''
+      let isStreaming = false
 
-      setMessages(prev => [...prev, ...newMessages])
-      setReasoning(response.reasoning || '')
+      for await (const event of chatWithAgentStream(agentId, userMessage.content, history)) {
+        if (event.type === 'reasoning') {
+          // 追加 reasoning
+          currentReasoning += event.data
+          setReasoning(currentReasoning)
+        } else if (event.type === 'content') {
+          // 逐字显示 content
+          currentContent += event.data
+
+          if (!isStreaming) {
+            // 第一次收到 content，创建临时消息
+            isStreaming = true
+            const tempMsg: ChatMessage = {
+              role: 'assistant',
+              content: currentContent,
+            }
+            setMessages(prev => [...prev, tempMsg])
+            // 清空 reasoning 状态，避免重复显示
+            setReasoning('')
+            // 关闭 loading 状态，隐藏"正在思考..."
+            setLoading(false)
+          } else {
+            // 更新最后一条消息
+            setMessages(prev => {
+              const newMessages = [...prev]
+              if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
+                newMessages[newMessages.length - 1] = {
+                  ...newMessages[newMessages.length - 1],
+                  content: currentContent,
+                }
+              }
+              return newMessages
+            })
+          }
+        } else if (event.type === 'message') {
+          // 添加消息
+          const msg: ChatMessage = {
+            role: event.data.role,
+            content: event.data.content,
+            tool_calls: event.data.tool_calls,
+            tool_call_id: event.data.tool_call_id,
+            tool_name: event.data.tool_name,
+          }
+
+          if (isStreaming && msg.role === 'assistant') {
+            // 跳过，已经通过 content 事件更新了
+            isStreaming = false
+            currentContent = ''
+          } else {
+            setMessages(prev => [...prev, msg])
+          }
+        } else if (event.type === 'error') {
+          // 错误消息
+          const errorMsg: ChatMessage = {
+            role: 'assistant',
+            content: `错误：${event.data?.message || '未知错误'}`,
+          }
+          setMessages(prev => [...prev, errorMsg])
+          break
+        } else if (event.type === 'done') {
+          break
+        }
+      }
     } catch (e) {
       console.error('发送失败:', e)
       const errorMessage: ChatMessage = {
@@ -148,8 +203,9 @@ export function AgentTestChat({ agentId, agentName }: Props) {
 
       {/* Reasoning 展示 */}
       {reasoning && (
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700">
-          思考：{reasoning.slice(0, 100)}{reasoning.length > 100 ? '...' : ''}
+        <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 max-h-32 overflow-y-auto">
+          <div className="font-medium mb-1">思考过程：</div>
+          <div className="whitespace-pre-wrap">{reasoning}</div>
         </div>
       )}
 
@@ -166,15 +222,22 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         )}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-500 flex items-center gap-2">
-              <span className="inline-block animate-pulse">思考中...</span>
-              <button
-                onClick={handleStop}
-                className="text-red-500 hover:text-red-700"
-                title="停止"
-              >
-                <StopCircle size={14} />
-              </button>
+            <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-700 max-w-[80%]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-block animate-pulse">正在思考...</span>
+                <button
+                  onClick={handleStop}
+                  className="text-red-500 hover:text-red-700"
+                  title="停止"
+                >
+                  <StopCircle size={14} />
+                </button>
+              </div>
+              {reasoning && (
+                <div className="text-xs text-gray-600 whitespace-pre-wrap border-t border-gray-200 pt-2 mt-2">
+                  {reasoning}
+                </div>
+              )}
             </div>
           </div>
         )}

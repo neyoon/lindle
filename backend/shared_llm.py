@@ -26,7 +26,7 @@ class LLMConfig:
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     default_model: str = "gpt-4o-mini"
-    timeout: float = 120.0
+    timeout: float = 600.0
 
 
 # 全局配置（通过 configure() 设置）
@@ -171,6 +171,10 @@ async def _call_api_with_tools(
         if tool_choice != "auto":
             payload["tool_choice"] = tool_choice
 
+        # 阿里云 Qwen 模型支持思考模式
+        if "qwen" in model.lower() and "dashscope.aliyuncs.com" in effective_url:
+            payload["enable_thinking"] = True
+
         response = await client.post(
             f"{effective_url}/chat/completions",
             json=payload,
@@ -191,6 +195,120 @@ async def _call_api_with_tools(
         }
 
         return result
+
+
+async def call_llm_with_messages_stream(
+    messages: list[dict],
+    model: str | None = None,
+    temperature: float = 0.7,
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
+):
+    """流式调用 LLM（用于 Agent 多轮对话）
+
+    Yields:
+        {"type": "reasoning", "data": str}  # 思考内容
+        {"type": "content", "data": str}    # 回复内容（逐字）
+        {"type": "tool_calls", "data": list}  # 工具调用
+        {"type": "done", "data": dict}      # 完成，返回完整结果
+    """
+    effective_model = model or _config.default_model
+    effective_key = api_key or _config.api_key
+    effective_url = base_url or _config.base_url
+
+    async with httpx.AsyncClient(timeout=_config.timeout) as client:
+        payload = {
+            "model": effective_model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+
+        if tools:
+            payload["tools"] = tools
+            if tool_choice != "auto":
+                payload["tool_choice"] = tool_choice
+
+        # 阿里云 Qwen 模型支持思考模式
+        if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
+            payload["enable_thinking"] = True
+
+        async with client.stream(
+            "POST",
+            f"{effective_url}/chat/completions",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {effective_key}",
+                "Content-Type": "application/json",
+            },
+        ) as response:
+            response.raise_for_status()
+
+            full_content = ""
+            full_reasoning = ""
+            tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
+
+            async for line in response.aiter_lines():
+                if not line.startswith("data: "):
+                    continue
+                if line == "data: [DONE]":
+                    break
+
+                try:
+                    data = json.loads(line[6:])
+                    delta = data["choices"][0].get("delta", {})
+
+                    # 处理 reasoning
+                    if reasoning := delta.get("reasoning_content"):
+                        full_reasoning += reasoning
+                        yield {"type": "reasoning", "data": reasoning}
+
+                    # 处理 content
+                    if content := delta.get("content"):
+                        full_content += content
+                        yield {"type": "content", "data": content}
+
+                    # 处理 tool_calls（增量累积）
+                    if tool_calls_delta := delta.get("tool_calls"):
+                        for tc_delta in tool_calls_delta:
+                            index = tc_delta.get("index", 0)
+                            if index not in tool_calls_accumulator:
+                                tool_calls_accumulator[index] = {
+                                    "id": "",
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""}
+                                }
+
+                            # 累积各个字段
+                            if "id" in tc_delta:
+                                tool_calls_accumulator[index]["id"] += tc_delta["id"]
+                            if "type" in tc_delta:
+                                tool_calls_accumulator[index]["type"] = tc_delta["type"]
+                            if "function" in tc_delta:
+                                func_delta = tc_delta["function"]
+                                if "name" in func_delta:
+                                    tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
+                                if "arguments" in func_delta:
+                                    tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
+
+                except (json.JSONDecodeError, KeyError, IndexError):
+                    continue
+
+            # 转换累积的 tool_calls 为列表
+            tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
+
+            # 返回完整结果
+            yield {
+                "type": "done",
+                "data": {
+                    "content": full_content,
+                    "reasoning": full_reasoning or None,
+                    "tool_calls": tool_calls_data or None,
+                },
+            }
 
 
 async def call_llm_with_messages(

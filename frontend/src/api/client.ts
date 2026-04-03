@@ -7,15 +7,29 @@ import type { Agent, ChatMessage } from '@/types/agent'
 const BASE = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`API Error: ${response.status} - ${error}`)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 600000) // 10分钟超时
+
+  try {
+    const response = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`API Error: ${response.status} - ${error}`)
+    }
+    return response.json()
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('请求超时（10分钟）')
+    }
+    throw error
   }
-  return response.json()
 }
 
 // ===== Workflow (Pipeline) =====
@@ -236,6 +250,58 @@ export async function chatWithAgent(agentId: string, message: string, history: R
     method: 'POST',
     body: JSON.stringify({ message, history }),
   })
+}
+
+export async function* chatWithAgentStream(
+  agentId: string,
+  message: string,
+  history: Record<string, any>[]
+): AsyncGenerator<{ type: string; data: any }> {
+  const response = await fetch(`${BASE}/agents/${agentId}/chat-stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, history }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`API Error: ${response.status} - ${error}`)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('No response body')
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim()
+          if (!data) continue
+
+          try {
+            const event = JSON.parse(data)
+            yield event
+          } catch (e) {
+            console.error('Failed to parse SSE data:', data, e)
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
 }
 
 // ===== Custom Skills =====

@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from agent.models import Agent, AgentSkill, ChatMessage
@@ -165,7 +166,7 @@ class ChatResponse(BaseModel):
 
 @router.post("/{agent_id}/chat", response_model=ChatResponse)
 async def chat_with_agent(agent_id: str, req: ChatRequest):
-    """与 Agent 对话"""
+    """与 Agent 对话（非流式）"""
     agent = load_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent 不存在")
@@ -180,5 +181,49 @@ async def chat_with_agent(agent_id: str, req: ChatRequest):
     return ChatResponse(
         messages=[msg.model_dump() for msg in result["messages"]],
         reasoning=result.get("reasoning", ""),
+    )
+
+
+@router.post("/{agent_id}/chat-stream")
+async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
+    """与 Agent 对话（流式响应）"""
+    agent = load_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+
+    # 转换历史消息
+    history = [ChatMessage(**msg) for msg in req.history]
+
+    # 创建引擎并执行
+    engine = AgentEngine(agent)
+
+    async def event_generator():
+        """生成 SSE 事件流"""
+        import json
+        import logging
+
+        log = logging.getLogger(__name__)
+
+        try:
+            async for event in engine.chat_stream(req.message, history):
+                # event 格式: {"type": "reasoning"|"message"|"done", "data": ...}
+                event_json = json.dumps(event, ensure_ascii=False)
+                log.debug(f"SSE event: {event_json[:200]}")
+                yield f"data: {event_json}\n\n"
+        except Exception as e:
+            log.exception("Agent 流式对话失败")
+            error_event = {
+                "type": "error",
+                "data": {"message": str(e)}
+            }
+            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
     )
 
