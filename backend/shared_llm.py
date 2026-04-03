@@ -285,6 +285,10 @@ async def call_llm_with_messages_stream(
                     data = json.loads(line[6:])
                     delta = data["choices"][0].get("delta", {})
 
+                    # 打印前几个 delta 看看结构
+                    if line_count <= 5:
+                        print(f"[shared_llm] delta #{line_count}: {delta}")
+
                     # 处理 reasoning
                     if reasoning := delta.get("reasoning_content"):
                         full_reasoning += reasoning
