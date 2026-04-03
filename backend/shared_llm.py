@@ -270,63 +270,63 @@ async def call_llm_with_messages_stream(
             tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
 
             async for line in response.aiter_lines():
-            if not line.startswith("data: "):
-                continue
-            if line == "data: [DONE]":
-                break
+                if not line.startswith("data: "):
+                    continue
+                if line == "data: [DONE]":
+                    break
 
-            try:
-                data = json.loads(line[6:])
-                delta = data["choices"][0].get("delta", {})
+                try:
+                    data = json.loads(line[6:])
+                    delta = data["choices"][0].get("delta", {})
 
-                # 处理 reasoning
-                if reasoning := delta.get("reasoning_content"):
-                    full_reasoning += reasoning
-                    yield {"type": "reasoning", "data": reasoning}
+                    # 处理 reasoning
+                    if reasoning := delta.get("reasoning_content"):
+                        full_reasoning += reasoning
+                        yield {"type": "reasoning", "data": reasoning}
 
-                # 处理 content
-                if content := delta.get("content"):
-                    full_content += content
-                    yield {"type": "content", "data": content}
+                    # 处理 content
+                    if content := delta.get("content"):
+                        full_content += content
+                        yield {"type": "content", "data": content}
 
-                # 处理 tool_calls（增量累积）
-                if tool_calls_delta := delta.get("tool_calls"):
-                    for tc_delta in tool_calls_delta:
-                        index = tc_delta.get("index", 0)
-                        if index not in tool_calls_accumulator:
-                            tool_calls_accumulator[index] = {
-                                "id": "",
-                                "type": "function",
-                                "function": {"name": "", "arguments": ""}
-                            }
+                    # 处理 tool_calls（增量累积）
+                    if tool_calls_delta := delta.get("tool_calls"):
+                        for tc_delta in tool_calls_delta:
+                            index = tc_delta.get("index", 0)
+                            if index not in tool_calls_accumulator:
+                                tool_calls_accumulator[index] = {
+                                    "id": "",
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""}
+                                }
 
-                        # 累积各个字段
-                        if "id" in tc_delta:
-                            tool_calls_accumulator[index]["id"] += tc_delta["id"]
-                        if "type" in tc_delta:
-                            tool_calls_accumulator[index]["type"] = tc_delta["type"]
-                        if "function" in tc_delta:
-                            func_delta = tc_delta["function"]
-                            if "name" in func_delta:
-                                tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
-                            if "arguments" in func_delta:
-                                tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
+                            # 累积各个字段
+                            if "id" in tc_delta:
+                                tool_calls_accumulator[index]["id"] += tc_delta["id"]
+                            if "type" in tc_delta:
+                                tool_calls_accumulator[index]["type"] = tc_delta["type"]
+                            if "function" in tc_delta:
+                                func_delta = tc_delta["function"]
+                                if "name" in func_delta:
+                                    tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
+                                if "arguments" in func_delta:
+                                    tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
 
-            except (json.JSONDecodeError, KeyError, IndexError):
-                continue
+                except (json.JSONDecodeError, KeyError, IndexError):
+                    continue
 
-        # 转换累积的 tool_calls 为列表
-        tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
+            # 转换累积的 tool_calls 为列表
+            tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
 
-        # 返回完整结果
-        yield {
-            "type": "done",
-            "data": {
-                "content": full_content,
-                "reasoning": full_reasoning or None,
-                "tool_calls": tool_calls_data or None,
-            },
-        }
+            # 返回完整结果
+            yield {
+                "type": "done",
+                "data": {
+                    "content": full_content,
+                    "reasoning": full_reasoning or None,
+                    "tool_calls": tool_calls_data or None,
+                },
+            }
     except httpx.HTTPError as e:
         print(f"[shared_llm] HTTP error: {type(e).__name__}: {str(e)}")
         logger.error(f"call_llm_with_messages_stream HTTP error: {type(e).__name__}: {str(e)}", exc_info=True)
