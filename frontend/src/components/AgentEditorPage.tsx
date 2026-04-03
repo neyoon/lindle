@@ -57,6 +57,8 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
   const [input, setInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [reasoning, setReasoning] = useState('')
+  const [toolExecutingMessageIndex, setToolExecutingMessageIndex] = useState<number | null>(null) // 记录工具执行消息的索引
+  const [toolContentMessageIndex, setToolContentMessageIndex] = useState<number | null>(null) // 记录工具内容消息的索引
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动到底部
@@ -425,7 +427,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
       let currentContent = ''
       let isStreaming = false
       const allMessages: ChatMessage[] = []
-      let toolExecutingMessage: ChatMessage | null = null
 
       for await (const event of chatWithAgentStream(agentId, userMessage.content, history)) {
         console.log('收到事件:', event)
@@ -475,27 +476,67 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
           // 工具执行状态
           console.log('Tool status:', event.data)
           if (event.data.status === 'executing') {
-            // 显示工具执行中的提示
             const statusMsg: ChatMessage = {
               role: 'assistant',
               content: `⚙️ ${event.data.message}`,
             }
-            toolExecutingMessage = statusMsg
-            setMessages(prev => [...prev, statusMsg])
+
+            setMessages(prev => {
+              if (toolExecutingMessageIndex !== null) {
+                // 更新现有的工具执行提示消息
+                const newMessages = [...prev]
+                newMessages[toolExecutingMessageIndex] = statusMsg
+                return newMessages
+              } else {
+                // 第一次显示工具执行提示
+                setToolExecutingMessageIndex(prev.length)
+                return [...prev, statusMsg]
+              }
+            })
           } else if (event.data.status === 'completed' || event.data.status === 'failed') {
             // 工具执行完成或失败，移除提示消息
-            if (toolExecutingMessage) {
-              setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
-              toolExecutingMessage = null
+            if (toolExecutingMessageIndex !== null) {
+              setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
+              setToolExecutingMessageIndex(null)
             }
           }
+        } else if (event.type === 'tool_content') {
+          // 工具的流式内容输出
+          console.log('Tool content:', event.data)
+          const contentChunk = event.data.content
+
+          setMessages(prev => {
+            if (toolContentMessageIndex !== null) {
+              // 更新现有的内容消息
+              const newMessages = [...prev]
+              const existingMsg = newMessages[toolContentMessageIndex]
+              newMessages[toolContentMessageIndex] = {
+                ...existingMsg,
+                content: existingMsg.content + contentChunk
+              }
+              return newMessages
+            } else {
+              // 第一次显示内容，创建新消息
+              const contentMsg: ChatMessage = {
+                role: 'assistant',
+                content: contentChunk,
+              }
+              setToolContentMessageIndex(prev.length)
+              return [...prev, contentMsg]
+            }
+          })
         } else if (event.type === 'message') {
           console.log('Message:', event.data)
 
           // 如果收到任何消息且有工具执行提示，先移除它
-          if (toolExecutingMessage && event.data.role !== 'tool_call') {
-            setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
-            toolExecutingMessage = null
+          if (toolExecutingMessageIndex !== null && event.data.role !== 'tool_call') {
+            setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
+            setToolExecutingMessageIndex(null)
+          }
+
+          // 如果收到 tool_result，清理工具内容消息索引
+          if (event.data.role === 'tool_result' && toolContentMessageIndex !== null) {
+            setToolContentMessageIndex(null)
           }
 
           const msg: ChatMessage = {
@@ -518,9 +559,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
         } else if (event.type === 'error') {
           console.error('Error event:', event.data)
           // 移除工具执行提示
-          if (toolExecutingMessage) {
-            setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
-            toolExecutingMessage = null
+          if (toolExecutingMessageIndex !== null) {
+            setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
+            setToolExecutingMessageIndex(null)
           }
           const errorMsg: ChatMessage = {
             role: 'assistant',
@@ -532,9 +573,13 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
         } else if (event.type === 'done') {
           console.log('Done')
           // 确保移除工具执行提示
-          if (toolExecutingMessage) {
-            setMessages(prev => prev.filter(m => m !== toolExecutingMessage))
-            toolExecutingMessage = null
+          if (toolExecutingMessageIndex !== null) {
+            setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
+            setToolExecutingMessageIndex(null)
+          }
+          // 清理工具内容索引
+          if (toolContentMessageIndex !== null) {
+            setToolContentMessageIndex(null)
           }
           break
         }

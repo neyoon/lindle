@@ -54,7 +54,7 @@ class WorkflowDesignerSkill(BasePlugin):
     )
 
     async def execute(self, input_data: str, config: dict[str, Any]) -> dict:
-        """创建 Flow
+        """创建 Flow（同步版本）
 
         Args:
             input_data: JSON 格式的输入数据，包含 instruction 和可选的 name
@@ -63,23 +63,47 @@ class WorkflowDesignerSkill(BasePlugin):
         Returns:
             包含创建结果的字典
         """
+        # 使用流式版本，但只返回最终结果
+        result = None
+        async for event in self.execute_stream(input_data, config):
+            if event["type"] == "result":
+                result = event["data"]
+        return result
+
+    async def execute_stream(self, input_data: str, config: dict[str, Any]):
+        """创建 Flow（流式版本，支持进度回调）
+
+        Yields:
+            {"type": "progress", "data": str}  # 进度消息
+            {"type": "result", "data": dict}   # 最终结果
+        """
         try:
             data = json.loads(input_data)
             instruction = data.get("instruction")
             name = data.get("name", "新建工作流")
 
             if not instruction:
-                return {
-                    "success": False,
-                    "workflow_id": "",
-                    "workflow_name": "",
-                    "error": "缺少 instruction 参数",
+                yield {
+                    "type": "result",
+                    "data": {
+                        "success": False,
+                        "workflow_id": "",
+                        "workflow_name": "",
+                        "error": "缺少 instruction 参数",
+                    }
                 }
+                return
+
+            yield {"type": "progress", "data": "正在创建工作流..."}
 
             # 导入工作流相关模块
             from datetime import datetime
             from storage.file_store import save_workflow
             from flow.models import Workflow
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.info("workflow_designer: 开始创建工作流")
 
             # 创建空白工作流
             workflow_id = f"wf_{int(datetime.now().timestamp() * 1000)}_{id(self) % 1000000}"
@@ -92,6 +116,9 @@ class WorkflowDesignerSkill(BasePlugin):
 
             # 保存空白工作流
             save_workflow(workflow)
+
+            yield {"type": "progress", "data": "正在调用 AI 生成工作流内容..."}
+            logger.info("workflow_designer: 开始调用 LLM")
 
             # 使用 AI 编辑功能生成工作流内容
             # 导入 AI 编辑相关模块
@@ -109,12 +136,16 @@ class WorkflowDesignerSkill(BasePlugin):
                 base_url = _config.base_url
                 model = _config.default_model
             else:
-                return {
-                    "success": False,
-                    "workflow_id": "",
-                    "workflow_name": "",
-                    "error": "未配置 AI 编辑 Provider",
+                yield {
+                    "type": "result",
+                    "data": {
+                        "success": False,
+                        "workflow_id": "",
+                        "workflow_name": "",
+                        "error": "未配置 AI 编辑 Provider",
+                    }
                 }
+                return
 
             # 构建 AI 编辑的 prompt
             from api.routes.workflow import _AI_EDIT_SYSTEM_PROMPT, _build_plugins_info
@@ -133,26 +164,40 @@ class WorkflowDesignerSkill(BasePlugin):
                 },
             ]
 
-            # 调用 LLM 生成工作流（使用非流式调用，更稳定）
-            from shared_llm import call_llm_with_messages
+            # 调用 LLM 生成工作流（使用流式调用，显示进度）
+            from shared_llm import call_llm_with_messages_stream
 
+            full_text = ""
             try:
-                # 使用非流式调用，等待完整结果
-                result = await call_llm_with_messages(
+                # 使用流式调用，实时显示生成内容
+                async for chunk in call_llm_with_messages_stream(
                     messages=messages,
                     model=model,
                     temperature=0.3,
                     api_key=api_key,
                     base_url=base_url,
-                )
-                full_text = result.get("content", "")
+                ):
+                    if chunk["type"] == "content":
+                        content = chunk["data"]
+                        full_text += content
+                        # 实时发送生成的内容片段
+                        yield {"type": "content", "data": content}
+                    elif chunk["type"] == "done":
+                        # 流式完成
+                        break
             except Exception as e:
-                return {
-                    "success": False,
-                    "workflow_id": "",
-                    "workflow_name": "",
-                    "error": f"LLM 调用失败: {type(e).__name__} - {str(e)}",
+                yield {
+                    "type": "result",
+                    "data": {
+                        "success": False,
+                        "workflow_id": "",
+                        "workflow_name": "",
+                        "error": f"LLM 调用失败: {type(e).__name__} - {str(e)}",
+                    }
                 }
+                return
+
+            yield {"type": "progress", "data": "正在解析生成的工作流..."}
 
             # 解析 JSON
             text = full_text.strip()
@@ -164,37 +209,52 @@ class WorkflowDesignerSkill(BasePlugin):
             start = text.find("{")
             end = text.rfind("}") + 1
             if start == -1 or end <= start:
-                return {
-                    "success": False,
-                    "workflow_id": "",
-                    "workflow_name": "",
-                    "error": "LLM 输出中未找到有效 JSON",
+                yield {
+                    "type": "result",
+                    "data": {
+                        "success": False,
+                        "workflow_id": "",
+                        "workflow_name": "",
+                        "error": "LLM 输出中未找到有效 JSON",
+                    }
                 }
+                return
 
             parsed = json.loads(text[start:end])
             parsed["id"] = workflow_id
             updated = Workflow.model_validate(parsed)
             save_workflow(updated)
 
-            return {
-                "success": True,
-                "workflow_id": workflow_id,
-                "workflow_name": updated.name,
-                "error": None,
+            yield {"type": "progress", "data": "工作流创建完成！"}
+
+            yield {
+                "type": "result",
+                "data": {
+                    "success": True,
+                    "workflow_id": workflow_id,
+                    "workflow_name": updated.name,
+                    "error": None,
+                }
             }
 
         except json.JSONDecodeError as e:
-            return {
-                "success": False,
-                "workflow_id": "",
-                "workflow_name": "",
-                "error": f"JSON 解析失败：{str(e)}",
+            yield {
+                "type": "result",
+                "data": {
+                    "success": False,
+                    "workflow_id": "",
+                    "workflow_name": "",
+                    "error": f"JSON 解析失败：{str(e)}",
+                }
             }
         except Exception as e:
-            return {
-                "success": False,
-                "workflow_id": "",
-                "workflow_name": "",
-                "error": f"创建失败：{str(e)}",
+            yield {
+                "type": "result",
+                "data": {
+                    "success": False,
+                    "workflow_id": "",
+                    "workflow_name": "",
+                    "error": f"创建失败：{str(e)}",
+                }
             }
 

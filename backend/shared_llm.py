@@ -32,6 +32,20 @@ class LLMConfig:
 # 全局配置（通过 configure() 设置）
 _config = LLMConfig()
 
+# 全局 httpx 客户端（复用连接，避免嵌套创建）
+_global_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    """获取全局 httpx 客户端（懒加载）"""
+    global _global_client
+    if _global_client is None:
+        _global_client = httpx.AsyncClient(
+            timeout=_config.timeout,
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
+        )
+    return _global_client
+
 
 def configure(
     api_key: str = "",
@@ -128,22 +142,22 @@ async def _call_api(
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
 
-    async with httpx.AsyncClient(timeout=_config.timeout) as client:
-        response = await client.post(
-            f"{effective_url}/chat/completions",
-            json={
-                "model": model,
-                "messages": messages,
-                "temperature": temperature,
-            },
-            headers={
-                "Authorization": f"Bearer {effective_key}",
-                "Content-Type": "application/json",
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+    client = _get_client()
+    response = await client.post(
+        f"{effective_url}/chat/completions",
+        json={
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        },
+        headers={
+            "Authorization": f"Bearer {effective_key}",
+            "Content-Type": "application/json",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
 
 
 async def _call_api_with_tools(
@@ -160,41 +174,41 @@ async def _call_api_with_tools(
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
 
-    async with httpx.AsyncClient(timeout=_config.timeout) as client:
-        payload = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "tools": tools,
-        }
+    client = _get_client()
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "tools": tools,
+    }
 
-        if tool_choice != "auto":
-            payload["tool_choice"] = tool_choice
+    if tool_choice != "auto":
+        payload["tool_choice"] = tool_choice
 
-        # 阿里云 Qwen 模型支持思考模式
-        if "qwen" in model.lower() and "dashscope.aliyuncs.com" in effective_url:
-            payload["enable_thinking"] = True
+    # 阿里云 Qwen 模型支持思考模式
+    if "qwen" in model.lower() and "dashscope.aliyuncs.com" in effective_url:
+        payload["enable_thinking"] = True
 
-        response = await client.post(
-            f"{effective_url}/chat/completions",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {effective_key}",
-                "Content-Type": "application/json",
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
+    response = await client.post(
+        f"{effective_url}/chat/completions",
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {effective_key}",
+            "Content-Type": "application/json",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
 
-        message = data["choices"][0]["message"]
+    message = data["choices"][0]["message"]
 
-        result = {
-            "content": message.get("content"),
-            "tool_calls": message.get("tool_calls"),
-            "reasoning": message.get("reasoning_content"),
-        }
+    result = {
+        "content": message.get("content"),
+        "tool_calls": message.get("tool_calls"),
+        "reasoning": message.get("reasoning_content"),
+    }
 
-        return result
+    return result
 
 
 async def call_llm_with_messages_stream(
@@ -219,96 +233,96 @@ async def call_llm_with_messages_stream(
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
 
-    async with httpx.AsyncClient(timeout=_config.timeout) as client:
-        payload = {
-            "model": effective_model,
-            "messages": messages,
-            "temperature": temperature,
-            "stream": True,
-        }
+    client = _get_client()
+    payload = {
+        "model": effective_model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True,
+    }
 
-        if tools:
-            payload["tools"] = tools
-            if tool_choice != "auto":
-                payload["tool_choice"] = tool_choice
+    if tools:
+        payload["tools"] = tools
+        if tool_choice != "auto":
+            payload["tool_choice"] = tool_choice
 
-        # 阿里云 Qwen 模型支持思考模式
-        if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
-            payload["enable_thinking"] = True
+    # 阿里云 Qwen 模型支持思考模式
+    if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
+        payload["enable_thinking"] = True
 
-        async with client.stream(
-            "POST",
-            f"{effective_url}/chat/completions",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {effective_key}",
-                "Content-Type": "application/json",
+    async with client.stream(
+        "POST",
+        f"{effective_url}/chat/completions",
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {effective_key}",
+            "Content-Type": "application/json",
+        },
+    ) as response:
+        response.raise_for_status()
+
+        full_content = ""
+        full_reasoning = ""
+        tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
+
+        async for line in response.aiter_lines():
+            if not line.startswith("data: "):
+                continue
+            if line == "data: [DONE]":
+                break
+
+            try:
+                data = json.loads(line[6:])
+                delta = data["choices"][0].get("delta", {})
+
+                # 处理 reasoning
+                if reasoning := delta.get("reasoning_content"):
+                    full_reasoning += reasoning
+                    yield {"type": "reasoning", "data": reasoning}
+
+                # 处理 content
+                if content := delta.get("content"):
+                    full_content += content
+                    yield {"type": "content", "data": content}
+
+                # 处理 tool_calls（增量累积）
+                if tool_calls_delta := delta.get("tool_calls"):
+                    for tc_delta in tool_calls_delta:
+                        index = tc_delta.get("index", 0)
+                        if index not in tool_calls_accumulator:
+                            tool_calls_accumulator[index] = {
+                                "id": "",
+                                "type": "function",
+                                "function": {"name": "", "arguments": ""}
+                            }
+
+                        # 累积各个字段
+                        if "id" in tc_delta:
+                            tool_calls_accumulator[index]["id"] += tc_delta["id"]
+                        if "type" in tc_delta:
+                            tool_calls_accumulator[index]["type"] = tc_delta["type"]
+                        if "function" in tc_delta:
+                            func_delta = tc_delta["function"]
+                            if "name" in func_delta:
+                                tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
+                            if "arguments" in func_delta:
+                                tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
+
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
+
+        # 转换累积的 tool_calls 为列表
+        tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
+
+        # 返回完整结果
+        yield {
+            "type": "done",
+            "data": {
+                "content": full_content,
+                "reasoning": full_reasoning or None,
+                "tool_calls": tool_calls_data or None,
             },
-        ) as response:
-            response.raise_for_status()
-
-            full_content = ""
-            full_reasoning = ""
-            tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
-
-            async for line in response.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                if line == "data: [DONE]":
-                    break
-
-                try:
-                    data = json.loads(line[6:])
-                    delta = data["choices"][0].get("delta", {})
-
-                    # 处理 reasoning
-                    if reasoning := delta.get("reasoning_content"):
-                        full_reasoning += reasoning
-                        yield {"type": "reasoning", "data": reasoning}
-
-                    # 处理 content
-                    if content := delta.get("content"):
-                        full_content += content
-                        yield {"type": "content", "data": content}
-
-                    # 处理 tool_calls（增量累积）
-                    if tool_calls_delta := delta.get("tool_calls"):
-                        for tc_delta in tool_calls_delta:
-                            index = tc_delta.get("index", 0)
-                            if index not in tool_calls_accumulator:
-                                tool_calls_accumulator[index] = {
-                                    "id": "",
-                                    "type": "function",
-                                    "function": {"name": "", "arguments": ""}
-                                }
-
-                            # 累积各个字段
-                            if "id" in tc_delta:
-                                tool_calls_accumulator[index]["id"] += tc_delta["id"]
-                            if "type" in tc_delta:
-                                tool_calls_accumulator[index]["type"] = tc_delta["type"]
-                            if "function" in tc_delta:
-                                func_delta = tc_delta["function"]
-                                if "name" in func_delta:
-                                    tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
-                                if "arguments" in func_delta:
-                                    tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
-
-                except (json.JSONDecodeError, KeyError, IndexError):
-                    continue
-
-            # 转换累积的 tool_calls 为列表
-            tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
-
-            # 返回完整结果
-            yield {
-                "type": "done",
-                "data": {
-                    "content": full_content,
-                    "reasoning": full_reasoning or None,
-                    "tool_calls": tool_calls_data or None,
-                },
-            }
+        }
 
 
 async def call_llm_with_messages(

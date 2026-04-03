@@ -397,46 +397,50 @@ async def ai_edit_workflow(workflow_id: str, body: AIEditRequest):
         full_text = ""
         reasoning_text = ""
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                # 检查是否是支持 reasoning 的模型（如 o1 系列）
-                is_reasoning_model = "o1" in model.lower() or "o3" in model.lower()
+            # 使用 shared_llm 的全局客户端，避免创建新的 httpx 客户端
+            from shared_llm import _get_client
 
-                request_body = {
-                    "model": model,
-                    "messages": messages,
-                    "temperature": 0.3,
-                    "stream": True,
-                }
+            client = _get_client()
 
-                # 非 reasoning 模型使用 response_format 强制 JSON
-                if not is_reasoning_model:
-                    request_body["response_format"] = {"type": "json_object"}
+            # 检查是否是支持 reasoning 的模型（如 o1 系列）
+            is_reasoning_model = "o1" in model.lower() or "o3" in model.lower()
 
-                async with client.stream(
-                    "POST",
-                    f"{base_url}/chat/completions",
-                    json=request_body,
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                ) as resp:
-                    resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: ") or line == "data: [DONE]":
-                            continue
-                        try:
-                            chunk = json.loads(line[6:])
-                            delta = chunk["choices"][0].get("delta", {})
+            request_body = {
+                "model": model,
+                "messages": messages,
+                "temperature": 0.3,
+                "stream": True,
+            }
 
-                            # 处理 reasoning 内容（思考过程）
-                            if reasoning := delta.get("reasoning_content"):
-                                reasoning_text += reasoning
-                                yield _sse("thinking", {"text": reasoning})
+            # 非 reasoning 模型使用 response_format 强制 JSON
+            if not is_reasoning_model:
+                request_body["response_format"] = {"type": "json_object"}
 
-                            # 处理实际内容（JSON 结果）
-                            if content := delta.get("content"):
-                                full_text += content
-                                yield _sse("delta", {"text": content})
-                        except (json.JSONDecodeError, KeyError, IndexError):
-                            continue
+            async with client.stream(
+                "POST",
+                f"{base_url}/chat/completions",
+                json=request_body,
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: ") or line == "data: [DONE]":
+                        continue
+                    try:
+                        chunk = json.loads(line[6:])
+                        delta = chunk["choices"][0].get("delta", {})
+
+                        # 处理 reasoning 内容（思考过程）
+                        if reasoning := delta.get("reasoning_content"):
+                            reasoning_text += reasoning
+                            yield _sse("thinking", {"text": reasoning})
+
+                        # 处理实际内容（JSON 结果）
+                        if content := delta.get("content"):
+                            full_text += content
+                            yield _sse("delta", {"text": content})
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
 
             # 解析 JSON
             text = full_text.strip()

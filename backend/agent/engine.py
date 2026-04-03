@@ -146,10 +146,33 @@ class AgentEngine:
                         }
                     }
 
-                    # 执行工具
-                    tool_result = await self._execute_tool(
+                    # 执行工具（支持流式进度）
+                    tool_result = None
+                    async for event in self._execute_tool_stream(
                         tool_name, arguments_str
-                    )
+                    ):
+                        if event["type"] == "progress":
+                            # 转发工具的进度事件
+                            yield {
+                                "type": "tool_status",
+                                "data": {
+                                    "tool_name": tool_name,
+                                    "status": "executing",
+                                    "message": event["data"]
+                                }
+                            }
+                        elif event["type"] == "content":
+                            # 转发工具的内容流式输出
+                            yield {
+                                "type": "tool_content",
+                                "data": {
+                                    "tool_name": tool_name,
+                                    "content": event["data"]
+                                }
+                            }
+                        elif event["type"] == "result":
+                            tool_result = event["data"]
+
                     tool_result_str = (
                         json.dumps(tool_result, ensure_ascii=False, indent=2)
                         if isinstance(tool_result, dict | list)
@@ -533,7 +556,7 @@ class AgentEngine:
     async def _execute_tool(
         self, tool_name: str, arguments_str: str
     ) -> Any:
-        """执行工具调用
+        """执行工具调用（同步版本，用于非流式场景）
 
         Args:
             tool_name: 工具名称（plugin_id）
@@ -543,11 +566,34 @@ class AgentEngine:
             工具执行结果
         """
         try:
-            # execute_plugin 期望的是 input_data (str) + config (dict)
-            # function calling 传来的是 arguments (JSON str)
-            # 对于 workflow_executor，arguments 本身就是 JSON str
             result = await execute_plugin(tool_name, arguments_str)
             return result
         except Exception as e:
             logger.error("工具 [%s] 执行失败: %s", tool_name, e)
             return {"error": f"工具执行失败: {str(e)}"}
+
+    async def _execute_tool_stream(
+        self, tool_name: str, arguments_str: str
+    ):
+        """执行工具调用（流式版本，支持进度回调）
+
+        Yields:
+            {"type": "progress", "data": str}  # 进度消息
+            {"type": "result", "data": Any}    # 最终结果
+        """
+        try:
+            # 检查工具是否支持流式执行
+            from plugins.registry import get_plugin
+            plugin = get_plugin(tool_name)
+
+            # 如果工具有 execute_stream 方法，使用流式执行
+            if plugin and hasattr(plugin, 'execute_stream'):
+                async for event in plugin.execute_stream(arguments_str, {}):
+                    yield event
+            else:
+                # 否则使用普通执行
+                result = await execute_plugin(tool_name, arguments_str)
+                yield {"type": "result", "data": result}
+        except Exception as e:
+            logger.error("工具 [%s] 执行失败: %s", tool_name, e)
+            yield {"type": "result", "data": {"error": f"工具执行失败: {str(e)}"}}
