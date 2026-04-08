@@ -99,7 +99,6 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
               <h2 className="app-section-title text-3xl md:text-4xl">让对话端去消费你制造出来的能力</h2>
               <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
                 Agent 侧的特殊性不在聊天本身，而在它能把 Skill、Flow 执行器和系统提示词组合成运行时决策层。
-                首页展示的是闭环，这里负责真正消费那条闭环。
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">

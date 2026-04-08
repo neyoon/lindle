@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import re
 from typing import Any
 
 import httpx
@@ -28,10 +29,22 @@ class AuthSettings:
     timeout_seconds: float
 
 
+def _sanitize_base_url(raw_url: str) -> str:
+    value = (raw_url or "").strip()
+    if not value:
+        return "http://localhost:8000"
+
+    # 兼容被 shell/prompt 污染的值，例如 `http://localhost:8001conda`。
+    match = re.match(r"^(https?://[A-Za-z0-9._-]+(?::\d+)?(?:/[^\s]*)?)", value)
+    return (match.group(1) if match else value).rstrip("/")
+
+
 def get_auth_settings() -> AuthSettings:
     return AuthSettings(
         mode=os.getenv("TWEAK_AUTH_MODE", "coxie").strip().lower() or "coxie",
-        coxie_base_url=os.getenv("TWEAK_COXIE_BASE_URL", "http://localhost:8000").rstrip("/"),
+        coxie_base_url=_sanitize_base_url(
+            os.getenv("TWEAK_COXIE_BASE_URL", "http://localhost:8000")
+        ),
         dev_user_id=os.getenv("TWEAK_DEV_USER_ID", "dev-admin"),
         dev_username=os.getenv("TWEAK_DEV_USERNAME", "Dev Admin"),
         dev_role=os.getenv("TWEAK_DEV_USER_ROLE", "admin"),
@@ -83,7 +96,7 @@ async def fetch_coxie_profile(token: str, settings: AuthSettings | None = None) 
                 f"{config.coxie_base_url}/api/user/profile",
                 headers={"Authorization": f"Bearer {token}"},
             )
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, httpx.InvalidURL) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Coxie 认证服务不可用: {exc}",
@@ -159,7 +172,7 @@ async def proxy_login(username: str, password: str) -> dict[str, Any]:
                 f"{settings.coxie_base_url}/api/user/login",
                 json={"username": username, "password": password},
             )
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, httpx.InvalidURL) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Coxie 登录服务不可用: {exc}",

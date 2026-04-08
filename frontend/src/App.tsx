@@ -41,10 +41,15 @@ export default function App() {
   const [currentAgentId, setCurrentAgentId] = useState<string | undefined>(undefined)
   const autoSavedWorkflowRef = useRef(false)
   const autoSavedAgentRef = useRef(false)
-  const settingsFrom = useRef<Page>('home-overview')
+  const settingsFrom = useRef<Page>('home-entry')
   const manufactureFrom = useRef<Page>('flow-editor')
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
   const setWorkflow = useWorkflowStore((s) => s.setWorkflow)
+
+  const openSettingsFrom = (from: Page) => {
+    settingsFrom.current = from === 'home-overview' ? 'home-entry' : from
+    setPage('settings')
+  }
 
   useEffect(() => {
     getCurrentUser()
@@ -63,6 +68,12 @@ export default function App() {
       .finally(() => setAuthChecked(true))
   }, [])
 
+  useEffect(() => {
+    if (authUser && page === 'home-overview') {
+      setPage('home-entry')
+    }
+  }, [authUser, page])
+
   // 登录后检查是否已配置 API Key，未配置则引导到设置页
   useEffect(() => {
     if (!authUser) {
@@ -73,6 +84,7 @@ export default function App() {
     getSettings()
       .then((s) => {
         if (!s.api_key_set) {
+          settingsFrom.current = 'home-entry'
           setPage('settings')
         }
       })
@@ -164,8 +176,7 @@ export default function App() {
       user={authUser}
       onLogout={handleLogout}
       onOpenSettings={() => {
-        settingsFrom.current = page
-        setPage('settings')
+        openSettingsFrom(page)
       }}
     />
   )
@@ -175,8 +186,8 @@ export default function App() {
   if (page === 'home-overview' || page === 'home-entry') {
     content = (
       <HomePage
-        stage={page === 'home-entry' ? 'entry' : 'overview'}
-        onShowOverview={page === 'home-entry' ? undefined : () => setPage('home-overview')}
+        stage="entry"
+        onShowOverview={undefined}
         onShowEntry={() => setPage('home-entry')}
         onSelectFlow={() => setPage('flow-list')}
         onSelectAgent={() => setPage('agent-list')}

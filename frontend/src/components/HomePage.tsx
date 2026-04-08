@@ -41,7 +41,7 @@ const capabilityPanels = {
   agent: {
     kicker: 'Agent',
     title: '动态能力调用',
-    description: '面向需要动态判断、对话交互和多能力组合的场景。Agent 可以根据上下文调用 Skills、执行已有 Flow，也可以帮助用户生成和修改新的 Flow。',
+    description: 'Agent 侧的特殊性不在聊天本身，而在它能把 Skill、Flow 执行器和系统提示词组合成运行时决策层。',
     points: [
       '根据上下文动态调用能力',
       '可执行已有 Flow 与 Skills',
@@ -118,11 +118,11 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
               <div className="app-kicker mb-3">Operation entry</div>
               <h1 className="app-section-title text-4xl leading-tight md:text-5xl">选择你的起点</h1>
               <p className="app-muted mt-4 text-sm leading-8 md:text-base">
-                从基础配置开始，或直接进入 Flow 与 Agent 工作台。展示层和操作层在这里正式分开。
+                进入 Flow 或者 Agent 工作台。
               </p>
             </div>
 
-            <div className="mt-10 grid gap-4 lg:grid-cols-[0.65fr_1fr_1fr]">
+            <div className={`mt-10 grid gap-4 ${onOpenSettings ? 'lg:grid-cols-[0.65fr_1fr_1fr]' : 'md:grid-cols-2'}`}>
               {onOpenSettings && (
                 <button onClick={onOpenSettings} className="app-card-soft flex flex-col items-start gap-4 p-6 text-left transition hover:-translate-y-1">
                   <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-4 text-[var(--app-accent)]">
@@ -138,7 +138,7 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
                 </button>
               )}
 
-              <button onClick={onSelectFlow} className="app-card-soft group flex flex-col items-start gap-5 p-6 text-left transition hover:-translate-y-1">
+              <button onClick={onSelectFlow} className="app-card-soft group flex h-full flex-col items-start gap-5 p-6 text-left transition hover:-translate-y-1">
                 <div className="flex w-full items-start justify-between">
                   <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-4 text-[var(--app-accent)]">
                     <Workflow size={26} />
@@ -153,7 +153,7 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
                 </div>
               </button>
 
-              <button onClick={onSelectAgent} className="app-card-soft group flex flex-col items-start gap-5 p-6 text-left transition hover:-translate-y-1">
+              <button onClick={onSelectAgent} className="app-card-soft group flex h-full flex-col items-start gap-5 p-6 text-left transition hover:-translate-y-1">
                 <div className="flex w-full items-start justify-between">
                   <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-4 text-[var(--app-accent)]">
                     <Sparkles size={26} />
@@ -420,6 +420,9 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
             <div className="mx-auto max-w-2xl">
               <div className="app-kicker mb-3">Enter workbench</div>
               <h3 className="app-section-title text-3xl leading-tight md:text-4xl md:leading-[1.2]">尝试建立你的 Agent / Flow</h3>
+              <p className="app-muted mt-4 text-sm leading-8 md:text-base">
+                先创建一个 Agent，然后给它绑定工作流执行器、设计器或自定义 Skill。
+              </p>
             </div>
 
             <button
