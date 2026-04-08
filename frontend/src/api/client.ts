@@ -3,24 +3,66 @@
  */
 import type { BlockTemplate, EnabledPlugin, PluginInfo, RunResult, Workflow, WorkflowSummary } from '@/types/workflow'
 import type { Agent, ChatMessage } from '@/types/agent'
+import type { AuthUser, LoginResponse } from '@/types/auth'
 
 const BASE = '/api'
+const AUTH_TOKEN_KEY = 'tweak-auth-token'
+
+export function getAuthToken(): string {
+  if (typeof window === 'undefined') return ''
+  return window.localStorage.getItem(AUTH_TOKEN_KEY) || ''
+}
+
+export function setAuthToken(token: string) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token)
+}
+
+export function clearAuthToken() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(AUTH_TOKEN_KEY)
+}
+
+export function getAuthHeaders(extraHeaders: HeadersInit = {}): HeadersInit {
+  const token = getAuthToken()
+  return token
+    ? {
+        ...extraHeaders,
+        Authorization: `Bearer ${token}`,
+      }
+    : extraHeaders
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 600000) // 10分钟超时
 
   try {
+    const headers = new Headers(options?.headers || {})
+    if (!headers.has('Content-Type') && options?.body && !(options.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json')
+    }
+    const authHeaders = getAuthHeaders()
+    Object.entries(authHeaders).forEach(([key, value]) => {
+      if (value && !headers.has(key)) headers.set(key, value)
+    })
+
     const response = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       ...options,
       signal: controller.signal,
     })
     clearTimeout(timeoutId)
 
     if (!response.ok) {
+      if (response.status === 401) clearAuthToken()
       const error = await response.text()
-      throw new Error(`API Error: ${response.status} - ${error}`)
+      let message = `API Error: ${response.status} - ${error}`
+      try {
+        const parsed = JSON.parse(error) as { detail?: string; message?: string }
+        message = parsed.detail || parsed.message || message
+      } catch {}
+      throw new Error(message)
     }
     return response.json()
   } catch (error) {
@@ -30,6 +72,25 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
     throw error
   }
+}
+
+// ===== Auth =====
+
+export async function login(username: string, password: string) {
+  return request<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  })
+}
+
+export async function getCurrentUser() {
+  return request<AuthUser>('/auth/me')
+}
+
+export async function logout() {
+  return request<{ ok: boolean }>('/auth/logout', {
+    method: 'POST',
+  })
 }
 
 // ===== Workflow (Pipeline) =====
@@ -72,7 +133,10 @@ export async function runWorkflow(id: string, inputs: Record<string, unknown>) {
 // ===== Code Generation =====
 
 export async function downloadCode(id: string) {
-  const response = await fetch(`${BASE}/codegen/${id}/download`, { method: 'POST' })
+  const response = await fetch(`${BASE}/codegen/${id}/download`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
   if (!response.ok) throw new Error('下载失败')
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)
@@ -259,11 +323,12 @@ export async function* chatWithAgentStream(
 ): AsyncGenerator<{ type: string; data: any }> {
   const response = await fetch(`${BASE}/agents/${agentId}/chat-stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ message, history }),
   })
 
   if (!response.ok) {
+    if (response.status === 401) clearAuthToken()
     const error = await response.text()
     throw new Error(`API Error: ${response.status} - ${error}`)
   }
@@ -341,4 +406,3 @@ export async function exportFlowsToSkill(
     }),
   })
 }
-

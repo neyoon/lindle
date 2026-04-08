@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
-import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode } from '@/api/client'
+import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode, getAuthHeaders } from '@/api/client'
 import type { Workflow, Block } from '@/types/workflow'
 import { ThemeToggle } from '../ui/ThemeToggle'
 
@@ -85,7 +85,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
     try {
       const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/ai-edit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ instruction: aiInstruction.trim() }),
         signal: controller.signal,
       })
@@ -238,7 +238,9 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
     }
     setShowExportMenu(false)
     try {
-      const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/describe`)
+      const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/describe`, {
+        headers: getAuthHeaders(),
+      })
       if (!resp.ok) throw new Error('获取描述失败')
       const data = await resp.json()
       // 打开新窗口显示描述文本

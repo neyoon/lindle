@@ -18,6 +18,7 @@ from agent.engine import AgentEngine
 from shared_llm import call_llm
 from plugins.registry import get_plugin
 from storage.agent_store import delete_agent, list_agents, load_agent, save_agent
+from api.routes.settings import get_default_provider
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -141,7 +142,15 @@ Agent 名称：{req.agent_name}
 """
 
     try:
-        result = await call_llm(prompt=prompt, context="")
+        provider = get_default_provider()
+        provider_config = {}
+        if provider:
+            provider_config = {
+                "model": provider.get("model"),
+                "api_key": provider.get("api_key"),
+                "base_url": provider.get("base_url"),
+            }
+        result = await call_llm(prompt=prompt, context="", **provider_config)
         return GeneratePromptResponse(system_prompt=result.strip())
     except Exception as e:
         # 如果生成失败，返回默认提示词
@@ -225,4 +234,3 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
             "Connection": "keep-alive",
         },
     )
-

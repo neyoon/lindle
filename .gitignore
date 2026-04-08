@@ -45,3 +45,6 @@ frontend/.vite/
 
 # ----- Claude -----
 .claude
+
+# ----- Coxie -----
+coxie-api-go/

@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -26,14 +25,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from shared_llm import configure as configure_llm
+from storage.user_scoped import ensure_parent, get_user_file
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
-
-# 配置文件路径
-SETTINGS_FILE = Path(__file__).parent.parent.parent / "data" / "settings.json"
-
 
 # ===== 数据模型 =====
 
@@ -68,15 +64,20 @@ class TestInput(BaseModel):
     provider_id: str = ""  # 可选: 用已保存 provider 的 key
 
 
+def _settings_file() -> Path:
+    return get_user_file("settings", "settings.json")
+
+
 # ===== 文件读写 =====
 
 
 def _load_raw() -> dict[str, Any]:
     """从文件加载原始数据"""
-    if not SETTINGS_FILE.exists():
+    settings_file = _settings_file()
+    if not settings_file.exists():
         return {"providers": []}
     try:
-        data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        data = json.loads(settings_file.read_text(encoding="utf-8"))
         # 兼容旧格式: 如果是单 provider 格式，自动迁移
         if "providers" not in data and "api_key" in data:
             old = data
@@ -103,8 +104,9 @@ def _load_raw() -> dict[str, Any]:
 
 def _save_raw(data: dict[str, Any]) -> None:
     """保存数据到文件"""
-    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    SETTINGS_FILE.write_text(
+    settings_file = _settings_file()
+    ensure_parent(settings_file)
+    settings_file.write_text(
         json.dumps(data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
@@ -144,17 +146,8 @@ def _mask_key(key: str) -> str:
 
 
 def init_settings() -> None:
-    """启动时调用: 从 settings.json 加载默认 Provider 配置到 LLM 模块"""
-    default = get_default_provider()
-    if default and default.get("api_key"):
-        configure_llm(
-            api_key=default["api_key"],
-            base_url=default.get("base_url", "https://api.openai.com/v1"),
-            default_model=default.get("model", "gpt-4o-mini"),
-        )
-        logger.info("已加载默认 Provider [%s] 到 LLM 模块", default.get("name"))
-    else:
-        logger.info("未配置 Provider，请通过前端设置页面配置")
+    """启动时不加载用户级 Provider。"""
+    logger.info("用户级 Provider 已启用，等待请求级认证上下文")
 
 
 # ===== API 路由 =====
@@ -398,7 +391,7 @@ async def get_settings_summary() -> dict[str, Any]:
 
 
 def _apply_provider(provider: dict[str, Any]) -> None:
-    """将 Provider 配置应用到 LLM 模块"""
+    """兼容旧逻辑：把当前用户的默认 Provider 应用到全局 LLM 模块。"""
     configure_llm(
         api_key=provider.get("api_key", ""),
         base_url=provider.get("base_url", "https://api.openai.com/v1"),

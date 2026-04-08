@@ -42,6 +42,58 @@ chmod +x start.sh
 
 访问 http://localhost:3000 开始使用。
 
+### 多用户认证
+
+当前版本已接入外部账号中心，`miniflow` 本身不再维护独立用户密码。
+
+- 默认模式：`TWEAK_AUTH_MODE=coxie`
+- 本地开发模式：`TWEAK_AUTH_MODE=dev`
+
+后端启动时可使用以下环境变量：
+
+```bash
+# 接入现有 coxie 账号系统
+export TWEAK_AUTH_MODE=coxie
+export TWEAK_COXIE_BASE_URL=http://localhost:8000
+
+# 或使用本地假用户开发
+export TWEAK_AUTH_MODE=dev
+export TWEAK_DEV_USER_ID=test-user-1
+export TWEAK_DEV_USERNAME=Test User
+export TWEAK_DEV_USER_ROLE=admin
+```
+
+在 `dev` 模式下，前端仍会显示登录页，但任意非空用户名/密码都可进入，后端会固定注入本地测试用户。
+
+### 本地联调
+
+推荐两种方式：
+
+1. 纯本地开发
+
+```bash
+export TWEAK_AUTH_MODE=dev
+./start.sh
+```
+
+2. 接入真实账号系统联调
+
+```bash
+export TWEAK_AUTH_MODE=coxie
+export TWEAK_COXIE_BASE_URL=http://localhost:8000
+./start.sh
+```
+
+### 数据隔离
+
+当前第一阶段仍保留文件存储，但已按用户隔离到不同目录：
+
+```text
+backend/data/users/<user_id>/
+```
+
+其中会分别保存该用户的 `workflows`、`agents`、`workspace`、`settings`、`custom_skills` 和插件配置。
+
 ### Docker 部署
 
 ```bash

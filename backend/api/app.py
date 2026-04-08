@@ -16,13 +16,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import agents, codegen, execution, plugins, settings, workflow, workspace
+from api.auth_service import authenticate_request, is_auth_exempt_path
+from api.routes import agents, auth, codegen, execution, plugins, settings, workflow, workspace
 from api.routes.settings import init_settings
+from api.user_context import reset_current_user, set_current_user
 
 app = FastAPI(
     title="Tweak",
@@ -39,7 +42,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if is_auth_exempt_path(request.url.path):
+        return await call_next(request)
+
+    try:
+        current_user = await authenticate_request(request)
+        token = set_current_user(current_user)
+        request.state.current_user = current_user
+        try:
+            return await call_next(request)
+        finally:
+            reset_current_user(token)
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
 # 注册路由
+app.include_router(auth.router)
 app.include_router(workflow.router)
 app.include_router(execution.router)
 app.include_router(codegen.router)

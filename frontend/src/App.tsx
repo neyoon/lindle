@@ -12,6 +12,7 @@
  * 7. Agent 编辑器
  */
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { HomePage } from './components/HomePage'
 import { Canvas } from './components/pipeline/Canvas'
 import { Toolbar } from './components/pipeline/Toolbar'
@@ -24,13 +25,17 @@ import { AgentListPage } from './components/AgentListPage'
 import { AgentEditorPage } from './components/AgentEditorPage'
 import { SkillLibraryPage } from './components/SkillLibraryPage'
 import { SettingsPage } from './components/SettingsPage'
+import { LoginPage } from './components/LoginPage'
 import { useWorkflowStore } from './stores/workflow'
-import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent } from './api/client'
+import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent, login, setAuthToken, getCurrentUser, clearAuthToken, logout } from './api/client'
+import type { AuthUser } from './types/auth'
 
 type Page = 'home-overview' | 'home-entry' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home-overview')
+  const [authChecked, setAuthChecked] = useState(false)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [checkedSettings, setCheckedSettings] = useState(false)
   const [currentAgentId, setCurrentAgentId] = useState<string | undefined>(undefined)
   const autoSavedWorkflowRef = useRef(false)
@@ -40,8 +45,23 @@ export default function App() {
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
   const setWorkflow = useWorkflowStore((s) => s.setWorkflow)
 
-  // 启动时检查是否已配置 API Key，未配置则引导到设置页
   useEffect(() => {
+    getCurrentUser()
+      .then((user) => setAuthUser(user))
+      .catch(() => {
+        clearAuthToken()
+        setAuthUser(null)
+      })
+      .finally(() => setAuthChecked(true))
+  }, [])
+
+  // 登录后检查是否已配置 API Key，未配置则引导到设置页
+  useEffect(() => {
+    if (!authUser) {
+      setCheckedSettings(false)
+      return
+    }
+
     getSettings()
       .then((s) => {
         if (!s.api_key_set) {
@@ -50,7 +70,27 @@ export default function App() {
       })
       .catch(() => {})
       .finally(() => setCheckedSettings(true))
-  }, [])
+  }, [authUser])
+
+  const handleLogin = async (username: string, password: string) => {
+    const result = await login(username, password)
+    setAuthToken(result.token)
+    const currentUser = await getCurrentUser()
+    setAuthUser(currentUser)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch {}
+    clearAuthToken()
+    setAuthUser(null)
+    setCheckedSettings(false)
+    setCurrentAgentId(undefined)
+    autoSavedWorkflowRef.current = false
+    autoSavedAgentRef.current = false
+    setPage('home-overview')
+  }
 
   // 打开已有工作流
   const handleOpenWorkflow = async (workflowId: string) => {
@@ -90,11 +130,16 @@ export default function App() {
     setPage('flow-list')
   }
 
+  if (!authChecked) return null
+  if (!authUser) return <LoginPage onLogin={handleLogin} />
+
   // 初始检查中不渲染
   if (!checkedSettings) return null
 
+  let content: ReactNode
+
   if (page === 'home-overview' || page === 'home-entry') {
-    return (
+    content = (
       <HomePage
         stage={page === 'home-entry' ? 'entry' : 'overview'}
         onShowOverview={() => setPage('home-overview')}
@@ -104,14 +149,10 @@ export default function App() {
         onOpenSettings={() => { settingsFrom.current = page; setPage('settings') }}
       />
     )
-  }
-
-  if (page === 'settings') {
-    return <SettingsPage onBack={() => setPage(settingsFrom.current)} />
-  }
-
-  if (page === 'flow-list') {
-    return (
+  } else if (page === 'settings') {
+    content = <SettingsPage onBack={() => setPage(settingsFrom.current)} />
+  } else if (page === 'flow-list') {
+    content = (
       <WorkflowListPage
         onOpen={handleOpenWorkflow}
         onCreateNew={handleCreateNew}
@@ -121,10 +162,8 @@ export default function App() {
         onBack={() => setPage('home-entry')}
       />
     )
-  }
-
-  if (page === 'agent-list') {
-    return (
+  } else if (page === 'agent-list') {
+    content = (
       <AgentListPage
         onOpen={(agentId) => {
           setCurrentAgentId(agentId)
@@ -158,18 +197,14 @@ export default function App() {
         onOpenSettings={() => { settingsFrom.current = 'agent-list'; setPage('settings') }}
       />
     )
-  }
-
-  if (page === 'skill-library') {
-    return (
+  } else if (page === 'skill-library') {
+    content = (
       <SkillLibraryPage
         onBack={() => setPage('agent-list')}
       />
     )
-  }
-
-  if (page === 'agent-editor') {
-    return (
+  } else if (page === 'agent-editor') {
+    content = (
       <AgentEditorPage
         agentId={currentAgentId}
         onBack={async () => {
@@ -187,37 +222,48 @@ export default function App() {
         }}
       />
     )
-  }
-
-  if (page === 'plugins') {
-    return <PluginsPage onBack={() => setPage('flow-list')} />
-  }
-
-  if (page === 'manufacture') {
-    return <ManufacturePage onBack={() => setPage(manufactureFrom.current)} />
+  } else if (page === 'plugins') {
+    content = <PluginsPage onBack={() => setPage('flow-list')} />
+  } else if (page === 'manufacture') {
+    content = <ManufacturePage onBack={() => setPage(manufactureFrom.current)} />
+  } else {
+    content = (
+      <div className="editor-shell">
+        <Toolbar
+          onOpenManufacture={() => { manufactureFrom.current = 'flow-editor'; setPage('manufacture') }}
+          onBackToList={handleBackToFlowList}
+          onOpenSettings={() => { settingsFrom.current = 'flow-editor'; setPage('settings') }}
+          onManualSave={() => {
+            autoSavedWorkflowRef.current = false
+          }}
+        />
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 overflow-x-auto">
+            <Canvas />
+          </div>
+          {selectedBlockId && (
+            <div className="editor-panel w-80 overflow-y-auto border-l">
+              <BlockConfigPanel />
+            </div>
+          )}
+        </div>
+        <RunPanel />
+      </div>
+    )
   }
 
   return (
-    <div className="editor-shell">
-      <Toolbar
-        onOpenManufacture={() => { manufactureFrom.current = 'flow-editor'; setPage('manufacture') }}
-        onBackToList={handleBackToFlowList}
-        onOpenSettings={() => { settingsFrom.current = 'flow-editor'; setPage('settings') }}
-        onManualSave={() => {
-          autoSavedWorkflowRef.current = false
-        }}
-      />
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-x-auto">
-          <Canvas />
+    <>
+      <div className="fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-3 py-2 shadow-[var(--app-shadow)]">
+        <div className="text-right">
+          <div className="text-sm font-medium text-[var(--app-text)]">{authUser.username}</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">{authUser.role}</div>
         </div>
-        {selectedBlockId && (
-          <div className="editor-panel w-80 overflow-y-auto border-l">
-            <BlockConfigPanel />
-          </div>
-        )}
+        <button onClick={handleLogout} className="app-button app-button-ghost px-3 py-2 text-xs">
+          退出
+        </button>
       </div>
-      <RunPanel />
-    </div>
+      {content}
+    </>
   )
 }

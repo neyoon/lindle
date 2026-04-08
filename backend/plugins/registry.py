@@ -18,6 +18,7 @@ from plugins.mock_tool import MockToolPlugin
 from plugins.stock_analysis import StockAnalysisPlugin
 from plugins.workflow_executor import WorkflowExecutorSkill
 from plugins.workflow_designer import WorkflowDesignerSkill
+from storage.user_scoped import ensure_parent, get_user_file
 
 # 存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -48,16 +49,18 @@ def get_plugin(plugin_id: str) -> BasePlugin | None:
 
 def _load_state() -> dict[str, Any]:
     """加载插件状态"""
-    if os.path.exists(_CONFIG_FILE):
-        with open(_CONFIG_FILE, encoding="utf-8") as f:
+    config_file = get_user_file("plugins", "plugins.json")
+    if config_file.exists():
+        with open(config_file, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
 def _save_state(state: dict[str, Any]) -> None:
     """保存插件状态"""
-    _ensure_dir()
-    with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
+    config_file = get_user_file("plugins", "plugins.json")
+    ensure_parent(config_file)
+    with open(config_file, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 
