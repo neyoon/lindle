@@ -1,8 +1,10 @@
-import { useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, Factory, Settings, Sparkles, Wrench, Workflow } from 'lucide-react'
 import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Props {
+  stage: 'overview' | 'entry'
+  onShowOverview: () => void
+  onShowEntry: () => void
   onSelectFlow: () => void
   onSelectAgent: () => void
   onOpenSettings?: () => void
@@ -83,16 +85,14 @@ const loopSteps = [
   },
 ]
 
-export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props) {
-  const [stage, setStage] = useState<'overview' | 'entry'>('overview')
-
+export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onSelectAgent, onOpenSettings }: Props) {
   if (stage === 'entry') {
     return (
       <div className="app-shell">
         <header className="app-topbar">
           <div className="app-topbar-inner">
             <div className="flex items-center gap-3">
-              <button onClick={() => setStage('overview')} className="app-button app-button-ghost">
+              <button onClick={onShowOverview} className="app-button app-button-ghost">
                 <ArrowLeft size={16} />
                 返回展示
               </button>
@@ -413,7 +413,7 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
             </div>
 
             <button
-              onClick={() => setStage('entry')}
+              onClick={onShowEntry}
               className="group mt-8 inline-flex flex-col items-center gap-3 rounded-full border border-[var(--app-border-strong)] bg-[rgba(255,255,255,0.03)] px-8 py-6 transition hover:-translate-y-1 hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
             >
               <span className="app-kicker">Start trial</span>

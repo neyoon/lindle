@@ -27,15 +27,15 @@ import { SettingsPage } from './components/SettingsPage'
 import { useWorkflowStore } from './stores/workflow'
 import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent } from './api/client'
 
-type Page = 'home' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
+type Page = 'home-overview' | 'home-entry' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
 
 export default function App() {
-  const [page, setPage] = useState<Page>('home')
+  const [page, setPage] = useState<Page>('home-overview')
   const [checkedSettings, setCheckedSettings] = useState(false)
-  const [autoSaved, setAutoSaved] = useState(false)
-  const [autoSavedAgent, setAutoSavedAgent] = useState(false) // Agent 自动保存标记
   const [currentAgentId, setCurrentAgentId] = useState<string | undefined>(undefined)
-  const settingsFrom = useRef<Page>('home')
+  const autoSavedWorkflowRef = useRef(false)
+  const autoSavedAgentRef = useRef(false)
+  const settingsFrom = useRef<Page>('home-overview')
   const manufactureFrom = useRef<Page>('flow-editor')
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
   const setWorkflow = useWorkflowStore((s) => s.setWorkflow)
@@ -57,7 +57,7 @@ export default function App() {
     try {
       const wf = await getWorkflow(workflowId)
       setWorkflow(wf)
-      setAutoSaved(false)
+      autoSavedWorkflowRef.current = false
       setPage('flow-editor')
     } catch (e) {
       alert(`打开工作流失败: ${e}`)
@@ -71,7 +71,7 @@ export default function App() {
     try {
       await saveWorkflow(wf)
       setWorkflow(wf)
-      setAutoSaved(true)
+      autoSavedWorkflowRef.current = true
       setPage('flow-editor')
     } catch (e) {
       alert(`创建失败: ${e}`)
@@ -80,25 +80,28 @@ export default function App() {
 
   // 返回列表 — 如未手动保存则自动删除
   const handleBackToFlowList = async () => {
-    if (autoSaved) {
+    if (autoSavedWorkflowRef.current) {
       const wfId = useWorkflowStore.getState().workflow.id
       if (wfId) {
         try { await deleteWorkflow(wfId) } catch {}
       }
     }
-    setAutoSaved(false)
+    autoSavedWorkflowRef.current = false
     setPage('flow-list')
   }
 
   // 初始检查中不渲染
   if (!checkedSettings) return null
 
-  if (page === 'home') {
+  if (page === 'home-overview' || page === 'home-entry') {
     return (
       <HomePage
+        stage={page === 'home-entry' ? 'entry' : 'overview'}
+        onShowOverview={() => setPage('home-overview')}
+        onShowEntry={() => setPage('home-entry')}
         onSelectFlow={() => setPage('flow-list')}
         onSelectAgent={() => setPage('agent-list')}
-        onOpenSettings={() => { settingsFrom.current = 'home'; setPage('settings') }}
+        onOpenSettings={() => { settingsFrom.current = page; setPage('settings') }}
       />
     )
   }
@@ -115,7 +118,7 @@ export default function App() {
         onOpenPlugins={() => setPage('plugins')}
         onOpenManufacture={() => { manufactureFrom.current = 'flow-list'; setPage('manufacture') }}
         onOpenSettings={() => { settingsFrom.current = 'flow-list'; setPage('settings') }}
-        onBack={() => setPage('home')}
+        onBack={() => setPage('home-entry')}
       />
     )
   }
@@ -125,7 +128,7 @@ export default function App() {
       <AgentListPage
         onOpen={(agentId) => {
           setCurrentAgentId(agentId)
-          setAutoSavedAgent(false)
+          autoSavedAgentRef.current = false
           setPage('agent-editor')
         }}
         onCreateNew={async () => {
@@ -144,13 +147,13 @@ export default function App() {
           try {
             await createAgent(agent)
             setCurrentAgentId(id)
-            setAutoSavedAgent(true)
+            autoSavedAgentRef.current = true
             setPage('agent-editor')
           } catch (e) {
             alert(`创建失败: ${e}`)
           }
         }}
-        onBack={() => setPage('home')}
+        onBack={() => setPage('home-entry')}
         onOpenSkillLibrary={() => setPage('skill-library')}
         onOpenSettings={() => { settingsFrom.current = 'agent-list'; setPage('settings') }}
       />
@@ -171,15 +174,17 @@ export default function App() {
         agentId={currentAgentId}
         onBack={async () => {
           // 如果是自动保存的且未手动保存，则删除
-          if (autoSavedAgent && currentAgentId) {
+          if (autoSavedAgentRef.current && currentAgentId) {
             try {
               await deleteAgent(currentAgentId)
             } catch {}
           }
-          setAutoSavedAgent(false)
+          autoSavedAgentRef.current = false
           setPage('agent-list')
         }}
-        onManualSave={() => setAutoSavedAgent(false)}
+        onManualSave={() => {
+          autoSavedAgentRef.current = false
+        }}
       />
     )
   }
@@ -198,7 +203,9 @@ export default function App() {
         onOpenManufacture={() => { manufactureFrom.current = 'flow-editor'; setPage('manufacture') }}
         onBackToList={handleBackToFlowList}
         onOpenSettings={() => { settingsFrom.current = 'flow-editor'; setPage('settings') }}
-        onManualSave={() => setAutoSaved(false)}
+        onManualSave={() => {
+          autoSavedWorkflowRef.current = false
+        }}
       />
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 overflow-x-auto">
