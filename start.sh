@@ -6,6 +6,10 @@
 #   ./start.sh          启动前端 + 后端（默认稳定模式，后端不热重载）
 #   ./start.sh stop     停止所有服务
 #   ./start.sh restart  重启所有服务
+#   ./start.sh dev      本地假用户模式启动
+#   ./start.sh dev-hot  本地假用户模式 + 后端热重载
+#   ./start.sh real     接入真实 coxie 账号系统
+#   ./start.sh real-hot 接入真实 coxie 账号系统 + 后端热重载
 #   BACKEND_DEV=1 ./start.sh   启动后端热重载（开发调试）
 #
 set -e
@@ -25,6 +29,46 @@ BACKEND_LOG="$ROOT_DIR/.pids/backend.log"
 FRONTEND_LOG="$ROOT_DIR/.pids/frontend.log"
 # 后端是否启用热重载：默认关闭，避免流式会话被 StatReload 打断
 BACKEND_DEV="${BACKEND_DEV:-0}"
+AUTH_PRESET="${AUTH_PRESET:-}"
+COXIE_URL_DEFAULT="${TWEAK_COXIE_BASE_URL:-http://localhost:8000}"
+
+configure_auth_preset() {
+  case "${AUTH_PRESET:-}" in
+    ""|default)
+      ;;
+    dev)
+      export TWEAK_AUTH_MODE="dev"
+      export TWEAK_DEV_USER_ID="${TWEAK_DEV_USER_ID:-test-user-1}"
+      export TWEAK_DEV_USERNAME="${TWEAK_DEV_USERNAME:-Test User}"
+      export TWEAK_DEV_USER_ROLE="${TWEAK_DEV_USER_ROLE:-admin}"
+      ;;
+    real)
+      export TWEAK_AUTH_MODE="coxie"
+      export TWEAK_COXIE_BASE_URL="${TWEAK_COXIE_BASE_URL:-$COXIE_URL_DEFAULT}"
+      ;;
+    *)
+      echo "未知认证模式: $AUTH_PRESET"
+      exit 1
+      ;;
+  esac
+}
+
+print_runtime_mode() {
+  local auth_mode="${TWEAK_AUTH_MODE:-coxie}"
+  local backend_mode="稳定模式（热重载关闭）"
+  if [ "$BACKEND_DEV" = "1" ]; then
+    backend_mode="开发模式（热重载开启）"
+  fi
+
+  echo "[启动模式] 后端: $backend_mode"
+  if [ "$auth_mode" = "dev" ]; then
+    echo "[启动模式] 认证: 本地假用户"
+    echo "[启动模式] 测试用户: ${TWEAK_DEV_USERNAME:-Test User} (${TWEAK_DEV_USER_ID:-test-user-1}, ${TWEAK_DEV_USER_ROLE:-admin})"
+  else
+    echo "[启动模式] 认证: 真实账号系统"
+    echo "[启动模式] Coxie 地址: ${TWEAK_COXIE_BASE_URL:-$COXIE_URL_DEFAULT}"
+  fi
+}
 
 # ---------- 工具函数 ----------
 
@@ -65,11 +109,7 @@ start_backend() {
   uv sync --quiet 2>/dev/null || true
 
   echo "[后端] 启动 (http://localhost:8000)..."
-  if [ "$BACKEND_DEV" = "1" ]; then
-    echo "[后端] 模式: 开发模式（热重载开启）"
-  else
-    echo "[后端] 模式: 稳定模式（热重载关闭）"
-  fi
+  print_runtime_mode
   DEV="$BACKEND_DEV" uv run python main.py > "$BACKEND_LOG" 2>&1 &
   local pid=$!
   echo "$pid" > "$BACKEND_PID_FILE"
@@ -108,6 +148,53 @@ wait_for_service() {
 }
 
 # ---------- 主逻辑 ----------
+
+case "${1:-start}" in
+  dev)
+    AUTH_PRESET="dev"
+    BACKEND_DEV="${BACKEND_DEV:-0}"
+    set -- start
+    ;;
+  dev-hot)
+    AUTH_PRESET="dev"
+    BACKEND_DEV="1"
+    set -- start
+    ;;
+  real)
+    AUTH_PRESET="real"
+    [ -n "${2:-}" ] && export TWEAK_COXIE_BASE_URL="$2"
+    set -- start
+    ;;
+  real-hot)
+    AUTH_PRESET="real"
+    BACKEND_DEV="1"
+    [ -n "${2:-}" ] && export TWEAK_COXIE_BASE_URL="$2"
+    set -- start
+    ;;
+esac
+
+if [ "${1:-start}" = "restart" ]; then
+  case "${2:-}" in
+    dev)
+      AUTH_PRESET="dev"
+      ;;
+    dev-hot)
+      AUTH_PRESET="dev"
+      BACKEND_DEV="1"
+      ;;
+    real)
+      AUTH_PRESET="real"
+      [ -n "${3:-}" ] && export TWEAK_COXIE_BASE_URL="$3"
+      ;;
+    real-hot)
+      AUTH_PRESET="real"
+      BACKEND_DEV="1"
+      [ -n "${3:-}" ] && export TWEAK_COXIE_BASE_URL="$3"
+      ;;
+  esac
+fi
+
+configure_auth_preset
 
 case "${1:-start}" in
   stop)
@@ -152,13 +239,19 @@ case "${1:-start}" in
     echo "  前端: http://localhost:3000"
     echo "  后端: http://localhost:8000"
     echo "  API 文档: http://localhost:8000/docs"
+    if [ "${TWEAK_AUTH_MODE:-coxie}" = "dev" ]; then
+      echo "  认证模式: dev（本地假用户）"
+    else
+      echo "  认证模式: coxie（${TWEAK_COXIE_BASE_URL:-$COXIE_URL_DEFAULT}）"
+    fi
     echo ""
     echo "  停止: ./start.sh stop"
     echo "  重启: ./start.sh restart"
+    echo "  快捷模式: ./start.sh dev | ./start.sh dev-hot | ./start.sh real [coxie_url]"
     echo "========================================="
     ;;
   *)
-    echo "用法: $0 {start|stop|restart}"
+    echo "用法: $0 {start|stop|restart|dev|dev-hot|real|real-hot}"
     exit 1
     ;;
 esac

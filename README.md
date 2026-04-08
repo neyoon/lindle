@@ -49,7 +49,17 @@ chmod +x start.sh
 - 默认模式：`TWEAK_AUTH_MODE=coxie`
 - 本地开发模式：`TWEAK_AUTH_MODE=dev`
 
-后端启动时可使用以下环境变量：
+现在也可以直接用脚本模式启动，不必手动管理环境变量：
+
+```bash
+./start.sh dev
+./start.sh dev-hot
+./start.sh real
+./start.sh real http://localhost:8000
+./start.sh real-hot http://localhost:8000
+```
+
+如果你仍然需要手动控制，也可以使用以下环境变量：
 
 ```bash
 # 接入现有 coxie 账号系统
@@ -72,16 +82,13 @@ export TWEAK_DEV_USER_ROLE=admin
 1. 纯本地开发
 
 ```bash
-export TWEAK_AUTH_MODE=dev
-./start.sh
+./start.sh dev
 ```
 
 2. 接入真实账号系统联调
 
 ```bash
-export TWEAK_AUTH_MODE=coxie
-export TWEAK_COXIE_BASE_URL=http://localhost:8000
-./start.sh
+./start.sh real http://localhost:8000
 ```
 
 ### 数据隔离

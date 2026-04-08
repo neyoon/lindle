@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Plus, Settings, Sparkles, Trash2, Wrench } from 'lucide-react'
 import { listAgents, deleteAgent } from '@/api/client'
 import { ThemeToggle } from './ui/ThemeToggle'
@@ -18,9 +19,10 @@ interface Props {
   onBack: () => void
   onOpenSkillLibrary?: () => void
   onOpenSettings?: () => void
+  headerActions?: ReactNode
 }
 
-export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary, onOpenSettings }: Props) {
+export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary, onOpenSettings, headerActions }: Props) {
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -84,6 +86,7 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
               <Plus size={16} />
               创建 Agent
             </button>
+            {headerActions}
           </div>
         </div>
       </header>

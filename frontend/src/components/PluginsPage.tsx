@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ArrowLeft, Check, Power, Settings, X } from 'lucide-react'
 import type { PluginInfo } from '@/types/workflow'
 import { listPlugins, togglePlugin, updatePluginConfig } from '@/api/client'
@@ -6,9 +7,10 @@ import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Props {
   onBack: () => void
+  headerActions?: ReactNode
 }
 
-export function PluginsPage({ onBack }: Props) {
+export function PluginsPage({ onBack, headerActions }: Props) {
   const [plugins, setPlugins] = useState<PluginInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [configuring, setConfiguring] = useState<string | null>(null)
@@ -53,7 +55,10 @@ export function PluginsPage({ onBack }: Props) {
               <h1 className="app-section-title text-2xl">插件管理</h1>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {headerActions}
+          </div>
         </div>
       </header>
 

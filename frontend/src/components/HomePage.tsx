@@ -1,13 +1,15 @@
 import { ArrowDown, ArrowLeft, ArrowRight, Factory, Settings, Sparkles, Wrench, Workflow } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Props {
   stage: 'overview' | 'entry'
-  onShowOverview: () => void
+  onShowOverview?: () => void
   onShowEntry: () => void
   onSelectFlow: () => void
   onSelectAgent: () => void
   onOpenSettings?: () => void
+  headerActions?: ReactNode
 }
 
 const flowHighlights = [
@@ -85,23 +87,28 @@ const loopSteps = [
   },
 ]
 
-export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onSelectAgent, onOpenSettings }: Props) {
+export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onSelectAgent, onOpenSettings, headerActions }: Props) {
   if (stage === 'entry') {
     return (
       <div className="app-shell">
         <header className="app-topbar">
           <div className="app-topbar-inner">
             <div className="flex items-center gap-3">
-              <button onClick={onShowOverview} className="app-button app-button-ghost">
-                <ArrowLeft size={16} />
-                返回展示
-              </button>
+              {onShowOverview && (
+                <button onClick={onShowOverview} className="app-button app-button-ghost">
+                  <ArrowLeft size={16} />
+                  返回展示
+                </button>
+              )}
               <div>
                 <div className="app-kicker">Workbench entry</div>
                 <div className="app-brand-mark">进入工作台</div>
               </div>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              {headerActions}
+            </div>
           </div>
         </header>
 
@@ -184,7 +191,10 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
             <div className="app-kicker">Visual Systems for Structured Flows</div>
             <div className="app-brand-mark">Tweak</div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {headerActions}
+          </div>
         </div>
       </header>
 
@@ -417,7 +427,7 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
               className="group mt-8 inline-flex flex-col items-center gap-3 rounded-full border border-[var(--app-border-strong)] bg-[rgba(255,255,255,0.03)] px-8 py-6 transition hover:-translate-y-1 hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
             >
               <span className="app-kicker">Start trial</span>
-              <span className="app-section-title text-2xl">开始试用</span>
+              <span className="app-section-title text-2xl">开始使用</span>
               <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-[rgba(109,204,255,0.1)] text-[var(--app-accent)] transition group-hover:translate-y-1">
                 <ArrowDown size={18} />
               </span>

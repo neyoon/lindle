@@ -9,6 +9,7 @@
  * 5. 导出功能
  */
 import { useEffect, useState, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap } from 'lucide-react'
 import { getAgent, createAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgent, chatWithAgentStream, listProviders, createCustomSkill, listCustomSkills, listWorkflows } from '@/api/client'
 import { AgentTestChat } from './AgentTestChat'
@@ -28,9 +29,10 @@ interface Props {
   agentId?: string
   onBack: () => void
   onManualSave?: () => void
+  headerActions?: ReactNode
 }
 
-export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
+export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }: Props) {
   const [agent, setAgent] = useState<Agent>({
     id: agentId || `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     name: '新建 Agent',
@@ -641,6 +643,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
             <Save size={16} />
             保存
           </button>
+          {headerActions}
         </div>
       </div>
       </div>

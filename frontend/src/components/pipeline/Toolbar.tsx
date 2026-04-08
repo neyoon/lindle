@@ -2,7 +2,8 @@
  * 顶部工具栏
  */
 import { useState, useRef, useEffect } from 'react'
-import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Play, Save, Factory, ArrowLeft, Download, FileText, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode, getAuthHeaders } from '@/api/client'
 import type { Workflow, Block } from '@/types/workflow'
@@ -13,8 +14,8 @@ const API_BASE = '/api'
 interface ToolbarProps {
   onOpenManufacture?: () => void
   onBackToList?: () => void
-  onOpenSettings?: () => void
   onManualSave?: () => void
+  headerActions?: ReactNode
 }
 
 function generateId(): string {
@@ -43,7 +44,7 @@ function computeBlockDiff(
   return diff
 }
 
-export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onManualSave }: ToolbarProps) {
+export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerActions }: ToolbarProps) {
   const { workflow, setWorkflow, setRunResult, setIsRunning, isRunning, setBlockDiffMap, setStopOnError } = useWorkflowStore()
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showAIEdit, setShowAIEdit] = useState(false)
@@ -343,13 +344,6 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
           <Factory size={16} />
           制造
         </button>
-        <button
-          onClick={onOpenSettings}
-          className="app-button app-button-ghost"
-        >
-          <Settings size={16} />
-          设置
-        </button>
         <span className="text-[var(--app-border-strong)]">|</span>
 
         {/* 失败即停止开关 */}
@@ -421,6 +415,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
           <Play size={16} />
           {isRunning ? '运行中...' : '运行'}
         </button>
+        {headerActions}
       </div>
       </div>
     </div>

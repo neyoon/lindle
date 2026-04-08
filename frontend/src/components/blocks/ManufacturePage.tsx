@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ArrowLeft, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import type { BlockConfig, BlockTemplate, BlockType } from '@/types/workflow'
 import type { ProviderResponse } from '@/api/client'
@@ -7,6 +8,7 @@ import { ThemeToggle } from '../ui/ThemeToggle'
 
 interface Props {
   onBack: () => void
+  headerActions?: ReactNode
 }
 
 const TYPE_OPTIONS: { value: BlockType; label: string }[] = [
@@ -19,7 +21,7 @@ function generateTemplateId(): string {
   return `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function ManufacturePage({ onBack }: Props) {
+export function ManufacturePage({ onBack, headerActions }: Props) {
   const [templates, setTemplates] = useState<BlockTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<BlockTemplate | null>(null)
@@ -87,6 +89,7 @@ export function ManufacturePage({ onBack }: Props) {
                 新建模板
               </button>
             )}
+            {headerActions}
           </div>
         </div>
       </header>

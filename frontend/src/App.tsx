@@ -26,11 +26,12 @@ import { AgentEditorPage } from './components/AgentEditorPage'
 import { SkillLibraryPage } from './components/SkillLibraryPage'
 import { SettingsPage } from './components/SettingsPage'
 import { LoginPage } from './components/LoginPage'
+import { UserMenu } from './components/UserMenu'
 import { useWorkflowStore } from './stores/workflow'
 import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent, login, setAuthToken, getCurrentUser, clearAuthToken, logout } from './api/client'
 import type { AuthUser } from './types/auth'
 
-type Page = 'home-overview' | 'home-entry' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
+type Page = 'home-overview' | 'login' | 'home-entry' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home-overview')
@@ -47,7 +48,14 @@ export default function App() {
 
   useEffect(() => {
     getCurrentUser()
-      .then((user) => setAuthUser(user))
+      .then((user) => {
+        setAuthUser(user)
+        setPage((currentPage) => (
+          currentPage === 'home-overview' || currentPage === 'login'
+            ? 'home-entry'
+            : currentPage
+        ))
+      })
       .catch(() => {
         clearAuthToken()
         setAuthUser(null)
@@ -77,6 +85,7 @@ export default function App() {
     setAuthToken(result.token)
     const currentUser = await getCurrentUser()
     setAuthUser(currentUser)
+    setPage('home-entry')
   }
 
   const handleLogout = async () => {
@@ -131,10 +140,35 @@ export default function App() {
   }
 
   if (!authChecked) return null
-  if (!authUser) return <LoginPage onLogin={handleLogin} />
+
+  if (!authUser) {
+    if (page === 'login') {
+      return <LoginPage onLogin={handleLogin} onBack={() => setPage('home-overview')} />
+    }
+
+    return (
+      <HomePage
+        stage="overview"
+        onShowEntry={() => setPage('login')}
+        onSelectFlow={() => setPage('login')}
+        onSelectAgent={() => setPage('login')}
+      />
+    )
+  }
 
   // 初始检查中不渲染
   if (!checkedSettings) return null
+
+  const headerActions = (
+    <UserMenu
+      user={authUser}
+      onLogout={handleLogout}
+      onOpenSettings={() => {
+        settingsFrom.current = page
+        setPage('settings')
+      }}
+    />
+  )
 
   let content: ReactNode
 
@@ -142,15 +176,15 @@ export default function App() {
     content = (
       <HomePage
         stage={page === 'home-entry' ? 'entry' : 'overview'}
-        onShowOverview={() => setPage('home-overview')}
+        onShowOverview={page === 'home-entry' ? undefined : () => setPage('home-overview')}
         onShowEntry={() => setPage('home-entry')}
         onSelectFlow={() => setPage('flow-list')}
         onSelectAgent={() => setPage('agent-list')}
-        onOpenSettings={() => { settingsFrom.current = page; setPage('settings') }}
+        headerActions={headerActions}
       />
     )
   } else if (page === 'settings') {
-    content = <SettingsPage onBack={() => setPage(settingsFrom.current)} />
+    content = <SettingsPage onBack={() => setPage(settingsFrom.current)} headerActions={headerActions} />
   } else if (page === 'flow-list') {
     content = (
       <WorkflowListPage
@@ -158,8 +192,8 @@ export default function App() {
         onCreateNew={handleCreateNew}
         onOpenPlugins={() => setPage('plugins')}
         onOpenManufacture={() => { manufactureFrom.current = 'flow-list'; setPage('manufacture') }}
-        onOpenSettings={() => { settingsFrom.current = 'flow-list'; setPage('settings') }}
         onBack={() => setPage('home-entry')}
+        headerActions={headerActions}
       />
     )
   } else if (page === 'agent-list') {
@@ -194,13 +228,14 @@ export default function App() {
         }}
         onBack={() => setPage('home-entry')}
         onOpenSkillLibrary={() => setPage('skill-library')}
-        onOpenSettings={() => { settingsFrom.current = 'agent-list'; setPage('settings') }}
+        headerActions={headerActions}
       />
     )
   } else if (page === 'skill-library') {
     content = (
       <SkillLibraryPage
         onBack={() => setPage('agent-list')}
+        headerActions={headerActions}
       />
     )
   } else if (page === 'agent-editor') {
@@ -220,22 +255,23 @@ export default function App() {
         onManualSave={() => {
           autoSavedAgentRef.current = false
         }}
+        headerActions={headerActions}
       />
     )
   } else if (page === 'plugins') {
-    content = <PluginsPage onBack={() => setPage('flow-list')} />
+    content = <PluginsPage onBack={() => setPage('flow-list')} headerActions={headerActions} />
   } else if (page === 'manufacture') {
-    content = <ManufacturePage onBack={() => setPage(manufactureFrom.current)} />
+    content = <ManufacturePage onBack={() => setPage(manufactureFrom.current)} headerActions={headerActions} />
   } else {
     content = (
       <div className="editor-shell">
         <Toolbar
           onOpenManufacture={() => { manufactureFrom.current = 'flow-editor'; setPage('manufacture') }}
           onBackToList={handleBackToFlowList}
-          onOpenSettings={() => { settingsFrom.current = 'flow-editor'; setPage('settings') }}
           onManualSave={() => {
             autoSavedWorkflowRef.current = false
           }}
+          headerActions={headerActions}
         />
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 overflow-x-auto">
@@ -253,17 +289,6 @@ export default function App() {
   }
 
   return (
-    <>
-      <div className="fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-3 py-2 shadow-[var(--app-shadow)]">
-        <div className="text-right">
-          <div className="text-sm font-medium text-[var(--app-text)]">{authUser.username}</div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">{authUser.role}</div>
-        </div>
-        <button onClick={handleLogout} className="app-button app-button-ghost px-3 py-2 text-xs">
-          退出
-        </button>
-      </div>
-      {content}
-    </>
+    <>{content}</>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Clock, Factory, FileCode, Plus, Puzzle, Settings, Trash2, Workflow } from 'lucide-react'
 import { listWorkflows, deleteWorkflow, exportFlowsToSkill } from '@/api/client'
 import { ThemeToggle } from './ui/ThemeToggle'
@@ -17,9 +18,10 @@ interface Props {
   onOpenManufacture?: () => void
   onOpenSettings?: () => void
   onBack?: () => void
+  headerActions?: ReactNode
 }
 
-export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenManufacture, onOpenSettings, onBack }: Props) {
+export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenManufacture, onOpenSettings, onBack, headerActions }: Props) {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -121,6 +123,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
               <Plus size={16} />
               新建工作流
             </button>
+            {headerActions}
           </div>
         </div>
       </header>

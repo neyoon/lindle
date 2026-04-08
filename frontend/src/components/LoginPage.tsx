@@ -5,9 +5,10 @@ import { ThemeToggle } from './ui/ThemeToggle'
 interface Props {
   loading?: boolean
   onLogin: (username: string, password: string) => Promise<void>
+  onBack?: () => void
 }
 
-export function LoginPage({ loading = false, onLogin }: Props) {
+export function LoginPage({ loading = false, onLogin, onBack }: Props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -42,7 +43,7 @@ export function LoginPage({ loading = false, onLogin }: Props) {
           <div className="app-kicker mb-3">Tweak access / authenticated workspace</div>
           <h1 className="app-section-title text-4xl">登录 Tweak</h1>
           <p className="app-muted mt-4 text-sm leading-7">
-            使用你在 Coxie 中已有的账号登录。登录后，Flow、Agent、模板和模型配置都会按用户隔离。
+            注册或使用LAT账号登陆以使用Tweak的完整功能。
           </p>
         </div>
 
@@ -53,7 +54,7 @@ export function LoginPage({ loading = false, onLogin }: Props) {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="输入 Coxie 用户名"
+              placeholder="输入 LAT 账号"
               className="app-input w-full px-4 py-3"
               autoComplete="username"
               disabled={loading || submitting}
@@ -85,8 +86,19 @@ export function LoginPage({ loading = false, onLogin }: Props) {
             className="app-button app-button-primary w-full disabled:opacity-60"
           >
             {loading || submitting ? <KeyRound size={16} /> : <LogIn size={16} />}
-            {loading || submitting ? '登录中...' : '登录并进入工作台'}
+            登录
           </button>
+
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="app-button app-button-ghost w-full"
+              disabled={loading || submitting}
+            >
+              返回首页
+            </button>
+          )}
         </form>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   ArrowLeft,
   CheckCircle,
@@ -27,6 +28,7 @@ import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Props {
   onBack: () => void
+  headerActions?: ReactNode
 }
 
 const PRESETS = [
@@ -36,7 +38,7 @@ const PRESETS = [
   { name: 'Ollama (本地)', base_url: 'http://localhost:11434/v1', model: 'llama3' },
 ]
 
-export function SettingsPage({ onBack }: Props) {
+export function SettingsPage({ onBack, headerActions }: Props) {
   const [providers, setProviders] = useState<ProviderResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -184,6 +186,7 @@ export function SettingsPage({ onBack }: Props) {
               <Plus size={16} />
               添加 Provider
             </button>
+            {headerActions}
           </div>
         </div>
       </header>
@@ -195,7 +198,7 @@ export function SettingsPage({ onBack }: Props) {
               <div className="app-kicker mb-3">Model registry</div>
               <h2 className="app-section-title text-3xl md:text-4xl">管理所有 OpenAI 兼容 Provider</h2>
               <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-                Flow、Agent 和 AI 编辑能力都依赖这里的 Provider。这里不是普通配置页，而是整套系统的模型入口层。
+                Flow、Agent 和 AI 编辑能力都依赖这里的 Provider。
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -320,7 +323,7 @@ export function SettingsPage({ onBack }: Props) {
           <div className="app-kicker mb-2">Compatibility note</div>
           <p className="app-muted text-sm leading-7">
             Tweak 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面和 Ollama 本地部署。
-            你可以同时添加多个 Provider，在工作流 AI 块和 Agent 中分别选择。
+            你可以同时添加多个不同来源的Provider，在工作流 AI 块和 Agent 中分别选择。
           </p>
         </section>
       </main>

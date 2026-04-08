@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ArrowLeft, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { createCustomSkill, deleteCustomSkill, getAgent, listAgents, listCustomSkills } from '@/api/client'
 import { SkillEditor } from './SkillEditor'
@@ -16,9 +17,10 @@ interface CustomSkill {
 
 interface Props {
   onBack: () => void
+  headerActions?: ReactNode
 }
 
-export function SkillLibraryPage({ onBack }: Props) {
+export function SkillLibraryPage({ onBack, headerActions }: Props) {
   const [skills, setSkills] = useState<CustomSkill[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<CustomSkill | null>(null)
@@ -101,6 +103,7 @@ export function SkillLibraryPage({ onBack }: Props) {
               <Plus size={16} />
               新建 Skill
             </button>
+            {headerActions}
           </div>
         </div>
       </header>
