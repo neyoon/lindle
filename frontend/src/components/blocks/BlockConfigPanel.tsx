@@ -66,20 +66,20 @@ export function BlockConfigPanel() {
   return (
     <div className="h-full flex flex-col">
       {/* 头部 */}
-      <div className="px-4 py-3 border-b border-sky-100 flex items-center justify-between bg-sky-50/30">
-        <h3 className="text-sm font-semibold text-sky-700">配置: {block.name}</h3>
+      <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[rgba(109,204,255,0.06)] px-4 py-3">
+        <h3 className="text-sm font-semibold text-[var(--app-accent)]">配置: {block.name}</h3>
         <div className="flex items-center gap-2">
           {canSaveAsTemplate && (
             <button
               onClick={handleSaveAsTemplate}
               disabled={saving}
-              className="p-1.5 text-sky-500 hover:text-sky-700 hover:bg-sky-100 rounded transition disabled:opacity-50"
+              className="rounded p-1.5 text-[var(--app-accent)] transition hover:bg-[var(--app-accent-soft)] disabled:opacity-50"
               title="保存为模板"
             >
               <Save size={14} />
             </button>
           )}
-          <button onClick={() => selectBlock(null)} className="text-gray-400 hover:text-gray-600">
+          <button onClick={() => selectBlock(null)} className="text-[var(--app-text-muted)] hover:text-[var(--app-text)]">
             <X size={16} />
           </button>
         </div>
@@ -109,7 +109,7 @@ export function BlockConfigPanel() {
         {block.type === 'input' && <InputConfig block={block} />}
         {block.type === 'plugin' && <PluginBlockConfig block={block} />}
         {block.type === 'output' && (
-          <p className="text-sm text-gray-400">输出块自动展示上一栏的结果，无需额外配置。</p>
+          <p className="text-sm text-[var(--app-text-soft)]">输出块自动展示上一栏的结果，无需额外配置。</p>
         )}
       </div>
     </div>
@@ -141,7 +141,7 @@ function ConnectionDisplay({
 
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+      <label className="mb-1.5 block text-xs font-medium text-[var(--app-text-soft)]">
         <span className="flex items-center gap-1">
           <Link size={12} />
           已连接的上游块
@@ -156,17 +156,17 @@ function ConnectionDisplay({
           return (
             <div
               key={conn.from_block_id}
-              className="px-2.5 py-2 rounded-lg bg-sky-50 border border-sky-200 text-xs"
+              className="rounded-2xl border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-2.5 py-2 text-xs"
             >
               {/* 连接头: 名称 + 删除 */}
-              <div className="flex items-center justify-between text-sky-700">
+              <div className="flex items-center justify-between text-[var(--app-accent)]">
                 <span className="flex items-center gap-1.5">
                   <span className="text-sky-400">←</span>
                   <span className="font-medium">{sourceBlock?.name || conn.from_block_id}</span>
                 </span>
                 <button
                   onClick={() => onRemove(block.id, conn.from_block_id)}
-                  className="text-sky-400 hover:text-red-500 transition"
+                  className="text-[var(--app-text-muted)] transition hover:text-[var(--app-danger)]"
                   title="断开连接"
                 >
                   <X size={12} />
@@ -176,9 +176,9 @@ function ConnectionDisplay({
               {/* 输出 Key 选择器 — 仅当源块定义了 output_schema 时显示 */}
               {hasKeys && (
                 <div className="mt-1.5">
-                  <label className="block text-[10px] text-gray-400 mb-0.5">选择接收的输出字段</label>
+                  <label className="mb-0.5 block text-[10px] text-[var(--app-text-muted)]">选择接收的输出字段</label>
                   <select
-                    className="w-full px-2 py-1 text-xs border border-sky-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-300"
+                    className="app-input py-1 text-xs"
                     value={conn.from_key || ''}
                     onChange={(e) => {
                       updateConnectionKey(block.id, conn.from_block_id, e.target.value || null)
@@ -196,7 +196,7 @@ function ConnectionDisplay({
 
               {/* 已选 key 提示 */}
               {conn.from_key && (
-                <p className="mt-1 text-[10px] text-sky-500">
+                <p className="mt-1 text-[10px] text-[var(--app-accent)]">
                   仅接收: <span className="font-mono font-medium">{conn.from_key}</span>
                 </p>
               )}
@@ -204,7 +204,7 @@ function ConnectionDisplay({
           )
         })}
       </div>
-      <p className="text-[10px] text-gray-400 mt-1.5">
+      <p className="mt-1.5 text-[10px] text-[var(--app-text-muted)]">
         通过端口连接：点击源块右侧圆点 → 目标块左侧圆点
       </p>
     </div>

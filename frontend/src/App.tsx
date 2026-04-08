@@ -193,7 +193,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
+    <div className="editor-shell">
       <Toolbar
         onOpenManufacture={() => { manufactureFrom.current = 'flow-editor'; setPage('manufacture') }}
         onBackToList={handleBackToFlowList}
@@ -205,7 +205,7 @@ export default function App() {
           <Canvas />
         </div>
         {selectedBlockId && (
-          <div className="w-80 border-l bg-white overflow-y-auto">
+          <div className="editor-panel w-80 overflow-y-auto border-l">
             <BlockConfigPanel />
           </div>
         )}

@@ -1,13 +1,8 @@
-/**
- * Skill 库 - 自定义 Skill 管理页面
- *
- * 管理所有自定义 Skills，支持创建、编辑、删除。
- * 创建的 Skills 会出现在 Agent 编辑页的可用 Skills 列表中。
- */
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Plus, Pencil, Trash2, Wrench } from 'lucide-react'
-import { listCustomSkills, createCustomSkill, deleteCustomSkill, listAgents, getAgent } from '@/api/client'
+import { ArrowLeft, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
+import { createCustomSkill, deleteCustomSkill, getAgent, listAgents, listCustomSkills } from '@/api/client'
 import { SkillEditor } from './SkillEditor'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 interface CustomSkill {
   id: string
@@ -45,10 +40,7 @@ export function SkillLibraryPage({ onBack }: Props) {
   }, [])
 
   const handleSave = async (skill: CustomSkill) => {
-    // 名称去重检查
-    const duplicate = skills.find(
-      (s) => s.name.trim() === skill.name.trim() && s.id !== skill.id
-    )
+    const duplicate = skills.find((item) => item.name.trim() === skill.name.trim() && item.id !== skill.id)
     if (duplicate) {
       throw new Error(`已存在同名 Skill「${skill.name}」，请使用其他名称`)
     }
@@ -58,14 +50,13 @@ export function SkillLibraryPage({ onBack }: Props) {
   }
 
   const handleDelete = async (id: string, name: string) => {
-    // 检查是否有 Agent 正在使用此 Skill
     try {
       const agents = await listAgents()
       const usingAgents: string[] = []
 
       for (const agentSummary of agents) {
         const agent = await getAgent(agentSummary.id)
-        if (agent.skills?.some((s: any) => s.skill_id === id)) {
+        if (agent.skills?.some((skill: any) => skill.skill_id === id)) {
           usingAgents.push(agent.name)
         }
       }
@@ -75,82 +66,105 @@ export function SkillLibraryPage({ onBack }: Props) {
         if (!confirm(`Skill「${name}」正在被以下 Agent 使用：${agentNames}\n\n删除后这些 Agent 将无法调用此 Skill。确定删除？`)) {
           return
         }
-      } else {
-        if (!confirm(`确定删除 Skill「${name}」？删除后不可恢复。`)) return
+      } else if (!confirm(`确定删除 Skill「${name}」？删除后不可恢复。`)) {
+        return
       }
     } catch {
-      // 如果检查失败，仍允许删除但给出基本确认
       if (!confirm(`确定删除 Skill「${name}」？删除后不可恢复。`)) return
     }
 
     try {
       await deleteCustomSkill(id)
       await loadSkills()
-    } catch (e) {
-      alert(`删除失败: ${e}`)
+    } catch (error) {
+      alert(`删除失败: ${error}`)
     }
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
-      {/* 顶栏 */}
-      <div className="h-14 bg-white border-b px-4 flex items-center gap-3 shadow-sm">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-purple-600 transition"
-        >
-          <ArrowLeft size={16} />
-          返回
-        </button>
-        <span className="text-gray-300">|</span>
-        <h1 className="text-lg font-bold text-purple-600 flex items-center gap-2">
-          <Wrench size={18} />
-          Skill 库
-        </h1>
-      </div>
+    <div className="app-shell">
+      <header className="app-topbar">
+        <div className="app-topbar-inner">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="app-button app-button-ghost">
+              <ArrowLeft size={16} />
+              返回
+            </button>
+            <div>
+              <div className="app-kicker">Skill library / agent capability layer</div>
+              <h1 className="app-section-title text-2xl">Skill 库</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={() => { setEditing(null); setShowEditor(true) }} className="app-button app-button-primary">
+              <Plus size={16} />
+              新建 Skill
+            </button>
+          </div>
+        </div>
+      </header>
 
-      {/* 内容 */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-sm text-gray-500 mb-4">
-            管理你的自定义 Skills。创建的 Skills 会出现在 Agent 编辑页的可用 Skills 列表中。
-          </p>
+      <main className="app-page py-8">
+        <section className="app-card p-6 md:p-8">
+          <div className="grid gap-6 md:grid-cols-[1.15fr_0.85fr]">
+            <div>
+              <div className="app-kicker mb-3">Custom skills</div>
+              <h2 className="app-section-title text-3xl md:text-4xl">把代码能力整理成 Agent 可调用的标准接口</h2>
+              <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
+                Skill 库和 Flow 库互相补充。Flow 更偏结构化执行，Skill 更偏能力接口。两者最后都会回到 Agent 的可调用能力列表。
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="app-stat">
+                <div className="app-kicker mb-2">Skills</div>
+                <div className="text-3xl font-semibold text-[var(--app-text)]">{skills.length}</div>
+                <p className="app-muted mt-2 text-sm">自定义 Skill 数量</p>
+              </div>
+              <div className="app-stat">
+                <div className="app-kicker mb-2">Role</div>
+                <div className="text-3xl font-semibold text-[var(--app-text)]">Agents</div>
+                <p className="app-muted mt-2 text-sm">最终会出现在 Agent 编辑页</p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-          {/* 新建按钮 */}
-          <button
-            onClick={() => { setEditing(null); setShowEditor(true) }}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm text-purple-600 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition font-medium mb-6"
-          >
-            <Plus size={16} />
-            新建 Skill
-          </button>
-
-          {/* Skills 列表 */}
+        <section className="mt-6">
           {loading ? (
-            <p className="text-gray-400 text-center py-12">加载中...</p>
+            <div className="app-card p-12 text-center text-[var(--app-text-soft)]">加载中...</div>
           ) : skills.length === 0 ? (
-            <div className="text-center py-16">
-              <Wrench size={64} className="mx-auto text-gray-300 mb-4" />
-              <p className="text-sm text-gray-400 mb-3">暂无自定义 Skill</p>
-              <p className="text-gray-500 text-sm">还没有创建任何自定义 Skill</p>
-              <p className="text-gray-400 text-xs mt-1">点击「新建 Skill」开始创建，或在工作流列表页将 Flow 导出为 Skill</p>
+            <div className="app-card p-12 text-center">
+              <Wrench size={54} className="mx-auto text-[var(--app-text-muted)]" />
+              <h3 className="app-section-title mt-5 text-3xl">暂无自定义 Skill</h3>
+              <p className="app-muted mt-4 text-sm leading-8">
+                可以直接新建 Skill，也可以先在工作流列表页把多个 Flow 导出成 Skill，再回到这里统一管理。
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {skills.map((skill) => (
-                <SkillCard
-                  key={skill.id}
-                  skill={skill}
-                  onEdit={() => { setEditing(skill); setShowEditor(true) }}
-                  onDelete={() => handleDelete(skill.id, skill.name)}
-                />
+                <article key={skill.id} className="app-card-soft group p-5">
+                  <div className="text-3xl">{skill.icon || '[]'}</div>
+                  <h3 className="mt-4 text-lg font-semibold text-[var(--app-text)]">{skill.name}</h3>
+                  <p className="app-muted mt-2 min-h-[3rem] text-sm leading-7">{skill.description || '无描述'}</p>
+                  <div className="mt-5 flex gap-2 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+                    <button onClick={() => { setEditing(skill); setShowEditor(true) }} className="app-button app-button-ghost">
+                      <Pencil size={14} />
+                      编辑
+                    </button>
+                    <button onClick={() => handleDelete(skill.id, skill.name)} className="app-button app-button-danger">
+                      <Trash2 size={14} />
+                      删除
+                    </button>
+                  </div>
+                </article>
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
 
-      {/* Skill 编辑器模态框 */}
       {showEditor && (
         <SkillEditor
           initialSkill={editing || undefined}
@@ -158,44 +172,6 @@ export function SkillLibraryPage({ onBack }: Props) {
           onClose={() => { setShowEditor(false); setEditing(null) }}
         />
       )}
-    </div>
-  )
-}
-
-// ===== Skill 卡片 =====
-
-function SkillCard({
-  skill,
-  onEdit,
-  onDelete,
-}: {
-  skill: CustomSkill
-  onEdit: () => void
-  onDelete: () => void
-}) {
-  return (
-    <div className="bg-white rounded-xl border-2 border-gray-100 hover:border-purple-200 p-4 transition group">
-      <div className="text-3xl mb-2">{skill.icon || '⚡'}</div>
-      <h3 className="font-semibold text-gray-800 text-sm">{skill.name}</h3>
-      <p className="text-xs text-gray-400 mt-1 line-clamp-2">{skill.description || '无描述'}</p>
-
-      {/* 操作按钮 */}
-      <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition">
-        <button
-          onClick={onEdit}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs text-purple-600 hover:bg-purple-50 rounded transition"
-        >
-          <Pencil size={12} />
-          编辑
-        </button>
-        <button
-          onClick={onDelete}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 rounded transition"
-        >
-          <Trash2 size={12} />
-          删除
-        </button>
-      </div>
     </div>
   )
 }

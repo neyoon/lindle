@@ -1,15 +1,7 @@
-/**
- * 工作流列表页 - 首页
- *
- * 展示所有已保存的工作流，支持:
- * - 查看工作流列表
- * - 新建工作流
- * - 打开已有工作流进入编辑器
- * - 删除工作流
- */
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Clock, Workflow, FileCode, Settings, Puzzle, Factory } from 'lucide-react'
+import { Clock, Factory, FileCode, Plus, Puzzle, Settings, Trash2, Workflow } from 'lucide-react'
 import { listWorkflows, deleteWorkflow, exportFlowsToSkill } from '@/api/client'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 interface WorkflowSummary {
   id: string
@@ -59,8 +51,8 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
         next.delete(id)
         return next
       })
-    } catch (e) {
-      alert(`删除失败: ${e}`)
+    } catch (error) {
+      alert(`删除失败: ${error}`)
     }
   }
 
@@ -83,182 +75,172 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
       await exportFlowsToSkill(Array.from(selectedIds), skillName || undefined)
       alert('Skill 创建成功！可在 Agent 编辑页中使用。')
       setSelectedIds(new Set())
-    } catch (e) {
-      alert(`创建失败: ${e}`)
+    } catch (error) {
+      alert(`创建失败: ${error}`)
     } finally {
       setIsExporting(false)
     }
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
-      {/* 顶栏 */}
-      <div className="h-14 bg-white border-b px-6 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="text-gray-400 hover:text-gray-600 transition"
-            >
-              ← 返回
-            </button>
-          )}
-          <h1 className="text-lg font-bold text-sky-600 flex items-center gap-2">
-            <Workflow size={20} />
-            我的工作流
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {onOpenPlugins && (
-            <button
-              onClick={onOpenPlugins}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
-            >
-              <Puzzle size={16} />
-              插件
-            </button>
-          )}
-          {onOpenManufacture && (
-            <button
-              onClick={onOpenManufacture}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
-            >
-              <Factory size={16} />
-              制造
-            </button>
-          )}
-          {onOpenSettings && (
-            <button
-              onClick={onOpenSettings}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
-            >
-              <Settings size={16} />
-              设置
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          {/* 标题 + 新建按钮 */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">我的工作流</h2>
-              <p className="text-sm text-gray-500 mt-1">选择一个工作流进入编辑，或创建新的工作流</p>
-            </div>
-            {workflows.length > 0 && (
-              <button
-                onClick={onCreateNew}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm text-white bg-sky-500 hover:bg-sky-600 rounded-lg transition font-medium shadow-sm"
-              >
-                <Plus size={16} />
-                新建工作流
+    <div className="app-shell">
+      <header className="app-topbar">
+        <div className="app-topbar-inner">
+          <div className="flex min-w-0 items-center gap-4">
+            {onBack && (
+              <button onClick={onBack} className="app-button app-button-ghost">
+                返回
               </button>
             )}
+            <div className="min-w-0">
+              <div className="app-kicker">Flow center / factory-ready workflows</div>
+              <h1 className="app-section-title text-2xl">我的工作流</h1>
+            </div>
           </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ThemeToggle />
+            {onOpenPlugins && (
+              <button onClick={onOpenPlugins} className="app-button app-button-ghost">
+                <Puzzle size={16} />
+                插件
+              </button>
+            )}
+            {onOpenManufacture && (
+              <button onClick={onOpenManufacture} className="app-button app-button-ghost">
+                <Factory size={16} />
+                制造
+              </button>
+            )}
+            {onOpenSettings && (
+              <button onClick={onOpenSettings} className="app-button app-button-ghost">
+                <Settings size={16} />
+                设置
+              </button>
+            )}
+            <button onClick={onCreateNew} className="app-button app-button-primary">
+              <Plus size={16} />
+              新建工作流
+            </button>
+          </div>
+        </div>
+      </header>
 
-          {/* 批量操作栏 */}
-          {selectedIds.size > 0 && (
-            <div className="mb-4 bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-center justify-between">
-              <span className="text-sm text-gray-700">
-                已选择 <strong>{selectedIds.size}</strong> 个工作流
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedIds(new Set())}
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition"
-                >
-                  取消选择
-                </button>
-                <button
-                  onClick={handleExportToSkill}
-                  disabled={isExporting}
-                  className="flex items-center gap-1.5 px-4 py-1.5 text-sm text-white bg-sky-500 hover:bg-sky-600 rounded-lg transition disabled:opacity-50"
-                >
-                  <FileCode size={16} />
-                  {isExporting ? '导出中...' : '导出为 Skill'}
-                </button>
+      <main className="app-page py-8">
+        <section className="app-card p-6 md:p-8">
+          <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
+            <div>
+              <div className="app-kicker mb-3">Workflow inventory</div>
+              <h2 className="app-section-title text-3xl md:text-4xl">从这里进入流程工厂</h2>
+              <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
+                Flow 页负责管理可重复执行的结构化流程。它们既可以被人工打开继续编辑，也可以被导出为 Skill，进入 Agent 侧继续被调用。
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="app-stat">
+                <div className="app-kicker mb-2">Count</div>
+                <div className="text-3xl font-semibold text-[var(--app-text)]">{workflows.length}</div>
+                <p className="app-muted mt-2 text-sm">已保存流程</p>
+              </div>
+              <div className="app-stat">
+                <div className="app-kicker mb-2">Selection</div>
+                <div className="text-3xl font-semibold text-[var(--app-text)]">{selectedIds.size}</div>
+                <p className="app-muted mt-2 text-sm">当前选中，可导出为 Skill</p>
               </div>
             </div>
-          )}
+          </div>
+        </section>
 
-          {/* 工作流列表 */}
-          {loading ? (
-            <div className="text-center py-20">
-              <p className="text-gray-400">加载中...</p>
+        {selectedIds.size > 0 && (
+          <section className="app-card-soft mt-6 flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="app-kicker mb-1">Selection batch</div>
+              <p className="text-base font-medium text-[var(--app-text)]">已选择 {selectedIds.size} 个工作流</p>
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setSelectedIds(new Set())} className="app-button app-button-ghost">
+                取消选择
+              </button>
+              <button onClick={handleExportToSkill} disabled={isExporting} className="app-button app-button-primary disabled:opacity-50">
+                <FileCode size={16} />
+                {isExporting ? '导出中...' : '导出为 Skill'}
+              </button>
+            </div>
+          </section>
+        )}
+
+        <section className="mt-6">
+          {loading ? (
+            <div className="app-card p-12 text-center text-[var(--app-text-soft)]">加载中...</div>
           ) : workflows.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-gray-500 text-lg mb-2">还没有工作流</p>
-              <p className="text-gray-400 text-sm mb-6">点击「新建工作流」开始创建你的第一个 AI 工作流</p>
-              <button
-                onClick={onCreateNew}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm text-white bg-sky-500 hover:bg-sky-600 rounded-lg transition font-medium"
-              >
+            <div className="app-card p-12 text-center">
+              <div className="app-kicker mb-3">No workflows yet</div>
+              <h3 className="app-section-title text-3xl">还没有工作流</h3>
+              <p className="app-muted mx-auto mt-4 max-w-xl text-sm leading-8">
+                从一个空白 Flow 开始，或先进入制造页沉淀可复用模板。这里最终会成为 Agent 可以消费的能力资产库。
+              </p>
+              <button onClick={onCreateNew} className="app-button app-button-primary mt-6">
                 <Plus size={16} />
                 新建工作流
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {workflows.map((wf) => (
-                <div
+                <article
                   key={wf.id}
                   onClick={() => onOpen(wf.id)}
-                  className="group bg-white rounded-xl border-2 border-gray-100 hover:border-sky-300 p-5 cursor-pointer transition hover:shadow-md"
+                  className="app-card-soft group cursor-pointer p-5 transition hover:-translate-y-1"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(wf.id)}
                         onChange={(e) => handleToggleSelect(wf.id, e)}
                         onClick={(e) => e.stopPropagation()}
-                        className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                        className="mt-1 rounded border-[var(--app-border-strong)] bg-transparent text-[var(--app-accent-strong)] focus:ring-[var(--app-accent)]"
                       />
-                      <div className="w-10 h-10 shrink-0 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center">
-                        <Workflow size={20} className="text-sky-500" />
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-3 text-[var(--app-accent)]">
+                        <Workflow size={18} />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-gray-800 truncate max-w-[200px]">{wf.name}</h3>
-                        {wf.description && (
-                          <p className="text-xs text-gray-400 mt-0.5 truncate">{wf.description}</p>
-                        )}
+                        <h3 className="truncate text-lg font-semibold text-[var(--app-text)]">{wf.name}</h3>
+                        <p className="app-muted mt-2 line-clamp-2 min-h-[3rem] text-sm leading-6">
+                          {wf.description || '暂无描述'}
+                        </p>
                       </div>
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, wf.id, wf.name)}
-                      className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                      className="rounded-full p-2 text-[var(--app-text-muted)] transition hover:bg-[rgba(244,107,122,0.08)] hover:text-[var(--app-danger)]"
                       title="删除"
                     >
                       <Trash2 size={14} />
                     </button>
                   </div>
 
-                  <div className="mt-4 flex items-center gap-3 text-xs text-gray-400">
-                    <span className="flex items-center gap-1">
+                  <div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--app-text-soft)]">
+                    <span className="app-pill">
                       <Workflow size={12} />
                       {wf.column_count} 个步骤
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="app-pill">
                       <Clock size={12} />
-                      {wf.id.split('_')[1] ? formatTime(parseInt(wf.id.split('_')[1])) : ''}
+                      {wf.id.split('_')[1] ? formatTime(parseInt(wf.id.split('_')[1], 10)) : ''}
                     </span>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   )
 }
 
 function formatTime(timestamp: number): string {
-  if (!timestamp || isNaN(timestamp)) return ''
+  if (!timestamp || Number.isNaN(timestamp)) return ''
   const d = new Date(timestamp)
   const now = new Date()
   const diff = now.getTime() - d.getTime()

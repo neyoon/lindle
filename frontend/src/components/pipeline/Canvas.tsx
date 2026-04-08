@@ -49,7 +49,7 @@ export function Canvas() {
           {i > 0 && (
             <button
               onClick={() => addColumn(columns[i - 1].order)}
-              className="w-5 shrink-0 h-full flex items-center justify-center text-sky-200 hover:text-sky-500 hover:bg-sky-50/50 transition group/insert"
+              className="group/insert flex h-full w-5 shrink-0 items-center justify-center text-[var(--app-text-muted)] transition hover:bg-[rgba(109,204,255,0.08)] hover:text-[var(--app-accent)]"
               title="在此插入栏"
             >
               <Plus size={14} className="opacity-0 group-hover/insert:opacity-100 transition" />
@@ -66,7 +66,7 @@ export function Canvas() {
       {/* 添加新栏按钮 */}
       <button
         onClick={() => addColumn()}
-        className="min-w-[56px] h-full border-l border-dashed border-sky-200 flex flex-col items-center justify-center gap-2 text-sky-300 hover:border-sky-400 hover:text-sky-500 hover:bg-sky-50/30 transition cursor-pointer"
+        className="flex h-full min-w-[56px] cursor-pointer flex-col items-center justify-center gap-2 border-l border-dashed border-[var(--app-border-strong)] text-[var(--app-text-muted)] transition hover:border-[var(--app-accent)] hover:bg-[rgba(109,204,255,0.06)] hover:text-[var(--app-accent)]"
       >
         <Plus size={20} />
         <span className="text-xs [writing-mode:vertical-lr]">添加栏</span>

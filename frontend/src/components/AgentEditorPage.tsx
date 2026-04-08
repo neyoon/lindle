@@ -15,6 +15,7 @@ import { AgentTestChat } from './AgentTestChat'
 import { SkillEditor } from './SkillEditor'
 import type { Agent, AgentSkill, ChatMessage } from '@/types/agent'
 import type { PluginInfo, WorkflowSummary } from '@/types/workflow'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Provider {
   id: string
@@ -584,38 +585,40 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-gray-400">加载中...</div>
+      <div className="app-shell flex h-screen items-center justify-center">
+        <div className="text-[var(--app-text-soft)]">加载中...</div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
+    <div className="editor-shell">
       {/* 顶栏 */}
-      <div className="h-14 bg-white border-b px-6 flex items-center justify-between shadow-sm">
+      <div className="editor-toolbar px-6 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="text-gray-400 hover:text-gray-600 transition"
+            className="app-button app-button-ghost"
           >
             <ArrowLeft size={20} />
           </button>
-          <Sparkles size={20} className="text-purple-500" />
+          <Sparkles size={20} className="text-[var(--app-accent)]" />
           <input
             type="text"
             value={agent.name}
             onChange={(e) => setAgent({ ...agent, name: e.target.value })}
-            className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0"
+            className="border-none bg-transparent text-lg font-semibold text-[var(--app-text)] outline-none"
             placeholder="Agent 名称"
           />
-          <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">Beta</span>
+          <span className="app-pill border-0 bg-[rgba(244,107,122,0.12)] text-[var(--app-danger)]">Beta</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ThemeToggle />
           {!agentId && (
             <button
               onClick={handleQuickCreate}
-              className="flex items-center gap-2 px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm"
+              className="app-button border border-[rgba(255,180,77,0.22)] bg-[rgba(255,180,77,0.1)] text-[var(--app-warning)]"
               title="快速创建一个预配置的 Agent"
             >
               <Zap size={14} />
@@ -625,7 +628,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
           {agentId && (
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm"
+              className="app-button app-button-ghost"
             >
               <Download size={14} />
               导出
@@ -633,54 +636,55 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
           )}
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition"
+            className="app-button app-button-primary"
           >
             <Save size={16} />
             保存
           </button>
         </div>
       </div>
+      </div>
 
       {/* 主内容区 - 左中右三栏 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左栏：Agent 配置 + 已激活 Skills */}
-        <div className="w-80 border-r bg-white overflow-y-auto">
+        <div className="editor-panel w-80 overflow-y-auto border-r">
           <div className="p-4 space-y-4">
             {/* Agent 基本信息 */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
                 描述
               </label>
               <textarea
                 value={agent.description}
                 onChange={(e) => setAgent({ ...agent, description: e.target.value })}
-                className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="app-input min-h-[84px] resize-y px-2 py-1.5 text-sm"
                 rows={2}
                 placeholder="简单描述这个 Agent 的用途..."
               />
             </div>
 
             {/* 高级选项（可折叠） */}
-            <div className="border rounded-lg">
+            <div className="rounded-2xl border border-[var(--app-border)]">
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="w-full px-3 py-2 flex items-center justify-between text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-[var(--app-text)] transition hover:bg-[rgba(255,255,255,0.04)]"
               >
                 <span>高级设置</span>
                 {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
 
               {showAdvanced && (
-                <div className="p-3 space-y-3 border-t">
+                <div className="space-y-3 border-t border-[var(--app-border)] p-3">
                   {/* 模型选择 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
                       模型
                     </label>
                     <select
                       value={agent.model_provider_id || ''}
                       onChange={(e) => setAgent({ ...agent, model_provider_id: e.target.value || null })}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="app-input px-2 py-1.5 text-xs"
                     >
                       <option value="">使用默认模型</option>
                       {providers.map((provider) => (
@@ -689,8 +693,8 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                         </option>
                       ))}
                     </select>
-                    <p className="mt-1.5 text-xs text-gray-500 flex items-center gap-1">
-                      <Zap size={12} className="text-amber-500" />
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-[var(--app-text-soft)]">
+                      <Zap size={12} className="text-[var(--app-warning)]" />
                       建议使用支持 function calling 的模型（如 GPT-4、Claude 3.5 等）以获得更好的 Skill 调用效果
                     </p>
                   </div>
@@ -698,11 +702,11 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                   {/* 系统提示词 */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-medium text-gray-700">
+                      <label className="block text-xs font-medium text-[var(--app-text-soft)]">
                         系统提示词
                       </label>
                       {generating && (
-                        <span className="text-xs text-purple-500 flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-xs text-[var(--app-accent)]">
                           <Sparkles size={10} className="animate-pulse" />
                           生成中...
                         </span>
@@ -711,7 +715,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                     <textarea
                       value={agent.system_prompt}
                       onChange={(e) => setAgent({ ...agent, system_prompt: e.target.value })}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono"
+                      className="app-input font-mono text-xs"
                       rows={6}
                       placeholder="添加 Skills 后自动生成..."
                     />
@@ -722,17 +726,17 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
             {/* 已激活的 Skills */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
                 已激活的 Skills
-                <span className="text-xs text-gray-400 ml-1">(可排序)</span>
+                <span className="ml-1 text-xs text-[var(--app-text-muted)]">(可排序)</span>
               </label>
               <div
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                className="min-h-[150px] border-2 border-dashed border-gray-200 rounded p-2 space-y-1.5"
+                className="min-h-[150px] space-y-1.5 rounded-2xl border-2 border-dashed border-[var(--app-border-strong)] p-2"
               >
                 {agent.skills.length === 0 ? (
-                  <div className="text-center text-gray-400 text-xs py-6">
+                  <div className="py-6 text-center text-xs text-[var(--app-text-muted)]">
                     拖拽右侧 Skill 到这里
                   </div>
                 ) : (
@@ -744,24 +748,24 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
                     return (
                       <div key={skill.skill_id} className="space-y-1">
-                        <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded p-2 group text-xs">
-                          <GripVertical size={12} className="text-gray-400 cursor-move" />
+                        <div className="group flex items-center gap-2 rounded-2xl border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] p-2 text-xs">
+                          <GripVertical size={12} className="cursor-move text-[var(--app-text-muted)]" />
                           <span className="font-medium">{index + 1}</span>
                           <span className="text-lg">{skillInfo?.meta.icon}</span>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-800 truncate">{skillInfo?.meta.name}</div>
+                            <div className="truncate font-medium text-[var(--app-text)]">{skillInfo?.meta.name}</div>
                           </div>
                           {isFlowSkillType && (
                             <button
                               onClick={() => setExpandedSkillId(isExpanded ? null : skill.skill_id)}
-                              className="text-gray-500 hover:text-purple-600 transition"
+                              className="text-[var(--app-text-soft)] transition hover:text-[var(--app-accent)]"
                             >
                               {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                             </button>
                           )}
                           <button
                             onClick={() => handleRemoveSkill(skill.skill_id)}
-                            className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                            className="text-[var(--app-text-muted)] opacity-0 transition group-hover:opacity-100 hover:text-[var(--app-danger)]"
                           >
                             <Trash2 size={12} />
                           </button>
@@ -769,18 +773,18 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
 
                         {/* Flow 选择器（展开时显示） */}
                         {isFlowSkillType && isExpanded && (
-                          <div className="ml-6 pl-4 border-l-2 border-purple-200 space-y-1">
-                            <div className="text-xs text-gray-500 mb-2">选择可用的 Flows:</div>
+                          <div className="ml-6 space-y-1 border-l-2 border-[var(--app-border-strong)] pl-4">
+                            <div className="mb-2 text-xs text-[var(--app-text-soft)]">选择可用的 Flows:</div>
                             {availableFlows.map(flow => (
                               <label
                                 key={flow.id}
-                                className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded Claude Code-pointer text-xs"
+                                className="Claude Code-pointer flex items-center gap-2 rounded p-2 text-xs hover:bg-[rgba(255,255,255,0.04)]"
                               >
                                 <input
                                   type="checkbox"
                                   checked={skillFlows.includes(flow.id)}
                                   onChange={() => handleToggleFlow(skill.skill_id, flow.id)}
-                                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                  className="rounded border-[var(--app-border-strong)] text-[var(--app-accent-strong)] focus:ring-[var(--app-accent)]"
                                 />
                                 <span className="flex-1 truncate">{flow.name}</span>
                               </label>
@@ -797,12 +801,12 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
         </div>
 
         {/* 中栏：对话界面 */}
-        <div className="flex-1 flex flex-col bg-white">
+        <div className="editor-panel flex flex-1 flex-col">
           <div className="flex-1 overflow-y-auto p-6">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <Sparkles size={48} className="mx-auto mb-3 text-gray-300" />
+                <div className="text-center text-[var(--app-text-soft)]">
+                  <Sparkles size={48} className="mx-auto mb-3 text-[var(--app-text-muted)]" />
                   <p className="text-sm">开始与 Agent 对话</p>
                   <p className="text-xs mt-1">测试你配置的 Skills 和系统提示词</p>
                 </div>
@@ -817,20 +821,20 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                     <div
                       className={`max-w-[70%] ${
                         msg.role === 'user'
-                          ? 'bg-purple-500 text-white rounded-lg px-4 py-3'
+                          ? 'rounded-2xl bg-[var(--app-accent-strong)] px-4 py-3 text-white'
                           : ''
                       }`}
                     >
                       {msg.role === 'assistant' && msg.reasoning && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-2">
-                          <div className="flex items-center gap-2 text-xs text-blue-600 font-medium mb-2">
+                        <div className="mb-2 rounded-2xl border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-4 py-3">
+                          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[var(--app-accent)]">
                             <Sparkles size={12} />
                             思考过程
                           </div>
-                          <div className="text-xs text-blue-800 whitespace-pre-wrap">{msg.reasoning}</div>
+                          <div className="whitespace-pre-wrap text-xs text-[var(--app-text)]">{msg.reasoning}</div>
                         </div>
                       )}
-                      <div className={msg.role === 'assistant' ? 'bg-gray-100 text-gray-800 rounded-lg px-4 py-3' : ''}>
+                      <div className={msg.role === 'assistant' ? 'rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3 text-[var(--app-text)]' : ''}>
                         <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                       </div>
                     </div>
@@ -838,10 +842,10 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                 ))}
                 {chatLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 px-4 py-3 rounded-lg max-w-[80%]">
-                      <div className="text-sm text-gray-500 animate-pulse mb-2">正在思考...</div>
+                    <div className="max-w-[80%] rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3">
+                      <div className="mb-2 animate-pulse text-sm text-[var(--app-text-soft)]">正在思考...</div>
                       {reasoning && (
-                        <div className="text-xs text-gray-600 whitespace-pre-wrap border-t border-gray-200 pt-2 mt-2 max-h-40 overflow-y-auto">
+                        <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap border-t border-[var(--app-border)] pt-2 text-xs text-[var(--app-text-soft)]">
                           {reasoning}
                         </div>
                       )}
@@ -853,9 +857,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
             )}
           </div>
 
-          <div className="border-t p-4 bg-gray-50">
+          <div className="border-t border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] p-4">
             {generating && (
-              <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2 text-xs text-purple-500">
+              <div className="mx-auto mb-2 flex max-w-3xl items-center gap-2 text-xs text-[var(--app-accent)]">
                 <Sparkles size={12} className="animate-pulse" />
                 正在为 Agent 加载 Skill，请稍候...
               </div>
@@ -867,13 +871,13 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && !generating && handleSendMessage()}
                 placeholder={generating ? 'Skill 加载中...' : '输入消息...'}
-                className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
+                className="app-input flex-1 px-4 py-3"
                 disabled={chatLoading || generating}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!input.trim() || chatLoading || generating}
-                className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50 disabled:Claude Code-not-allowed flex items-center gap-2"
+                className="app-button app-button-primary px-6 py-3 disabled:opacity-50 disabled:Claude Code-not-allowed"
               >
                 <Send size={18} />
                 发送
@@ -883,13 +887,13 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
         </div>
 
         {/* 右栏：可用 Skills */}
-        <div className="w-80 bg-slate-50 border-l overflow-y-auto">
+        <div className="editor-panel w-80 overflow-y-auto border-l">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-700">可用 Skills</h3>
+              <h3 className="text-sm font-medium text-[var(--app-text)]">可用 Skills</h3>
               <button
                 onClick={() => setShowSkillEditor(true)}
-                className="text-xs text-purple-500 hover:text-purple-600 flex items-center gap-1"
+                className="flex items-center gap-1 text-xs text-[var(--app-accent)]"
               >
                 <Plus size={12} />
                 新建
@@ -907,16 +911,16 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                     onDragStart={() => handleDragStart(skill.meta.id)}
                     onClick={() => !isActive && handleAddSkill(skill.meta.id)}
                     className={`
-                      p-3 rounded-lg border transition cursor-pointer text-sm relative
+                      relative cursor-pointer rounded-2xl border p-3 text-sm transition
                       ${isActive
-                        ? 'bg-purple-50 border-purple-300 opacity-50 cursor-not-allowed'
-                        : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-sm'
+                        ? 'cursor-not-allowed border-[var(--app-border-strong)] bg-[rgba(109,204,255,0.08)] opacity-50'
+                        : 'border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] hover:border-[var(--app-border-strong)] hover:shadow-sm'
                       }
                     `}
                   >
                     {isRecommended && !isActive && (
                       <div className="absolute top-2 right-2">
-                        <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded font-medium">
+                        <span className="rounded-full bg-[rgba(255,180,77,0.16)] px-1.5 py-0.5 text-xs font-medium text-[var(--app-warning)]">
                           推荐
                         </span>
                       </div>
@@ -924,15 +928,15 @@ export function AgentEditorPage({ agentId, onBack, onManualSave }: Props) {
                     <div className="flex items-start gap-2">
                       <span className="text-2xl">{skill.meta.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-800 flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 font-medium text-[var(--app-text)]">
                           <span className="truncate">{skill.meta.name}</span>
                           {isActive && (
-                            <span className="text-xs bg-purple-500 text-white px-1.5 py-0.5 rounded shrink-0">
+                            <span className="shrink-0 rounded-full bg-[var(--app-accent-strong)] px-1.5 py-0.5 text-xs text-white">
                               已激活
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                        <div className="mt-0.5 line-clamp-2 text-xs text-[var(--app-text-soft)]">
                           {skill.meta.description}
                         </div>
                       </div>

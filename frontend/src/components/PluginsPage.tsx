@@ -1,15 +1,8 @@
-/**
- * 插件管理页面
- *
- * 独立页面，展示所有可用插件，支持:
- * - 查看插件列表
- * - 启用/禁用插件
- * - 配置插件参数（如 token）
- */
 import { useEffect, useState } from 'react'
-import { Power, Settings, Check, X, ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Check, Power, Settings, X } from 'lucide-react'
 import type { PluginInfo } from '@/types/workflow'
 import { listPlugins, togglePlugin, updatePluginConfig } from '@/api/client'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Props {
   onBack: () => void
@@ -38,40 +31,46 @@ export function PluginsPage({ onBack }: Props) {
   const handleToggle = async (pluginId: string, enabled: boolean) => {
     try {
       await togglePlugin(pluginId, enabled)
-      setPlugins((prev) =>
-        prev.map((p) => (p.meta.id === pluginId ? { ...p, enabled } : p)),
-      )
-    } catch (e) {
-      alert(`操作失败: ${e}`)
+      setPlugins((prev) => prev.map((plugin) => (
+        plugin.meta.id === pluginId ? { ...plugin, enabled } : plugin
+      )))
+    } catch (error) {
+      alert(`操作失败: ${error}`)
     }
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
-      {/* 顶栏 */}
-      <div className="h-14 bg-white border-b px-4 flex items-center gap-3 shadow-sm">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-sky-600 transition"
-        >
-          <ArrowLeft size={16} />
-          返回编辑器
-        </button>
-        <span className="text-gray-300">|</span>
-        <h1 className="text-lg font-bold text-sky-600">插件管理</h1>
-      </div>
+    <div className="app-shell">
+      <header className="app-topbar">
+        <div className="app-topbar-inner">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="app-button app-button-ghost">
+              <ArrowLeft size={16} />
+              返回
+            </button>
+            <div>
+              <div className="app-kicker">Plugins / extend the block system</div>
+              <h1 className="app-section-title text-2xl">插件管理</h1>
+            </div>
+          </div>
+          <ThemeToggle />
+        </div>
+      </header>
 
-      {/* 内容 */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto">
-          <p className="text-sm text-gray-500 mb-6">
-            启用插件后，它会作为可选的块类型出现在工作流编辑器中。
+      <main className="app-page py-8">
+        <section className="app-card p-6 md:p-8">
+          <div className="app-kicker mb-3">Extension surface</div>
+          <h2 className="app-section-title text-3xl md:text-4xl">启用插件，让工作流获得新的块类型</h2>
+          <p className="app-muted mt-4 max-w-3xl text-sm leading-8">
+            插件页决定 Flow 编辑器里能出现哪些扩展块。它们和制造模板不同，模板沉淀的是结构，插件引入的是新能力。
           </p>
+        </section>
 
+        <section className="mt-6">
           {loading ? (
-            <p className="text-gray-400 text-center py-12">加载中...</p>
+            <div className="app-card p-12 text-center text-[var(--app-text-soft)]">加载中...</div>
           ) : plugins.length === 0 ? (
-            <p className="text-gray-400 text-center py-12">暂无可用插件</p>
+            <div className="app-card p-12 text-center text-[var(--app-text-soft)]">暂无可用插件</div>
           ) : (
             <div className="space-y-4">
               {plugins.map((plugin) => (
@@ -84,24 +83,20 @@ export function PluginsPage({ onBack }: Props) {
                   onCloseConfig={() => setConfiguring(null)}
                   onSaveConfig={async (config) => {
                     await updatePluginConfig(plugin.meta.id, config)
-                    setPlugins((prev) =>
-                      prev.map((p) =>
-                        p.meta.id === plugin.meta.id ? { ...p, config } : p,
-                      ),
-                    )
+                    setPlugins((prev) => prev.map((item) => (
+                      item.meta.id === plugin.meta.id ? { ...item, config } : item
+                    )))
                     setConfiguring(null)
                   }}
                 />
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   )
 }
-
-// ===== 插件卡片 =====
 
 function PluginCard({
   plugin,
@@ -121,81 +116,52 @@ function PluginCard({
   const { meta, enabled, config } = plugin
 
   return (
-    <div
-      className={`
-        bg-white rounded-xl border-2 p-5 transition
-        ${enabled ? 'border-sky-200 shadow-sm' : 'border-gray-100'}
-      `}
-    >
-      <div className="flex items-start justify-between">
-        {/* 左侧信息 */}
-        <div className="flex items-start gap-3 flex-1">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-gray-800">{meta.name}</h3>
-            <p className="text-sm text-gray-500 mt-0.5">{meta.description}</p>
+    <article className="app-card-soft p-5">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-xl font-semibold text-[var(--app-text)]">{meta.name}</h3>
             {enabled && (
-              <span className="inline-flex items-center gap-1 mt-2 text-xs text-sky-600 bg-sky-50 rounded-full px-2 py-0.5">
+              <span className="app-pill">
                 <Check size={12} />
                 已启用
               </span>
             )}
-
-            {/* Schema 信息 */}
-            {(meta.input_schema || meta.output_schema) && (
-              <div className="mt-3 space-y-2">
-                {meta.input_schema && (
-                  <details className="text-xs">
-                    <summary className="Claude Code-pointer text-gray-600 hover:text-sky-600 font-medium">
-                      输入格式
-                    </summary>
-                    <pre className="mt-1 p-2 bg-gray-50 rounded text-[10px] overflow-x-auto text-gray-700 leading-relaxed">
-                      {JSON.stringify(meta.input_schema, null, 2)}
-                    </pre>
-                  </details>
-                )}
-                {meta.output_schema && (
-                  <details className="text-xs">
-                    <summary className="cursor-pointer text-gray-600 hover:text-sky-600 font-medium">
-                      输出格式
-                    </summary>
-                    <pre className="mt-1 p-2 bg-gray-50 rounded text-[10px] overflow-x-auto text-gray-700 leading-relaxed">
-                      {JSON.stringify(meta.output_schema, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            )}
           </div>
+          <p className="app-muted mt-2 text-sm leading-7">{meta.description}</p>
+
+          {(meta.input_schema || meta.output_schema) && (
+            <div className="mt-4 space-y-3">
+              {meta.input_schema && (
+                <details className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
+                  <summary className="cursor-pointer text-sm font-medium text-[var(--app-text)]">输入格式</summary>
+                  <pre className="app-muted mt-3 overflow-x-auto text-xs leading-6">{JSON.stringify(meta.input_schema, null, 2)}</pre>
+                </details>
+              )}
+              {meta.output_schema && (
+                <details className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
+                  <summary className="cursor-pointer text-sm font-medium text-[var(--app-text)]">输出格式</summary>
+                  <pre className="app-muted mt-3 overflow-x-auto text-xs leading-6">{JSON.stringify(meta.output_schema, null, 2)}</pre>
+                </details>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* 右侧操作 */}
-        <div className="flex items-center gap-2 shrink-0 ml-4">
+        <div className="flex flex-wrap items-center gap-2">
           {meta.params.length > 0 && (
-            <button
-              onClick={onStartConfig}
-              className="p-2 text-gray-400 hover:text-sky-600 rounded-lg hover:bg-sky-50 transition"
-              title="配置"
-            >
-              <Settings size={18} />
+            <button onClick={onStartConfig} className="app-button app-button-ghost" title="配置">
+              <Settings size={16} />
+              配置
             </button>
           )}
-          <button
-            onClick={() => onToggle(!enabled)}
-            className={`
-              p-2 rounded-lg transition
-              ${enabled
-                ? 'text-sky-600 bg-sky-50 hover:bg-sky-100'
-                : 'text-gray-400 hover:text-sky-600 hover:bg-sky-50'
-              }
-            `}
-            title={enabled ? '禁用' : '启用'}
-          >
-            <Power size={18} />
+          <button onClick={() => onToggle(!enabled)} className="app-button app-button-secondary" title={enabled ? '禁用' : '启用'}>
+            <Power size={16} />
+            {enabled ? '禁用' : '启用'}
           </button>
         </div>
       </div>
 
-      {/* 配置面板 */}
       {isConfiguring && (
         <ConfigPanel
           params={meta.params}
@@ -204,11 +170,9 @@ function PluginCard({
           onClose={onCloseConfig}
         />
       )}
-    </div>
+    </article>
   )
 }
-
-// ===== 配置面板 =====
 
 function ConfigPanel({
   params,
@@ -234,57 +198,47 @@ function ConfigPanel({
     setSaving(true)
     try {
       await onSave(values)
-    } catch (e) {
-      alert(`保存失败: ${e}`)
+    } catch (error) {
+      alert(`保存失败: ${error}`)
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <div className="mt-4 pt-4 border-t border-gray-100">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-600">插件配置</h4>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+    <div className="mt-5 border-t border-[var(--app-border)] pt-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h4 className="text-sm font-semibold text-[var(--app-text)]">插件配置</h4>
+        <button onClick={onClose} className="app-button app-button-ghost">
           <X size={14} />
+          关闭
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {params.map((param) => (
           <div key={param.name}>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">
               {param.label}
-              {param.required && <span className="text-red-400 ml-0.5">*</span>}
+              {param.required && <span className="ml-1 text-[var(--app-danger)]">*</span>}
             </label>
             {param.description && (
-              <p className="text-xs text-gray-400 mb-1">{param.description}</p>
+              <p className="app-muted mb-2 text-xs leading-6">{param.description}</p>
             )}
             <input
               type={param.param_type === 'password' ? 'password' : 'text'}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-300"
+              className="app-input"
               value={values[param.name] || ''}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, [param.name]: e.target.value }))
-              }
-              placeholder={`输入 ${param.label}...`}
+              onChange={(e) => setValues((prev) => ({ ...prev, [param.name]: e.target.value }))}
+              placeholder={`输入 ${param.label}`}
             />
           </div>
         ))}
       </div>
 
-      <div className="flex justify-end gap-2 mt-4">
-        <button
-          onClick={onClose}
-          className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition"
-        >
-          取消
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-1.5 text-sm text-white bg-sky-500 hover:bg-sky-600 disabled:opacity-50 rounded-lg transition font-medium"
-        >
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <button onClick={onClose} className="app-button app-button-ghost">取消</button>
+        <button onClick={handleSave} disabled={saving} className="app-button app-button-primary disabled:opacity-50">
           {saving ? '保存中...' : '保存配置'}
         </button>
       </div>

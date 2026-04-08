@@ -6,6 +6,7 @@ import { Play, Save, Factory, ArrowLeft, Download, FileText, Settings, Sparkles,
 import { useWorkflowStore } from '@/stores/workflow'
 import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode } from '@/api/client'
 import type { Workflow, Block } from '@/types/workflow'
+import { ThemeToggle } from '../ui/ThemeToggle'
 
 const API_BASE = '/api'
 
@@ -253,23 +254,24 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
 
   return (
     <>
-    <div className="h-14 bg-white border-b px-4 flex items-center justify-between shadow-sm">
+    <div className="editor-toolbar px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
         {/* 返回列表 */}
         {onBackToList && (
           <>
             <button
               onClick={onBackToList}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-sky-600 transition"
+              className="app-button app-button-ghost"
             >
               <ArrowLeft size={16} />
               返回
             </button>
-            <span className="text-gray-200">|</span>
+            <span className="text-[var(--app-border-strong)]">|</span>
           </>
         )}
         <input
-          className="text-sm font-medium bg-transparent border-none outline-none text-gray-700 w-48"
+          className="w-56 border-none bg-transparent text-sm font-medium text-[var(--app-text)] outline-none"
           value={workflow.name}
           onChange={(e) =>
             useWorkflowStore.getState().updateWorkflowMeta(e.target.value, workflow.description)
@@ -278,15 +280,16 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
         />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <ThemeToggle />
         {/* AI 编辑 */}
         <div className="relative flex items-center">
           {showAIEdit ? (
-            <div className="flex items-center gap-1.5 bg-violet-50 border border-violet-200 rounded-lg px-2 py-1">
-              <Sparkles size={14} className="text-violet-500 shrink-0" />
+            <div className="flex items-center gap-1.5 rounded-2xl border border-[var(--app-border-strong)] bg-[rgba(109,204,255,0.1)] px-2 py-1">
+              <Sparkles size={14} className="shrink-0 text-[var(--app-accent)]" />
               <input
                 ref={aiInputRef}
-                className="text-sm bg-transparent border-none outline-none text-gray-700 w-64 placeholder:text-gray-400"
+                className="w-64 border-none bg-transparent text-sm text-[var(--app-text)] outline-none placeholder:text-[var(--app-text-muted)]"
                 value={aiInstruction}
                 onChange={(e) => setAIInstruction(e.target.value)}
                 onKeyDown={(e) => {
@@ -304,13 +307,13 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
                   <button
                     onClick={handleAIEdit}
                     disabled={!aiInstruction.trim()}
-                    className="text-xs text-white bg-violet-500 hover:bg-violet-600 disabled:opacity-40 px-2 py-0.5 rounded transition font-medium shrink-0"
+                    className="rounded-full bg-[var(--app-accent-strong)] px-2 py-0.5 text-xs font-medium text-white transition disabled:opacity-40 shrink-0"
                   >
                     执行
                   </button>
                   <button
                     onClick={() => { setShowAIEdit(false); setAIInstruction('') }}
-                    className="text-gray-400 hover:text-gray-600 shrink-0"
+                    className="shrink-0 text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
                   >
                     <X size={14} />
                   </button>
@@ -323,50 +326,50 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
                 setShowAIEdit(true)
                 requestAnimationFrame(() => aiInputRef.current?.focus())
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-violet-600 hover:bg-violet-50 rounded-lg transition font-medium"
+              className="app-button app-button-secondary"
             >
               <Sparkles size={16} />
               AI 编辑
             </button>
           )}
         </div>
-        <span className="text-gray-200">|</span>
+        <span className="text-[var(--app-border-strong)]">|</span>
         <button
           onClick={onOpenManufacture}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-sky-50 hover:text-sky-600 rounded-lg transition"
+          className="app-button app-button-ghost"
         >
           <Factory size={16} />
           制造
         </button>
         <button
           onClick={onOpenSettings}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-sky-50 hover:text-sky-600 rounded-lg transition"
+          className="app-button app-button-ghost"
         >
           <Settings size={16} />
           设置
         </button>
-        <span className="text-gray-200">|</span>
+        <span className="text-[var(--app-border-strong)]">|</span>
 
         {/* 失败即停止开关 */}
         <button
           onClick={() => setStopOnError(!workflow.stop_on_error)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition ${
+          className={`app-button ${
             workflow.stop_on_error
-              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-              : 'text-gray-500 hover:bg-gray-50'
+              ? 'border border-[rgba(255,180,77,0.22)] bg-[rgba(255,180,77,0.08)] text-[var(--app-warning)]'
+              : 'app-button-ghost'
           }`}
           title={workflow.stop_on_error ? '遇到错误时停止执行' : '遇到错误时继续执行'}
         >
           <ShieldAlert size={16} />
           {workflow.stop_on_error ? '失败即停' : '忽略错误'}
         </button>
-        <span className="text-gray-200">|</span>
+        <span className="text-[var(--app-border-strong)]">|</span>
 
         {/* 导出菜单 */}
         <div className="relative">
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-sky-50 hover:text-sky-600 rounded-lg transition"
+            className="app-button app-button-ghost"
           >
             <Download size={16} />
             导出
@@ -374,25 +377,25 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
           {showExportMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-200 z-20 w-52 overflow-hidden">
+              <div className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]">
                 <button
                   onClick={handleExportCode}
-                  className="w-full px-4 py-3 text-left text-sm hover:bg-sky-50 flex items-center gap-2.5 transition"
+                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
                 >
-                  <Download size={15} className="text-sky-500" />
+                  <Download size={15} className="text-[var(--app-accent)]" />
                   <div>
-                    <span className="text-gray-700 font-medium">下载代码项目</span>
-                    <p className="text-[10px] text-gray-400 mt-0.5">ZIP 结构化 Python 项目</p>
+                    <span className="font-medium text-[var(--app-text)]">下载代码项目</span>
+                    <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">ZIP 结构化 Python 项目</p>
                   </div>
                 </button>
                 <button
                   onClick={handleExportDescribe}
-                  className="w-full px-4 py-3 text-left text-sm hover:bg-sky-50 flex items-center gap-2.5 transition border-t border-gray-50"
+                  className="flex w-full items-center gap-2.5 border-t border-[var(--app-border)] px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
                 >
-                  <FileText size={15} className="text-sky-500" />
+                  <FileText size={15} className="text-[var(--app-accent)]" />
                   <div>
-                    <span className="text-gray-700 font-medium">导出流程描述</span>
-                    <p className="text-[10px] text-gray-400 mt-0.5">LLM 可读的文本格式</p>
+                    <span className="font-medium text-[var(--app-text)]">导出流程描述</span>
+                    <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">LLM 可读的文本格式</p>
                   </div>
                 </button>
               </div>
@@ -400,10 +403,10 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
           )}
         </div>
 
-        <span className="text-gray-200">|</span>
+        <span className="text-[var(--app-border-strong)]">|</span>
         <button
           onClick={handleSave}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
+          className="app-button app-button-ghost"
         >
           <Save size={16} />
           保存
@@ -411,24 +414,25 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
         <button
           onClick={handleRun}
           disabled={isRunning}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm text-white bg-sky-500 hover:bg-sky-600 disabled:opacity-50 rounded-lg transition font-medium"
+          className="app-button app-button-primary disabled:opacity-50"
         >
           <Play size={16} />
           {isRunning ? '运行中...' : '运行'}
         </button>
       </div>
+      </div>
     </div>
 
     {/* AI 编辑流式面板 */}
     {showStreamPanel && (
-      <div className="border-b border-violet-200 bg-gradient-to-r from-violet-50 to-white px-4 py-3">
+      <div className="border-b border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-4 py-3">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-violet-600 flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--app-accent)]">
               {aiLoading ? (
                 <><Loader2 size={12} className="animate-spin" /> AI 正在修改工作流...</>
               ) : aiError ? (
-                <span className="text-red-500">{aiError}</span>
+                <span className="text-[var(--app-danger)]">{aiError}</span>
               ) : aiDone ? (
                 '编辑完成 — 画布中高亮显示了变更'
               ) : (
@@ -439,7 +443,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
               {aiLoading ? (
                 <button
                   onClick={handleAbort}
-                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition font-medium"
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-[var(--app-danger)] transition hover:bg-[rgba(244,107,122,0.08)]"
                 >
                   <Square size={10} fill="currentColor" />
                   打断
@@ -448,14 +452,14 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
                 <>
                   <button
                     onClick={handleUndo}
-                    className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 px-2.5 py-1 rounded-md hover:bg-orange-50 border border-orange-200 transition font-medium"
+                    className="flex items-center gap-1 rounded-full border border-[rgba(255,180,77,0.22)] px-2.5 py-1 text-xs font-medium text-[var(--app-warning)] transition hover:bg-[rgba(255,180,77,0.08)]"
                   >
                     <Undo2 size={12} />
                     撤销
                   </button>
                   <button
                     onClick={handleConfirmEdit}
-                    className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 px-2.5 py-1 rounded-md hover:bg-emerald-50 border border-emerald-200 transition font-medium"
+                    className="flex items-center gap-1 rounded-full border border-[rgba(62,207,142,0.22)] px-2.5 py-1 text-xs font-medium text-[var(--app-success)] transition hover:bg-[rgba(62,207,142,0.08)]"
                   >
                     <Check size={12} />
                     确认
@@ -464,7 +468,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
               ) : (
                 <button
                   onClick={closeStreamPanel}
-                  className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition"
+                  className="rounded-full px-2 py-0.5 text-xs text-[var(--app-text-muted)] transition hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--app-text)]"
                 >
                   关闭
                 </button>
@@ -473,18 +477,18 @@ export function Toolbar({ onOpenManufacture, onBackToList, onOpenSettings, onMan
           </div>
           {aiThinking && (
             <div className="mb-2">
-              <span className="text-[10px] text-violet-400 font-medium">思考过程</span>
-              <pre className="text-xs text-gray-500 italic bg-white/50 rounded p-2 mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+              <span className="text-[10px] font-medium text-[var(--app-text-soft)]">思考过程</span>
+              <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-[rgba(255,255,255,0.05)] p-2 text-xs italic leading-relaxed text-[var(--app-text-soft)]">
                 {aiThinking}
               </pre>
             </div>
           )}
           {aiDelta && (
             <div>
-              <span className="text-[10px] text-violet-400 font-medium">生成内容</span>
+              <span className="text-[10px] font-medium text-[var(--app-text-soft)]">生成内容</span>
               <pre
                 ref={streamPanelRef}
-                className="text-xs text-gray-600 bg-white/60 rounded p-2 mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed"
+                className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-[rgba(255,255,255,0.06)] p-2 font-mono text-xs leading-relaxed text-[var(--app-text)]"
               >
                 {aiDelta}
               </pre>

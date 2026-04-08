@@ -80,15 +80,15 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   }
 
   return (
-    <div className="w-52 shrink-0 h-full border-r border-sky-100 bg-white flex flex-col">
+    <div className="editor-column flex h-full w-52 shrink-0 flex-col">
       {/* 栏头 */}
-      <div className="px-3 py-2.5 border-b border-sky-50 flex items-center justify-between bg-sky-50/50">
-        <span className="text-xs font-semibold text-sky-600 tracking-wide uppercase">
+      <div className="editor-column-header flex items-center justify-between px-3 py-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--app-accent)]">
           Step {column.order + 1}
         </span>
         <div className="flex items-center gap-1">
           {column.repeat > 1 && (
-            <span className="text-xs text-sky-500 flex items-center gap-0.5 font-medium">
+            <span className="flex items-center gap-0.5 text-xs font-medium text-[var(--app-accent)]">
               <Repeat size={12} />
               x{column.repeat}
             </span>
@@ -98,14 +98,14 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
               const n = prompt('重复次数:', String(column.repeat))
               if (n) setColumnRepeat(column.id, parseInt(n))
             }}
-            className="p-1 text-gray-400 hover:text-sky-600 rounded"
+            className="rounded p-1 text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
             title="设置重复次数"
           >
             <Repeat size={13} />
           </button>
           <button
             onClick={() => removeColumn(column.id)}
-            className="p-1 text-gray-400 hover:text-red-500 rounded"
+            className="rounded p-1 text-[var(--app-text-muted)] hover:text-[var(--app-danger)]"
             title="删除栏"
           >
             <Trash2 size={13} />
@@ -123,7 +123,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
         {column.blocks.map((block, i) => (
           <div key={block.id} className="flex flex-col items-center">
             {dropIndex === i && (
-              <div className="w-[140px] h-1 bg-sky-400 rounded-full mb-2 animate-pulse" />
+              <div className="mb-2 h-1 w-[140px] animate-pulse rounded-full bg-[var(--app-accent)]" />
             )}
             <BlockView
               block={block}
@@ -135,49 +135,49 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
           </div>
         ))}
         {dropIndex === column.blocks.length && (
-          <div className="w-[140px] h-1 bg-sky-400 rounded-full animate-pulse" />
+          <div className="h-1 w-[140px] animate-pulse rounded-full bg-[var(--app-accent)]" />
         )}
       </div>
 
       {/* 添加块 - 固定在底部 */}
-      <div className="p-3 border-t border-sky-50 relative">
+      <div className="relative border-t border-[var(--app-border)] p-3">
         <button
           onClick={() => setShowAddMenu(!showAddMenu)}
-          className="w-full py-2 border border-dashed border-sky-200 rounded-lg text-sky-400 text-xs hover:border-sky-400 hover:text-sky-600 hover:bg-sky-50/50 transition flex items-center justify-center gap-1"
+          className="flex w-full items-center justify-center gap-1 rounded-2xl border border-dashed border-[var(--app-border-strong)] py-2 text-xs text-[var(--app-text-soft)] transition hover:border-[var(--app-accent)] hover:bg-[rgba(109,204,255,0.08)] hover:text-[var(--app-accent)]"
         >
           <Plus size={14} />
           添加块
         </button>
 
         {showAddMenu && (
-          <div className="absolute bottom-full left-3 right-3 mb-1 bg-white rounded-xl shadow-lg border border-sky-100 z-10 overflow-hidden max-h-80 overflow-y-auto">
+          <div className="absolute bottom-full left-3 right-3 z-10 mb-1 max-h-80 overflow-y-auto overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]">
             {/* 核心块 */}
             {CORE_BLOCK_OPTIONS.map((opt) => (
               <button
                 key={opt.type}
                 onClick={() => handleAddBlock(opt.type, opt.label)}
-                className="w-full px-3 py-2.5 text-left text-sm hover:bg-sky-50 flex items-center gap-2 transition"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
               >
-                <span className="text-gray-700 font-medium">{opt.label}</span>
+                <span className="font-medium text-[var(--app-text)]">{opt.label}</span>
               </button>
             ))}
 
             {/* 制造的模板 */}
             {templates.length > 0 && (
               <>
-                <div className="border-t border-sky-50 px-3 py-1.5">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">制造模板</span>
+                <div className="border-t border-[var(--app-border)] px-3 py-1.5">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--app-text-muted)]">制造模板</span>
                 </div>
                 {templates.map((tpl) => (
                   <button
                     key={tpl.id}
                     onClick={() => handleAddFromTemplate(tpl)}
-                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-sky-50 flex items-center gap-2 transition"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
                   >
                     <div className="flex-1 min-w-0">
-                      <span className="text-gray-700 font-medium">{tpl.name}</span>
+                      <span className="font-medium text-[var(--app-text)]">{tpl.name}</span>
                       {tpl.description && (
-                        <p className="text-[10px] text-gray-400 truncate">{tpl.description}</p>
+                        <p className="truncate text-[10px] text-[var(--app-text-muted)]">{tpl.description}</p>
                       )}
                     </div>
                   </button>
@@ -188,16 +188,16 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
             {/* 已启用的插件 */}
             {enabledPlugins.length > 0 && (
               <>
-                <div className="border-t border-sky-50 px-3 py-1.5">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">插件</span>
+                <div className="border-t border-[var(--app-border)] px-3 py-1.5">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--app-text-muted)]">插件</span>
                 </div>
                 {enabledPlugins.map((plugin) => (
                   <button
                     key={plugin.id}
                     onClick={() => handleAddBlock('plugin', plugin.name, plugin.id)}
-                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-sky-50 flex items-center gap-2 transition"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
                   >
-                    <span className="text-gray-700 font-medium">{plugin.name}</span>
+                    <span className="font-medium text-[var(--app-text)]">{plugin.name}</span>
                   </button>
                 ))}
               </>
