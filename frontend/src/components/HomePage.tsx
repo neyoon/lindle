@@ -85,7 +85,6 @@ const loopSteps = [
 
 export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props) {
   const [stage, setStage] = useState<'overview' | 'entry'>('overview')
-  const [capabilityView, setCapabilityView] = useState<keyof typeof capabilityPanels>('flow')
 
   if (stage === 'entry') {
     return (
@@ -171,7 +170,11 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
     )
   }
 
-  const activeCapability = capabilityPanels[capabilityView]
+  const capabilityCards = [
+    { id: 'flow', ...capabilityPanels.flow },
+    { id: 'agent', ...capabilityPanels.agent },
+    { id: 'relation', ...capabilityPanels.relation },
+  ] as const
 
   return (
     <div className="app-shell">
@@ -185,10 +188,10 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
         </div>
       </header>
 
-      <main className="app-page py-8 md:py-12">
-        <section className="app-card overflow-hidden p-7 md:p-12">
-          <div className="grid gap-10 xl:grid-cols-[1.35fr_0.85fr] xl:gap-12">
-            <div className="space-y-6">
+      <main className="app-page py-10 md:py-14 lg:py-16">
+        <section className="app-card overflow-hidden p-7 md:p-12 lg:min-h-[78vh] lg:p-14">
+          <div className="flex h-full flex-col justify-center">
+            <div className="max-w-4xl space-y-6">
               <div className="app-kicker">Visual flow orchestration</div>
               <h1 className="app-section-title max-w-5xl text-4xl leading-tight md:text-6xl md:leading-[1.06]">
                 可视化流程编排，
@@ -198,8 +201,10 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
               <p className="app-muted max-w-4xl text-base leading-8 md:text-lg">
                 将复杂任务组织为清晰、可见、可调整的流程结构，使执行路径、阶段关系与能力边界一目了然。同时支持自然语言处理，不必逐项手写配置。
               </p>
+            </div>
 
-              <div className="app-card-soft relative overflow-hidden p-5 md:p-6">
+            <div className="mt-10 lg:mt-14">
+              <div className="app-card-soft relative overflow-hidden p-5 md:p-6 lg:p-8">
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 opacity-80"
@@ -209,17 +214,17 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
                 </div>
 
                 <div className="relative">
-                  <div className="mb-5 flex items-center justify-between gap-4">
+                  <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
                       <div className="app-kicker mb-2">Micro orchestration preview</div>
-                      <h2 className="app-section-title text-2xl">可视化编排示意</h2>
+                      <h2 className="app-section-title text-2xl md:text-3xl">可视化编排示意</h2>
                     </div>
                     <div className="rounded-full border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-3 py-1 text-xs text-[var(--app-text-soft)]">
                       Input {'->'} Flow
                     </div>
                   </div>
 
-                  <div className="rounded-[26px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.06)] p-4 md:p-5">
+                  <div className="rounded-[26px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.06)] p-4 md:p-5 lg:p-6">
                     <div className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] px-4 py-3">
                       <div className="app-kicker mb-2">Input</div>
                       <div className="font-mono text-sm leading-7 text-[var(--app-text)]">
@@ -278,74 +283,77 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
               </div>
             </div>
 
-            <aside className="app-card-soft flex flex-col gap-5 p-6 md:p-7">
-              <div>
-                <div className="app-kicker mb-2">Flow traits</div>
-                <h2 className="app-section-title text-3xl">特点</h2>
-              </div>
-              <div className="space-y-4">
-                {flowHighlights.map((item, index) => (
-                  <div key={item.title} className="rounded-3xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
-                    <div className="app-kicker mb-2">{String(index + 1).padStart(2, '0')}</div>
-                    <h3 className="app-section-title text-lg">{item.title}</h3>
-                    <p className="app-muted mt-2 text-sm leading-7">{item.description}</p>
-                  </div>
-                ))}
-              </div>
-            </aside>
-          </div>
-        </section>
-
-        <section className="app-card mt-8 p-7 md:p-10">
-          <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr]">
-            <div>
-              <div className="app-kicker mb-3">Capability views</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">Flow / Agent / 串联</h2>
-              <div className="mt-6 flex flex-wrap gap-2">
-                {(['flow', 'agent', 'relation'] as const).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setCapabilityView(key)}
-                    className={`rounded-full border px-4 py-2 text-sm transition ${
-                      capabilityView === key
-                        ? 'border-[var(--app-border-strong)] bg-[var(--app-accent-soft)] text-[var(--app-text)]'
-                        : 'border-[var(--app-border)] text-[var(--app-text-soft)] hover:bg-[rgba(255,255,255,0.04)]'
-                    }`}
-                  >
-                    <span className="app-section-title text-lg">
-                      {key === 'flow' ? 'Flow' : key === 'agent' ? 'Agent' : 'Flow x Agent'}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="app-card-soft p-6 md:p-7">
-                <div key={capabilityView} className="capability-fade">
-                  <div className="app-kicker mb-3">{activeCapability.kicker}</div>
-                  <h3 className="app-section-title text-3xl md:text-4xl">{activeCapability.title}</h3>
-                  <p className="app-muted mt-4 text-sm leading-8 md:text-base">
-                    {activeCapability.description}
-                  </p>
+            <div className="mt-8 grid gap-3 md:grid-cols-3">
+              {flowHighlights.map((item, index) => (
+                <div key={item.title} className="rounded-3xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
+                  <div className="app-kicker mb-2">{String(index + 1).padStart(2, '0')}</div>
+                  <h3 className="app-section-title text-lg">{item.title}</h3>
+                  <p className="app-muted mt-2 text-sm leading-7">{item.description}</p>
                 </div>
-              </div>
-              <div key={`${capabilityView}-points`} className="capability-fade mt-5 grid gap-3 md:grid-cols-3">
-                {activeCapability.points.map((item, index) => (
-                  <div key={item} className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
-                    <div className="app-kicker mb-2">{String(index + 1).padStart(2, '0')}</div>
-                    <p className="text-sm leading-7 text-[var(--app-text)]">{item}</p>
-                  </div>
-                ))}
+              ))}
+            </div>
+
+            <div className="mt-8 flex items-center justify-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] px-4 py-2 text-xs text-[var(--app-text-soft)]">
+                <span>继续向下看 Flow 如何进入 Agent</span>
+                <ArrowDown size={14} className="text-[var(--app-accent)]" />
               </div>
             </div>
           </div>
         </section>
 
-        <section className="app-card mt-8 p-7 md:p-12">
-          <div className="max-w-3xl">
-            <div className="app-kicker mb-3">System diagram</div>
-            <h2 className="app-section-title text-3xl md:text-5xl">流程示意图</h2>
-            <p className="app-muted mt-4 text-sm leading-8 md:text-base">
+        <section className="app-card mt-8 p-7 md:mt-10 md:p-10 lg:p-12">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-10">
+            <div className="lg:sticky lg:top-28 lg:self-start">
+              <div className="app-kicker mb-3">Capability narrative</div>
+              <h2 className="app-section-title text-3xl md:text-4xl">Flow / Agent / 串联</h2>
+              <p className="app-muted mt-4 max-w-md text-sm leading-8 md:text-base">
+                这一段不再解释更多功能，而是把同一套系统拆成三个连续视角。先把任务做成结构，再把结构沉淀为能力，最后由 Agent 在运行时调用它们。
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              {capabilityCards.map((card, index) => (
+                <article
+                  key={card.id}
+                  className="app-card-soft p-6 md:p-7 lg:min-h-[300px]"
+                >
+                  <div className="flex flex-col gap-6 lg:h-full lg:justify-between">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="max-w-2xl">
+                        <div className="app-kicker mb-3">{card.kicker}</div>
+                        <h3 className="app-section-title text-3xl md:text-4xl">{card.title}</h3>
+                        <p className="app-muted mt-4 text-sm leading-8 md:text-base">
+                          {card.description}
+                        </p>
+                      </div>
+                      <div className="self-start rounded-full border border-[var(--app-border)] bg-[var(--app-accent-soft)] px-3 py-1 text-xs text-[var(--app-text-soft)]">
+                        0{index + 1}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {card.points.map((item, pointIndex) => (
+                        <div key={item} className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
+                          <div className="app-kicker mb-2">{String(pointIndex + 1).padStart(2, '0')}</div>
+                          <p className="text-sm leading-7 text-[var(--app-text)]">{item}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="app-card mt-8 p-7 md:mt-10 md:p-12 lg:p-14">
+          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+            <div className="max-w-3xl">
+              <div className="app-kicker mb-3">System diagram</div>
+              <h2 className="app-section-title text-3xl md:text-5xl">流程示意图</h2>
+            </div>
+            <p className="app-muted max-w-2xl text-sm leading-8 md:justify-self-end md:text-base">
               从流程编排到能力调用，结构并不会中断，而是持续沉淀、封装并进入新的执行场景。
             </p>
           </div>
@@ -397,19 +405,24 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
             </div>
 
           </div>
-        </section>
 
-        <section className="mt-10 pb-10 text-center">
-          <button
-            onClick={() => setStage('entry')}
-            className="group inline-flex flex-col items-center gap-3 rounded-full border border-[var(--app-border-strong)] bg-[rgba(255,255,255,0.03)] px-8 py-6 transition hover:-translate-y-1 hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
-          >
-            <span className="app-kicker">Start trial</span>
-            <span className="app-section-title text-2xl">开始试用</span>
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-[rgba(109,204,255,0.1)] text-[var(--app-accent)] transition group-hover:translate-y-1">
-              <ArrowDown size={18} />
-            </span>
-          </button>
+          <div className="mt-10 border-t border-[var(--app-border)] pt-8 text-center md:mt-12 md:pt-10">
+            <div className="mx-auto max-w-2xl">
+              <div className="app-kicker mb-3">Enter workbench</div>
+              <h3 className="app-section-title text-3xl leading-tight md:text-4xl md:leading-[1.2]">尝试建立你的 Agent / Flow</h3>
+            </div>
+
+            <button
+              onClick={() => setStage('entry')}
+              className="group mt-8 inline-flex flex-col items-center gap-3 rounded-full border border-[var(--app-border-strong)] bg-[rgba(255,255,255,0.03)] px-8 py-6 transition hover:-translate-y-1 hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
+            >
+              <span className="app-kicker">Start trial</span>
+              <span className="app-section-title text-2xl">开始试用</span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-[rgba(109,204,255,0.1)] text-[var(--app-accent)] transition group-hover:translate-y-1">
+                <ArrowDown size={18} />
+              </span>
+            </button>
+          </div>
         </section>
       </main>
     </div>
