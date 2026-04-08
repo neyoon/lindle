@@ -308,7 +308,7 @@ export function HomePage({ onSelectFlow, onSelectAgent, onOpenSettings }: Props)
               <div className="app-kicker mb-3">Capability narrative</div>
               <h2 className="app-section-title text-3xl md:text-4xl">Flow / Agent / 串联</h2>
               <p className="app-muted mt-4 max-w-md text-sm leading-8 md:text-base">
-                这一段不再解释更多功能，而是把同一套系统拆成三个连续视角。先把任务做成结构，再把结构沉淀为能力，最后由 Agent 在运行时调用它们。
+                先把任务做成结构，再把结构沉淀为能力，最后由 Agent 在运行时调用它们。
               </p>
             </div>
 
