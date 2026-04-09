@@ -421,7 +421,9 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
               <div className="app-kicker mb-3">Enter workbench</div>
               <h3 className="app-section-title text-3xl leading-tight md:text-4xl md:leading-[1.2]">尝试建立你的 Flow / Agent</h3>
               <p className="app-muted mt-4 text-sm leading-8 md:text-base">
-                再复杂的任务，变成 Flow 之后也能一眼看清、随手调整。自己跑或交给 Agent 都行，上手比你想的快。
+                再复杂的任务，变成 Flow 之后也能一眼看清、随手调整。
+                <br />
+                自己跑或交给 Agent 都行，上手比你想的快。
               </p>
             </div>
 
