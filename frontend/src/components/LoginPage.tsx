@@ -26,7 +26,7 @@ export function LoginPage({ loading = false, onLogin, onBack }: Props) {
     try {
       await onLogin(username.trim(), password)
     } catch (err) {
-      setError(err instanceof Error ? err.message : `登录失败: ${err}`)
+      setError(err instanceof Error ? err.message : `登陆失败: ${err}`)
     } finally {
       setSubmitting(false)
     }
@@ -41,7 +41,7 @@ export function LoginPage({ loading = false, onLogin, onBack }: Props) {
       <div className="app-card w-full max-w-md p-8 md:p-10">
         <div className="mb-8">
           <div className="app-kicker mb-3">Tweak access / authenticated workspace</div>
-          <h1 className="app-section-title text-4xl">登录 Tweak</h1>
+          <h1 className="app-section-title text-4xl">登陆 Tweak</h1>
           <p className="app-muted mt-4 text-sm leading-7">
             注册或使用LAT账号登陆以使用Tweak的完整功能。
           </p>
@@ -86,7 +86,7 @@ export function LoginPage({ loading = false, onLogin, onBack }: Props) {
             className="app-button app-button-primary w-full disabled:opacity-60"
           >
             {loading || submitting ? <KeyRound size={16} /> : <LogIn size={16} />}
-            登录
+            登陆
           </button>
 
           {onBack && (

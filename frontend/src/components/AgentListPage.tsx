@@ -124,7 +124,7 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
               <Sparkles size={52} className="mx-auto text-[var(--app-text-muted)]" />
               <h3 className="app-section-title mt-5 text-3xl">还没有创建任何 Agent</h3>
               <p className="app-muted mx-auto mt-4 max-w-xl text-sm leading-8">
-                先创建一个 Agent，然后给它绑定工作流执行器、设计器或自定义 Skill。这里是 Flow 能力真正被动态消费的地方。
+                先把 Flow 跑通，再把它绑定给 Agent。这里是 Flow 能力被动态消费、开始自动化的地方。
               </p>
               <button onClick={onCreateNew} className="app-button app-button-primary mt-6">
                 <Plus size={16} />

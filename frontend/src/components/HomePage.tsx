@@ -419,9 +419,9 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
           <div className="mt-10 border-t border-[var(--app-border)] pt-8 text-center md:mt-12 md:pt-10">
             <div className="mx-auto max-w-2xl">
               <div className="app-kicker mb-3">Enter workbench</div>
-              <h3 className="app-section-title text-3xl leading-tight md:text-4xl md:leading-[1.2]">尝试建立你的 Agent / Flow</h3>
+              <h3 className="app-section-title text-3xl leading-tight md:text-4xl md:leading-[1.2]">尝试建立你的 Flow / Agent</h3>
               <p className="app-muted mt-4 text-sm leading-8 md:text-base">
-                先创建一个 Agent，然后给它绑定工作流执行器、设计器或自定义 Skill。
+                再复杂的任务，变成 Flow 之后也能一眼看清、随手调整。自己跑或交给 Agent 都行，上手比你想的快。
               </p>
             </div>
 

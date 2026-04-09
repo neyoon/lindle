@@ -78,8 +78,8 @@ export function UserMenu({ user, onLogout, onOpenSettings, extraActions }: Props
             >
               <LogOut size={16} />
               <div>
-                <div className="font-medium">退出登录</div>
-                <div className="mt-1 text-xs text-[var(--app-text-soft)]">清除未保存的当前账号会话，返回登录页</div>
+                <div className="font-medium">退出登陆</div>
+                <div className="mt-1 text-xs text-[var(--app-text-soft)]">清除未保存的当前账号会话，返回登陆页</div>
               </div>
             </button>
           </div>
