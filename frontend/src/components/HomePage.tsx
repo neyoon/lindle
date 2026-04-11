@@ -189,7 +189,13 @@ export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onS
         <div className="app-topbar-inner">
           <div>
             <div className="app-kicker">Visual Systems for Structured Flows</div>
-            <div className="app-brand-mark">Tweak</div>
+            <div className="app-brand-mark">
+              <a href="https://www.lightaitech.com" className="app-brand-link">
+                LightAITech
+              </a>
+              <span aria-hidden="true">｜</span>
+              <span>TWeak</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

@@ -150,6 +150,16 @@ body::before {
     color: var(--app-text);
   }
 
+  .app-brand-link {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .app-brand-link:hover {
+    color: var(--app-accent);
+  }
+
   .app-kicker,
   .app-mono {
     font-family: 'IBM Plex Mono', monospace;
