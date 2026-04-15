@@ -14,18 +14,22 @@ interface Props {
   agentName: string
 }
 
+type StreamPhase = 'idle' | 'thinking' | 'tool-running' | 'responding'
+
 export function AgentTestChat({ agentId, agentName }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [reasoning, setReasoning] = useState('')
+  const [streamPhase, setStreamPhase] = useState<StreamPhase>('idle')
+  const [liveReasoning, setLiveReasoning] = useState('')
+  const [liveStatus, setLiveStatus] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, liveReasoning, liveStatus, loading])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -38,7 +42,9 @@ export function AgentTestChat({ agentId, agentName }: Props) {
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setLoading(true)
-    setReasoning('')
+    setStreamPhase('thinking')
+    setLiveReasoning('')
+    setLiveStatus('正在思考...')
 
     try {
       // 使用流式 API
@@ -50,33 +56,36 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         tool_name: m.tool_name,
       }))
 
-      let currentReasoning = ''
+      let currentReasoningByRound = ''
       let currentContent = ''
-      let isStreaming = false
+      let isStreamingAssistant = false
 
       for await (const event of chatWithAgentStream(agentId, userMessage.content, history)) {
-        if (event.type === 'reasoning') {
-          // 追加 reasoning
-          currentReasoning += event.data
-          setReasoning(currentReasoning)
-        } else if (event.type === 'content') {
-          // 逐字显示 content
-          currentContent += event.data
+        if (event.type === 'round_start') {
+          currentReasoningByRound = ''
+          currentContent = ''
+          isStreamingAssistant = false
+          setStreamPhase('thinking')
+          setLiveReasoning('')
+          setLiveStatus('正在思考...')
+        } else if (event.type === 'reasoning_delta') {
+          currentReasoningByRound += event.data.delta
+          setStreamPhase('thinking')
+          setLiveReasoning(currentReasoningByRound)
+          setLiveStatus('正在思考...')
+        } else if (event.type === 'assistant_delta') {
+          currentContent += event.data.delta
+          setStreamPhase('responding')
+          setLiveStatus('正在生成回复...')
 
-          if (!isStreaming) {
-            // 第一次收到 content，创建临时消息
-            isStreaming = true
+          if (!isStreamingAssistant) {
+            isStreamingAssistant = true
             const tempMsg: ChatMessage = {
               role: 'assistant',
               content: currentContent,
             }
             setMessages(prev => [...prev, tempMsg])
-            // 清空 reasoning 状态，避免重复显示
-            setReasoning('')
-            // 关闭 loading 状态，隐藏"正在思考..."
-            setLoading(false)
           } else {
-            // 更新最后一条消息
             setMessages(prev => {
               const newMessages = [...prev]
               if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
@@ -88,25 +97,50 @@ export function AgentTestChat({ agentId, agentName }: Props) {
               return newMessages
             })
           }
-        } else if (event.type === 'message') {
-          // 添加消息
+        } else if (event.type === 'tool_call') {
           const msg: ChatMessage = {
-            role: event.data.role,
+            role: 'tool_call',
             content: event.data.content,
             tool_calls: event.data.tool_calls,
+          }
+          setMessages(prev => [...prev, msg])
+          currentReasoningByRound = ''
+          currentContent = ''
+          isStreamingAssistant = false
+          setStreamPhase('tool-running')
+          setLiveReasoning('')
+          setLiveStatus('正在准备工具调用...')
+        } else if (event.type === 'tool_status') {
+          setStreamPhase('tool-running')
+          setLiveStatus(event.data.message || '正在执行工具...')
+        } else if (event.type === 'tool_result') {
+          const msg: ChatMessage = {
+            role: 'tool_result',
+            content: event.data.content,
             tool_call_id: event.data.tool_call_id,
             tool_name: event.data.tool_name,
           }
-
-          if (isStreaming && msg.role === 'assistant') {
-            // 跳过，已经通过 content 事件更新了
-            isStreaming = false
+          setMessages(prev => [...prev, msg])
+          setStreamPhase('thinking')
+          setLiveStatus('工具执行完成，继续思考...')
+        } else if (event.type === 'assistant_message') {
+          if (isStreamingAssistant) {
+            isStreamingAssistant = false
             currentContent = ''
           } else {
+            const msg: ChatMessage = {
+              role: 'assistant',
+              content: event.data.content,
+            }
             setMessages(prev => [...prev, msg])
           }
+          setStreamPhase('idle')
+          setLiveReasoning('')
+          setLiveStatus('')
         } else if (event.type === 'error') {
-          // 错误消息
+          setStreamPhase('idle')
+          setLiveReasoning('')
+          setLiveStatus('')
           const errorMsg: ChatMessage = {
             role: 'assistant',
             content: `错误：${event.data?.message || '未知错误'}`,
@@ -114,11 +148,17 @@ export function AgentTestChat({ agentId, agentName }: Props) {
           setMessages(prev => [...prev, errorMsg])
           break
         } else if (event.type === 'done') {
+          setStreamPhase('idle')
+          setLiveReasoning('')
+          setLiveStatus('')
           break
         }
       }
     } catch (e) {
       console.error('发送失败:', e)
+      setStreamPhase('idle')
+      setLiveReasoning('')
+      setLiveStatus('')
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: `发送失败：${e}`,
@@ -201,14 +241,6 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         这是测试环境，用于验证 Agent 配置
       </div>
 
-      {/* Reasoning 展示 */}
-      {reasoning && (
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 max-h-32 overflow-y-auto">
-          <div className="font-medium mb-1">思考过程：</div>
-          <div className="whitespace-pre-wrap">{reasoning}</div>
-        </div>
-      )}
-
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
@@ -224,7 +256,9 @@ export function AgentTestChat({ agentId, agentName }: Props) {
           <div className="flex justify-start">
             <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-700 max-w-[80%]">
               <div className="flex items-center gap-2 mb-2">
-                <span className="inline-block animate-pulse">正在思考...</span>
+                <span className="inline-block animate-pulse">
+                  {liveStatus || (streamPhase === 'responding' ? '正在生成回复...' : '处理中...')}
+                </span>
                 <button
                   onClick={handleStop}
                   className="text-red-500 hover:text-red-700"
@@ -233,9 +267,9 @@ export function AgentTestChat({ agentId, agentName }: Props) {
                   <StopCircle size={14} />
                 </button>
               </div>
-              {reasoning && (
+              {liveReasoning && (
                 <div className="text-xs text-gray-600 whitespace-pre-wrap border-t border-gray-200 pt-2 mt-2">
-                  {reasoning}
+                  {liveReasoning}
                 </div>
               )}
             </div>

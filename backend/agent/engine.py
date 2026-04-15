@@ -35,11 +35,16 @@ class AgentEngine:
     async def chat_stream(
         self, user_message: str, history: list[ChatMessage] | None = None
     ):
-        """流式处理用户消息，实时返回 reasoning 和消息
+        """流式处理用户消息，按明确的阶段返回事件
 
         Yields:
-            {"type": "reasoning", "data": str}  # 思考过程
-            {"type": "message", "data": ChatMessage}  # 消息（tool_call/tool_result/assistant）
+            {"type": "round_start", "data": {"round": int}}
+            {"type": "reasoning_delta", "data": {"round": int, "delta": str}}
+            {"type": "assistant_delta", "data": {"round": int, "delta": str}}
+            {"type": "tool_call", "data": {...}}
+            {"type": "tool_status", "data": {...}}
+            {"type": "tool_result", "data": {...}}
+            {"type": "assistant_message", "data": {...}}
             {"type": "done", "data": None}  # 完成
         """
         history = history or []
@@ -55,9 +60,14 @@ class AgentEngine:
 
         try:
             for round_num in range(MAX_TOOL_ROUNDS + 1):
+                round_index = round_num + 1
+                yield {
+                    "type": "round_start",
+                    "data": {"round": round_index},
+                }
+
                 # 流式调用 LLM
                 full_content = ""
-                full_reasoning = ""
                 tool_calls = None
                 done_received = False
 
@@ -70,18 +80,21 @@ class AgentEngine:
                         # done 之后忽略意外增量，等待底层 generator 自然结束
                         continue
                     if chunk["type"] == "reasoning":
-                        # 实时发送 reasoning
-                        full_reasoning += chunk["data"]
                         yield {
-                            "type": "reasoning",
-                            "data": chunk["data"],
+                            "type": "reasoning_delta",
+                            "data": {
+                                "round": round_index,
+                                "delta": chunk["data"],
+                            },
                         }
                     elif chunk["type"] == "content":
-                        # 实时发送 content
                         full_content += chunk["data"]
                         yield {
-                            "type": "content",
-                            "data": chunk["data"],
+                            "type": "assistant_delta",
+                            "data": {
+                                "round": round_index,
+                                "delta": chunk["data"],
+                            },
                         }
                     elif chunk["type"] == "tool_calls":
                         tool_calls = chunk["data"]
@@ -96,17 +109,16 @@ class AgentEngine:
                     raise RuntimeError("LLM 流式响应未正常结束（未收到 done 事件）")
 
                 if not tool_calls:
-                    # 没有工具调用 → 最终回复（已经通过 content 流式发送）
-                    # 发送完整的 assistant 消息
                     msg = ChatMessage(role="assistant", content=full_content)
                     yield {
-                        "type": "message",
-                        "data": msg.model_dump(),
+                        "type": "assistant_message",
+                        "data": {
+                            "round": round_index,
+                            **msg.model_dump(),
+                        },
                     }
-                    # 退出主循环
                     break
 
-                # 有工具调用
                 assistant_content = full_content or ""
                 tool_call_infos = []
                 for tc in tool_calls:
@@ -123,18 +135,19 @@ class AgentEngine:
                     tool_calls=tool_call_infos,
                 )
                 yield {
-                    "type": "message",
-                    "data": msg.model_dump(),
+                    "type": "tool_call",
+                    "data": {
+                        "round": round_index,
+                        **msg.model_dump(),
+                    },
                 }
 
-                # 将 assistant 消息添加到 api_messages
                 api_messages.append({
                     "role": "assistant",
                     "content": assistant_content or None,
                     "tool_calls": tool_calls,
                 })
 
-                # 执行工具
                 for tc in tool_calls:
                     tc_id = tc.get("id", "")
                     func = tc.get("function", {})
@@ -150,25 +163,25 @@ class AgentEngine:
                     yield {
                         "type": "tool_status",
                         "data": {
+                            "round": round_index,
                             "tool_name": tool_name,
                             "status": "executing",
-                            "message": f"正在执行 {tool_name}..."
+                            "message": f"正在执行 {tool_name}...",
                         }
                     }
 
-                    # 执行工具（支持流式进度）
                     tool_result = None
                     async for event in self._execute_tool_stream(
                         tool_name, arguments_str
                     ):
                         if event["type"] == "progress":
-                            # 转发工具的进度事件
                             yield {
                                 "type": "tool_status",
                                 "data": {
+                                    "round": round_index,
                                     "tool_name": tool_name,
                                     "status": "executing",
-                                    "message": event["data"]
+                                    "message": event["data"],
                                 }
                             }
                         elif event["type"] == "result":
@@ -188,11 +201,23 @@ class AgentEngine:
                         tool_name=tool_name,
                     )
                     yield {
-                        "type": "message",
-                        "data": msg.model_dump(),
+                        "type": "tool_result",
+                        "data": {
+                            "round": round_index,
+                            **msg.model_dump(),
+                        },
                     }
 
-                    # 添加到 api_messages
+                    yield {
+                        "type": "tool_status",
+                        "data": {
+                            "round": round_index,
+                            "tool_name": tool_name,
+                            "status": "completed",
+                            "message": f"{tool_name} 执行完成",
+                        },
+                    }
+
                     api_messages.append({
                         "role": "tool",
                         "tool_call_id": tc_id,
@@ -211,8 +236,11 @@ class AgentEngine:
                     content="工具调用次数已达上限，我将基于已有结果进行回复。"
                 )
                 yield {
-                    "type": "message",
-                    "data": msg.model_dump(),
+                    "type": "assistant_message",
+                    "data": {
+                        "round": MAX_TOOL_ROUNDS + 1,
+                        **msg.model_dump(),
+                    },
                 }
 
             yield {"type": "done", "data": None}
@@ -224,8 +252,11 @@ class AgentEngine:
                 content=f"抱歉，处理消息时出错：{str(e)}",
             )
             yield {
-                "type": "message",
-                "data": msg.model_dump(),
+                "type": "assistant_message",
+                "data": {
+                    "round": 0,
+                    **msg.model_dump(),
+                },
             }
             yield {"type": "done", "data": None}
 

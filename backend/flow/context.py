@@ -92,6 +92,19 @@ class Context:
             return self._get_connected_data(connections)
         return self._get_previous_column_data()
 
+    def get_upstream_value(
+        self,
+        connections: list[dict[str, Any]] | None = None,
+    ) -> Any:
+        """获取上游数据的结构化值
+
+        这条路径用于程序化节点，例如插件块。
+        默认返回原始结果值，而不是给 AI 使用的说明性文本。
+        """
+        if connections:
+            return self._get_connected_value(connections)
+        return self._get_previous_column_value()
+
     def _get_connected_data(self, connections: list[dict[str, Any]]) -> str:
         """获取手动连线指定的数据"""
         parts: list[str] = []
@@ -132,6 +145,42 @@ class Context:
             parts.append(f"[{result.block_name}]:\n{result.format_as_text()}")
 
         return "\n\n".join(parts)
+
+    def _get_connected_value(self, connections: list[dict[str, Any]]) -> Any:
+        """获取手动连线指定的结构化值"""
+        collected: list[tuple[str, Any]] = []
+        for conn in connections:
+            block_id = conn["from_block_id"]
+            from_key = conn.get("from_key")
+
+            result = self._block_results.get(block_id)
+            if result is None:
+                continue
+
+            value = result.get_key(from_key) if from_key else result.data
+            label = f"{result.block_name}.{from_key}" if from_key else result.block_name
+            collected.append((label, value))
+
+        if not collected:
+            return self.user_inputs
+        if len(collected) == 1:
+            return collected[0][1]
+        return {label: value for label, value in collected}
+
+    def _get_previous_column_value(self) -> Any:
+        """获取上一栏所有块的结构化结果"""
+        if not self._column_order:
+            return self.user_inputs
+
+        last_column_id = self._column_order[-1]
+        results = self._column_results.get(last_column_id, [])
+
+        if not results:
+            return self.user_inputs
+        if len(results) == 1:
+            return results[0].data
+
+        return {result.block_name: result.data for result in results}
 
     def _format_user_inputs(self) -> str:
         """格式化用户输入"""

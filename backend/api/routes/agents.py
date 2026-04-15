@@ -215,7 +215,6 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
 
         try:
             async for event in engine.chat_stream(req.message, history):
-                # event 格式: {"type": "reasoning"|"message"|"done", "data": ...}
                 event_json = json.dumps(event, ensure_ascii=False)
                 yield f"data: {event_json}\n\n"
         except Exception as e:
@@ -232,5 +231,6 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )

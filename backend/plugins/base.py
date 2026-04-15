@@ -47,7 +47,7 @@ class BasePlugin(ABC):
         """执行插件
 
         Args:
-            input_data: 上游数据（已格式化为文本）
+            input_data: 上游数据，通常为纯文本或 JSON 字符串
             config: 用户在插件页面配置的参数（如 token）
 
         Returns:

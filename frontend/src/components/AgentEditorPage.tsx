@@ -32,6 +32,8 @@ interface Props {
   headerActions?: ReactNode
 }
 
+type StreamPhase = 'idle' | 'thinking' | 'tool-running' | 'responding'
+
 export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }: Props) {
   const [agent, setAgent] = useState<Agent>({
     id: agentId || `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -59,14 +61,15 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
-  const [reasoning, setReasoning] = useState('')
-  const [toolExecutingMessageIndex, setToolExecutingMessageIndex] = useState<number | null>(null) // 记录工具执行消息的索引
+  const [streamPhase, setStreamPhase] = useState<StreamPhase>('idle')
+  const [liveReasoning, setLiveReasoning] = useState('')
+  const [liveStatus, setLiveStatus] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, reasoning])
+  }, [messages, liveReasoning, liveStatus, chatLoading])
 
   // 推荐的 Skills（标记为推荐）
   const recommendedSkillIds = ['workflow_executor', 'workflow_designer']
@@ -412,7 +415,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setChatLoading(true)
-    setReasoning('')
+    setStreamPhase('thinking')
+    setLiveReasoning('')
+    setLiveStatus('正在思考...')
 
     try {
       const history = messages.map(m => ({
@@ -425,116 +430,105 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
 
       // 使用流式 API
       console.log('开始流式调用:', agentId)
-      let currentReasoning = ''
+      let currentReasoningByRound = ''
       let currentContent = ''
-      let isStreaming = false
+      let isStreamingAssistant = false
       const allMessages: ChatMessage[] = []
 
       for await (const event of chatWithAgentStream(agentId, userMessage.content, history)) {
         console.log('收到事件:', event)
-        if (event.type === 'reasoning') {
-          // 实时显示 reasoning
+        if (event.type === 'round_start') {
+          currentReasoningByRound = ''
+          currentContent = ''
+          isStreamingAssistant = false
+          setStreamPhase('thinking')
+          setLiveReasoning('')
+          setLiveStatus('正在思考...')
+        } else if (event.type === 'reasoning_delta') {
           console.log('Reasoning:', event.data)
-          currentReasoning = currentReasoning + event.data
-          setReasoning(currentReasoning)
-        } else if (event.type === 'content') {
-          // 逐字显示 content
+          currentReasoningByRound += event.data.delta
+          setStreamPhase('thinking')
+          setLiveReasoning(currentReasoningByRound)
+          setLiveStatus('正在思考...')
+        } else if (event.type === 'assistant_delta') {
           console.log('Content chunk:', event.data)
-          currentContent += event.data
+          currentContent += event.data.delta
+          setStreamPhase('responding')
+          setLiveStatus('正在生成回复...')
 
-          if (!isStreaming) {
-            // 第一次收到 content，创建一个临时的 assistant 消息
-            isStreaming = true
+          if (!isStreamingAssistant) {
+            isStreamingAssistant = true
             const tempMsg: ChatMessage = {
               role: 'assistant',
               content: currentContent,
-              reasoning: currentReasoning || undefined,
             }
             setMessages(prev => [...prev, tempMsg])
             allMessages.push(tempMsg)
-            // 清空 reasoning 状态，避免重复显示
-            setReasoning('')
-            // 关闭 loading 状态，隐藏"正在思考..."
-            setChatLoading(false)
           } else {
-            // 更新最后一条消息的 content
             setMessages(prev => {
               const newMessages = [...prev]
               if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
                 newMessages[newMessages.length - 1] = {
                   ...newMessages[newMessages.length - 1],
                   content: currentContent,
-                  reasoning: currentReasoning || undefined,
                 }
               }
               return newMessages
             })
-            // 更新本地记录
             if (allMessages.length > 0 && allMessages[allMessages.length - 1].role === 'assistant') {
               allMessages[allMessages.length - 1].content = currentContent
             }
           }
-        } else if (event.type === 'tool_status') {
-          // 工具执行状态
-          console.log('Tool status:', event.data)
-          if (event.data.status === 'executing') {
-            const statusMsg: ChatMessage = {
-              role: 'assistant',
-              content: `⚙️ ${event.data.message}`,
-            }
-
-            setMessages(prev => {
-              if (toolExecutingMessageIndex !== null) {
-                // 更新现有的工具执行提示消息
-                const newMessages = [...prev]
-                newMessages[toolExecutingMessageIndex] = statusMsg
-                return newMessages
-              } else {
-                // 第一次显示工具执行提示
-                setToolExecutingMessageIndex(prev.length)
-                return [...prev, statusMsg]
-              }
-            })
-          } else if (event.data.status === 'completed' || event.data.status === 'failed') {
-            // 工具执行完成或失败，移除提示消息
-            if (toolExecutingMessageIndex !== null) {
-              setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
-              setToolExecutingMessageIndex(null)
-            }
-          }
-        } else if (event.type === 'message') {
-          console.log('Message:', event.data)
-
-          // 如果收到任何消息且有工具执行提示，先移除它
-          if (toolExecutingMessageIndex !== null && event.data.role !== 'tool_call') {
-            setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
-            setToolExecutingMessageIndex(null)
-          }
-
+        } else if (event.type === 'tool_call') {
+          console.log('Tool call:', event.data)
           const msg: ChatMessage = {
-            role: event.data.role,
+            role: 'tool_call',
             content: event.data.content,
             tool_calls: event.data.tool_calls,
-            tool_call_id: event.data.tool_call_id,
-            tool_name: event.data.tool_name,
-            reasoning: event.data.role === 'assistant' ? currentReasoning : undefined,
           }
 
-          if (isStreaming && msg.role === 'assistant') {
-            // 如果已经在流式显示，跳过（因为已经通过 content 事件更新了）
-            isStreaming = false
+          setMessages(prev => [...prev, msg])
+          allMessages.push(msg)
+          currentReasoningByRound = ''
+          currentContent = ''
+          isStreamingAssistant = false
+          setStreamPhase('tool-running')
+          setLiveReasoning('')
+          setLiveStatus('正在准备工具调用...')
+        } else if (event.type === 'tool_status') {
+          console.log('Tool status:', event.data)
+          setStreamPhase('tool-running')
+          setLiveStatus(event.data.message || '正在执行工具...')
+        } else if (event.type === 'tool_result') {
+          console.log('Tool result:', event.data)
+          const msg: ChatMessage = {
+            role: 'tool_result',
+            content: event.data.content,
+            tool_call_id: event.data.tool_call_id,
+            tool_name: event.data.tool_name,
+          }
+          setMessages(prev => [...prev, msg])
+          allMessages.push(msg)
+          setStreamPhase('thinking')
+          setLiveStatus('工具执行完成，继续思考...')
+        } else if (event.type === 'assistant_message') {
+          console.log('Assistant message:', event.data)
+          if (isStreamingAssistant) {
+            isStreamingAssistant = false
             currentContent = ''
           } else {
+            const msg: ChatMessage = {
+              role: 'assistant',
+              content: event.data.content,
+            }
             setMessages(prev => [...prev, msg])
             allMessages.push(msg)
           }
+          setLiveReasoning('')
+          setLiveStatus('')
+          setStreamPhase('idle')
         } else if (event.type === 'error') {
           console.error('Error event:', event.data)
-          // 移除工具执行提示
-          if (toolExecutingMessageIndex !== null) {
-            setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
-            setToolExecutingMessageIndex(null)
-          }
           const errorMsg: ChatMessage = {
             role: 'assistant',
             content: `错误：${event.data?.message || '未知错误'}`,
@@ -544,11 +538,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           break
         } else if (event.type === 'done') {
           console.log('Done')
-          // 确保移除工具执行提示
-          if (toolExecutingMessageIndex !== null) {
-            setMessages(prev => prev.filter((_, idx) => idx !== toolExecutingMessageIndex))
-            setToolExecutingMessageIndex(null)
-          }
+          setStreamPhase('idle')
+          setLiveReasoning('')
+          setLiveStatus('')
           break
         }
       }
@@ -565,6 +557,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
       }
     } catch (e) {
       console.error('发送失败:', e)
+      setStreamPhase('idle')
+      setLiveReasoning('')
+      setLiveStatus('')
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: `抱歉，发送失败：${e}`,
@@ -828,15 +823,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                           : ''
                       }`}
                     >
-                      {msg.role === 'assistant' && msg.reasoning && (
-                        <div className="mb-2 rounded-2xl border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-4 py-3">
-                          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[var(--app-accent)]">
-                            <Sparkles size={12} />
-                            思考过程
-                          </div>
-                          <div className="whitespace-pre-wrap text-xs text-[var(--app-text)]">{msg.reasoning}</div>
-                        </div>
-                      )}
                       <div className={msg.role === 'assistant' ? 'rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3 text-[var(--app-text)]' : ''}>
                         <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                       </div>
@@ -846,10 +832,12 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                 {chatLoading && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3">
-                      <div className="mb-2 animate-pulse text-sm text-[var(--app-text-soft)]">正在思考...</div>
-                      {reasoning && (
+                      <div className="mb-2 animate-pulse text-sm text-[var(--app-text-soft)]">
+                        {liveStatus || (streamPhase === 'responding' ? '正在生成回复...' : '处理中...')}
+                      </div>
+                      {liveReasoning && (
                         <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap border-t border-[var(--app-border)] pt-2 text-xs text-[var(--app-text-soft)]">
-                          {reasoning}
+                          {liveReasoning}
                         </div>
                       )}
                     </div>
