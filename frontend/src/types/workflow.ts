@@ -85,12 +85,15 @@ export interface BlockTemplate {
 export interface StepEvent {
   event_type: 'column_start' | 'block_start' | 'block_done' | 'column_done' | 'flow_done' | 'error'
   column_id: string
+  column_order?: number
   block_id: string
   block_name: string
   data?: unknown
   elapsed: number
   error?: string
 }
+
+export type BlockRunStatus = 'running' | 'done' | 'error'
 
 export interface RunResult {
   success: boolean

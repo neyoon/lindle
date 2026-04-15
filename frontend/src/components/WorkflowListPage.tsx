@@ -26,6 +26,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isExporting, setIsExporting] = useState(false)
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false)
 
   const loadWorkflows = async () => {
     try {
@@ -81,6 +82,52 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
       alert(`创建失败: ${error}`)
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const names = workflows
+      .filter((wf) => selectedIds.has(wf.id))
+      .map((wf) => `- ${wf.name}`)
+      .join('\n')
+
+    if (!confirm(`确定删除以下 ${ids.length} 个工作流？删除后不可恢复。\n\n${names}`)) return
+
+    setIsDeletingBatch(true)
+    try {
+      const results = await Promise.allSettled(ids.map((id) => deleteWorkflow(id)))
+      const failedIds = results
+        .map((result, index) => (result.status === 'rejected' ? ids[index] : null))
+        .filter((id): id is string => Boolean(id))
+
+      const succeededIds = ids.filter((id) => !failedIds.includes(id))
+
+      if (succeededIds.length > 0) {
+        setWorkflows((prev) => prev.filter((wf) => !succeededIds.includes(wf.id)))
+        setSelectedIds((prev) => {
+          const next = new Set(prev)
+          succeededIds.forEach((id) => next.delete(id))
+          return next
+        })
+      }
+
+      if (failedIds.length > 0) {
+        const failedNames = workflows
+          .filter((wf) => failedIds.includes(wf.id))
+          .map((wf) => wf.name)
+          .join('、')
+        alert(`部分删除失败：${failedNames}`)
+        return
+      }
+
+      alert(`已删除 ${succeededIds.length} 个工作流`)
+    } catch (error) {
+      alert(`批量删除失败: ${error}`)
+    } finally {
+      setIsDeletingBatch(false)
     }
   }
 
@@ -160,10 +207,22 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
               <p className="text-base font-medium text-[var(--app-text)]">已选择 {selectedIds.size} 个工作流</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setSelectedIds(new Set())} className="app-button app-button-ghost">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                disabled={isExporting || isDeletingBatch}
+                className="app-button app-button-ghost disabled:opacity-50"
+              >
                 取消选择
               </button>
-              <button onClick={handleExportToSkill} disabled={isExporting} className="app-button app-button-primary disabled:opacity-50">
+              <button
+                onClick={handleBatchDelete}
+                disabled={isExporting || isDeletingBatch}
+                className="app-button border border-[rgba(244,107,122,0.22)] bg-[rgba(244,107,122,0.08)] text-[var(--app-danger)] disabled:opacity-50"
+              >
+                <Trash2 size={16} />
+                {isDeletingBatch ? '删除中...' : '批量删除'}
+              </button>
+              <button onClick={handleExportToSkill} disabled={isExporting || isDeletingBatch} className="app-button app-button-primary disabled:opacity-50">
                 <FileCode size={16} />
                 {isExporting ? '导出中...' : '导出为 Skill'}
               </button>

@@ -204,30 +204,9 @@ class WorkflowDesignerSkill(BasePlugin):
 
             yield {"type": "progress", "data": "正在解析生成的工作流..."}
 
-            # 解析 JSON
-            text = full_text.strip()
-            if text.startswith("```"):
-                lines = text.split("\n")
-                lines = [l for l in lines if not l.strip().startswith("```")]
-                text = "\n".join(lines)
+            from api.routes.workflow import _parse_generated_workflow
 
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start == -1 or end <= start:
-                yield {
-                    "type": "result",
-                    "data": {
-                        "success": False,
-                        "workflow_id": "",
-                        "workflow_name": "",
-                        "error": "LLM 输出中未找到有效 JSON",
-                    }
-                }
-                return
-
-            parsed = json.loads(text[start:end])
-            parsed["id"] = workflow_id
-            updated = Workflow.model_validate(parsed)
+            updated = _parse_generated_workflow(full_text, workflow_id)
             save_workflow(updated)
 
             yield {"type": "progress", "data": "工作流创建完成！"}
@@ -242,6 +221,16 @@ class WorkflowDesignerSkill(BasePlugin):
                 }
             }
 
+        except ValueError as e:
+            yield {
+                "type": "result",
+                "data": {
+                    "success": False,
+                    "workflow_id": "",
+                    "workflow_name": "",
+                    "error": str(e),
+                }
+            }
         except json.JSONDecodeError as e:
             yield {
                 "type": "result",
@@ -262,4 +251,3 @@ class WorkflowDesignerSkill(BasePlugin):
                     "error": f"创建失败：{str(e)}",
                 }
             }
-

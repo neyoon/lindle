@@ -5,8 +5,8 @@ import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Play, Save, Factory, ArrowLeft, Download, FileText, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
-import { saveWorkflow, updateWorkflow, runWorkflow, downloadCode, getAuthHeaders } from '@/api/client'
-import type { Workflow, Block } from '@/types/workflow'
+import { saveWorkflow, updateWorkflow, runWorkflowStream, downloadCode, getAuthHeaders } from '@/api/client'
+import type { Workflow, Block, StepEvent } from '@/types/workflow'
 import { ThemeToggle } from '../ui/ThemeToggle'
 
 const API_BASE = '/api'
@@ -45,7 +45,19 @@ function computeBlockDiff(
 }
 
 export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerActions }: ToolbarProps) {
-  const { workflow, setWorkflow, setRunResult, setIsRunning, isRunning, setBlockDiffMap, setStopOnError } = useWorkflowStore()
+  const {
+    workflow,
+    setWorkflow,
+    setRunResult,
+    setIsRunning,
+    isRunning,
+    setBlockDiffMap,
+    setStopOnError,
+    resetRunState,
+    appendRunEvent,
+    setLiveOutput,
+    setBlockRunState,
+  } = useWorkflowStore()
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showAIEdit, setShowAIEdit] = useState(false)
   const [aiInstruction, setAIInstruction] = useState('')
@@ -208,10 +220,39 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
       return
     }
     const userInputs = useWorkflowStore.getState().userInputs
+    resetRunState()
     setIsRunning(true)
     try {
-      const result = await runWorkflow(workflow.id, userInputs)
-      setRunResult(result)
+      const steps: StepEvent[] = []
+
+      for await (const event of runWorkflowStream(workflow.id, userInputs)) {
+        steps.push(event)
+        appendRunEvent(event)
+
+        if (event.event_type === 'block_start' && event.block_id) {
+          setBlockRunState(event.block_id, 'running')
+        } else if (event.event_type === 'block_done' && event.block_id) {
+          setBlockRunState(event.block_id, 'done')
+          setLiveOutput(event.data ?? null)
+        } else if (event.event_type === 'error') {
+          setRunResult({
+            success: false,
+            output: {},
+            steps,
+            total_elapsed: event.elapsed,
+            error: event.error || '运行失败',
+          })
+        } else if (event.event_type === 'flow_done') {
+          setLiveOutput(event.data ?? null)
+          setRunResult({
+            success: true,
+            output: (event.data as Record<string, unknown>) || {},
+            steps,
+            total_elapsed: event.elapsed,
+            error: '',
+          })
+        }
+      }
     } catch (e) {
       alert(`运行失败: ${e}`)
     } finally {

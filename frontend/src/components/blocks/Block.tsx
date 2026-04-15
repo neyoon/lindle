@@ -36,6 +36,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
   const finishConnecting = useWorkflowStore((s) => s.finishConnecting)
 
   const blockDiffMap = useWorkflowStore((s) => s.blockDiffMap)
+  const runStatus = useWorkflowStore((s) => s.blockRunState[block.id] ?? null)
 
   const style = TYPE_STYLES[block.type] || TYPE_STYLES.input
   const isSelected = selectedBlockId === block.id
@@ -73,6 +74,9 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         ${isConnectingSource ? 'ring-2 ring-[var(--app-warning)]' : ''}
         ${diffStatus === 'added' ? 'ring-2 ring-[var(--app-success)] shadow-lg' : ''}
         ${diffStatus === 'modified' ? 'ring-2 ring-[var(--app-warning)] shadow-lg' : ''}
+        ${runStatus === 'running' ? 'border-[var(--app-accent)] shadow-[0_0_0_3px_rgba(109,204,255,0.18)] animate-pulse' : ''}
+        ${runStatus === 'done' ? 'border-[var(--app-success)] shadow-[0_0_0_2px_rgba(90,198,143,0.16)]' : ''}
+        ${runStatus === 'error' ? 'border-[var(--app-danger)] shadow-[0_0_0_2px_rgba(244,107,122,0.16)]' : ''}
       `}
     >
       {/* ===== 左侧输入端口 ===== */}
@@ -165,6 +169,20 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
           }`}
         >
           {diffStatus === 'added' ? '新增' : '修改'}
+        </span>
+      )}
+
+      {runStatus && (
+        <span
+          className={`absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm z-20 ${
+            runStatus === 'running'
+              ? 'bg-[var(--app-accent)] text-[#082f49]'
+              : runStatus === 'done'
+                ? 'bg-[var(--app-success)] text-white'
+                : 'bg-[var(--app-danger)] text-white'
+          }`}
+        >
+          {runStatus === 'running' ? '运行中' : runStatus === 'done' ? '已完成' : '失败'}
         </span>
       )}
 

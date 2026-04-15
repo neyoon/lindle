@@ -10,7 +10,7 @@
  */
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap } from 'lucide-react'
+import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap, Wrench, CheckCircle } from 'lucide-react'
 import { getAgent, createAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgent, chatWithAgentStream, listProviders, createCustomSkill, listCustomSkills, listWorkflows } from '@/api/client'
 import { AgentTestChat } from './AgentTestChat'
 import { SkillEditor } from './SkillEditor'
@@ -33,6 +33,114 @@ interface Props {
 }
 
 type StreamPhase = 'idle' | 'thinking' | 'tool-running' | 'responding'
+
+function renderChatMessage(msg: ChatMessage, key: number) {
+  if (msg.role === 'user') {
+    return (
+      <div key={key} className="flex justify-end">
+        <div className="max-w-[70%] rounded-2xl bg-[var(--app-accent-strong)] px-4 py-3 text-white">
+          <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (msg.role === 'assistant') {
+    return (
+      <div key={key} className="flex justify-start">
+        <div className="max-w-[70%] rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3 text-[var(--app-text)]">
+          <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (msg.role === 'tool_call') {
+    return (
+      <div key={key} className="flex justify-start">
+        <div className="max-w-[80%] rounded-2xl border border-[rgba(255,180,77,0.22)] bg-[rgba(255,180,77,0.08)] p-4 text-sm text-[var(--app-text)]">
+          <div className="mb-2 flex items-center gap-2 text-[var(--app-warning)]">
+            <Wrench size={14} />
+            工具调用
+          </div>
+          <div className="space-y-2 text-xs text-[var(--app-text-soft)]">
+            {msg.tool_calls?.map((tc, i) => (
+              <div key={i} className="rounded-xl bg-[rgba(255,255,255,0.05)] px-3 py-2">
+                <div className="font-medium text-[var(--app-text)]">{tc.name}</div>
+                <div className="mt-1 break-all font-mono">{tc.arguments}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (msg.role === 'tool_result') {
+    return <ToolResultBubble key={key} message={msg} />
+  }
+
+  return null
+}
+
+function ToolResultBubble({ message }: { message: ChatMessage }) {
+  const [expanded, setExpanded] = useState(false)
+  const content = message.content || ''
+
+  let jsonContent: any = null
+  try {
+    jsonContent = JSON.parse(content)
+  } catch {}
+
+  const isFlowResult = jsonContent && typeof jsonContent === 'object' && 'success' in jsonContent && 'output' in jsonContent
+
+  let displayData: any = null
+  let metaLine = ''
+
+  if (isFlowResult) {
+    const output = jsonContent.output
+    displayData = output && typeof output === 'object' && 'result' in output ? output.result : output
+    const status = jsonContent.success ? '成功' : '失败'
+    const elapsed = jsonContent.elapsed != null ? `${Number(jsonContent.elapsed).toFixed(1)}s` : ''
+    metaLine = `${status}${elapsed ? ` · ${elapsed}` : ''}${jsonContent.error ? ` · ${jsonContent.error}` : ''}`
+  } else if (jsonContent) {
+    displayData = jsonContent
+  }
+
+  const displayStr = displayData != null
+    ? (typeof displayData === 'string' ? displayData : JSON.stringify(displayData, null, 2))
+    : content
+  const lineCount = displayStr.split('\n').length
+  const isLong = lineCount > 3 || displayStr.length > 220
+  const bodyClass = expanded || !isLong ? '' : 'line-clamp-3'
+
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] rounded-2xl border border-[rgba(62,207,142,0.22)] bg-[rgba(62,207,142,0.08)] p-4 text-sm text-[var(--app-text)]">
+        <div className="mb-1 flex items-center gap-2 text-[var(--app-success)]">
+          <CheckCircle size={14} />
+          工具结果: {message.tool_name}
+        </div>
+        {metaLine && (
+          <div className="mb-2 text-xs text-[var(--app-text-soft)]">{metaLine}</div>
+        )}
+        <div
+          className={`whitespace-pre-wrap rounded-xl bg-[rgba(255,255,255,0.05)] px-3 py-3 ${typeof displayData === 'string' ? 'text-sm leading-7' : 'font-mono text-xs leading-6 text-[var(--app-text-soft)]'} ${bodyClass}`}
+        >
+          {displayStr}
+        </div>
+        {isLong && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="mt-2 text-xs text-[var(--app-success)] transition hover:opacity-80"
+          >
+            {expanded ? '收起' : '展开'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }: Props) {
   const [agent, setAgent] = useState<Agent>({
@@ -811,24 +919,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
               </div>
             ) : (
               <div className="space-y-4 max-w-3xl mx-auto">
-                {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[70%] ${
-                        msg.role === 'user'
-                          ? 'rounded-2xl bg-[var(--app-accent-strong)] px-4 py-3 text-white'
-                          : ''
-                      }`}
-                    >
-                      <div className={msg.role === 'assistant' ? 'rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3 text-[var(--app-text)]' : ''}>
-                        <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                {messages.map((msg, i) => renderChatMessage(msg, i))}
                 {chatLoading && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3">

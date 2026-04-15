@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from flow.models import BlockType, Workflow
+from plugins.base import describe_json_schema
 from storage.file_store import delete_workflow, list_workflows, load_workflow, save_workflow
 
 logger = logging.getLogger(__name__)
@@ -251,7 +252,7 @@ AI 块的 prompt 中可以使用 `{{变量}}` 语法引用上游数据。运行�
       - prompt 用于转换上游数据格式，支持 {{变量}} 语法
       - 只有在单个上游结果已经与插件输入格式完全匹配时，prompt 才可以为 null
       - 如果需要字段改名、补充常量、合并多个来源或重组结构，必须在 prompt 中使用模板变量转换，例如：
-        prompt: '{"symbol": "{{input.stock_code}}", "market": "A"}'
+        prompt: '{"symbol": "{{input.stock_code}}"}'
   - output_schema: { keys: ["key1", "key2"], descriptions: {} } 或 null
 
 ## 编辑原则（最重要）
@@ -272,12 +273,87 @@ AI 块的 prompt 中可以使用 `{{变量}}` 语法引用上游数据。运行�
 7. AI 块的 config.prompt 应写清楚具体的指令内容
 8. 输入块的 field_type 只能是: "text" | "number" | "textarea" | "file"，不支持 select 等其他类型
 9. **块的 name 不得包含英文句号「.」**，因为「.」是模板变量的嵌套 key 分隔符（如 `{{块名.key1.key2}}`）
-10. 只输出修改后的完整 workflow JSON，不要输出任何解释、思考过程或 markdown 代码块
-11. 输出必须是有效的 JSON 格式，可以直接被 JSON.parse() 解析"""
+10. **所有列表字段都必须输出为数组，不能是 null**：`workflow.columns`、`column.blocks`、`block.connections` 为空时也必须分别返回 `[]`
+11. `column.repeat` 不能为空，未指定时返回 `1`
+12. 只输出修改后的完整 workflow JSON，不要输出任何解释、思考过程或 markdown 代码块
+13. 输出必须是有效的 JSON 格式，可以直接被 JSON.parse() 解析"""
 
 
 class AIEditRequest(BaseModel):
     instruction: str
+
+
+def _strip_json_wrapper(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        text = "\n".join(lines).strip()
+    return text
+
+
+def _validate_generated_workflow_payload(data: object) -> None:
+    """严格校验 LLM 生成的 workflow 结构。
+
+    这里故意不做兜底修复。对 AI 生成结果来说，`null` / 缺字段 / 类型错误
+    都应视为生成失败，而不是静默纠正。
+    """
+    if not isinstance(data, dict):
+        raise ValueError("AI 生成失败：顶层必须是 JSON 对象")
+
+    columns = data.get("columns")
+    if columns is None:
+        raise ValueError("AI 生成失败：workflow.columns 不能为空")
+    if not isinstance(columns, list):
+        raise ValueError("AI 生成失败：workflow.columns 必须是数组")
+
+    for index, column in enumerate(columns):
+        if not isinstance(column, dict):
+            raise ValueError(f"AI 生成失败：columns[{index}] 必须是对象")
+
+        if "blocks" not in column:
+            raise ValueError(f"AI 生成失败：columns[{index}].blocks 缺失")
+        if column["blocks"] is None:
+            raise ValueError(f"AI 生成失败：columns[{index}].blocks 不能为 null")
+        if not isinstance(column["blocks"], list):
+            raise ValueError(f"AI 生成失败：columns[{index}].blocks 必须是数组")
+
+        if "repeat" not in column:
+            raise ValueError(f"AI 生成失败：columns[{index}].repeat 缺失")
+        if column["repeat"] is None:
+            raise ValueError(f"AI 生成失败：columns[{index}].repeat 不能为 null")
+        if not isinstance(column["repeat"], int):
+            raise ValueError(f"AI 生成失败：columns[{index}].repeat 必须是整数")
+
+        for block_index, block in enumerate(column["blocks"]):
+            if not isinstance(block, dict):
+                raise ValueError(f"AI 生成失败：columns[{index}].blocks[{block_index}] 必须是对象")
+            if "connections" in block and block["connections"] is None:
+                raise ValueError(f"AI 生成失败：columns[{index}].blocks[{block_index}].connections 不能为 null")
+            if "connections" in block and not isinstance(block["connections"], list):
+                raise ValueError(f"AI 生成失败：columns[{index}].blocks[{block_index}].connections 必须是数组")
+
+
+def _parse_generated_workflow(text: str, workflow_id: str) -> Workflow:
+    text = _strip_json_wrapper(text)
+
+    start = text.find("{")
+    end = text.rfind("}") + 1
+    if start == -1 or end <= start:
+        raise ValueError("AI 生成失败：返回内容中未找到有效 JSON")
+
+    try:
+        parsed = json.loads(text[start:end])
+    except json.JSONDecodeError as e:
+        raise ValueError(f"AI 生成失败：返回的工作流 JSON 不合法（{e.msg}，位置 {e.pos}）") from e
+
+    _validate_generated_workflow_payload(parsed)
+    parsed["id"] = workflow_id
+
+    try:
+        return Workflow.model_validate(parsed)
+    except Exception as e:
+        raise ValueError(f"AI 生成失败：工作流结构校验未通过（{e}）") from e
 
 
 def _sse(event: str, data: dict) -> str:
@@ -328,6 +404,11 @@ def _build_plugins_info() -> str:
         lines.append(f"\n### {meta.name} (plugin_id: \"{meta.id}\")")
         lines.append(f"描述: {meta.description}")
 
+        input_summary = describe_json_schema(meta.input_schema)
+        if input_summary:
+            lines.append("\n**输入要求摘要：**")
+            lines.append(input_summary)
+
         # 输入格式
         if meta.input_schema:
             lines.append("\n**输入格式:**")
@@ -337,6 +418,10 @@ def _build_plugins_info() -> str:
 
         # 输出格式
         if meta.output_schema:
+            output_summary = describe_json_schema(meta.output_schema)
+            if output_summary:
+                lines.append("\n**输出摘要：**")
+                lines.append(output_summary)
             lines.append("\n**输出格式:**")
             lines.append("```json")
             lines.append(json.dumps(meta.output_schema, ensure_ascii=False, indent=2))
@@ -349,7 +434,7 @@ def _build_plugins_info() -> str:
         lines.append("   - 只有在单个上游结果已经与插件输入格式完全匹配时，config.prompt 才可以留空")
         lines.append("   - 如果需要字段改名、补充常量、合并多个来源或重组结构，必须在 config.prompt 中使用模板变量转换")
         lines.append("   - 例如：如果插件需要 {\"symbol\": \"...\"} 但上游是 {\"stock_code\": \"...\"}，")
-        lines.append(f"     则设置 config.prompt = '{{\"symbol\": \"{{{{input.stock_code}}}}\", \"market\": \"A\"}}'")
+        lines.append(f"     则设置 config.prompt = '{{\"symbol\": \"{{{{input.stock_code}}}}\"}}'")
         lines.append("4. 插件块的 output_schema 应该根据插件的输出格式设置 keys 列表，以便下游块引用")
         lines.append(f"   - 例如：output_schema: {{ keys: {list(meta.output_schema.get('properties', {}).keys()) if meta.output_schema and 'properties' in meta.output_schema else ['result']} }}")
         lines.append("")
@@ -444,30 +529,15 @@ async def ai_edit_workflow(workflow_id: str, body: AIEditRequest):
                     except (json.JSONDecodeError, KeyError, IndexError):
                         continue
 
-            # 解析 JSON
-            text = full_text.strip()
-            if text.startswith("```"):
-                lines = text.split("\n")
-                lines = [l for l in lines if not l.strip().startswith("```")]
-                text = "\n".join(lines)
-
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start == -1 or end <= start:
-                yield _sse("error", {"message": "LLM 输出中未找到有效 JSON"})
-                return
-
-            parsed = json.loads(text[start:end])
-            parsed["id"] = workflow_id
-            updated = Workflow.model_validate(parsed)
+            updated = _parse_generated_workflow(full_text, workflow_id)
             save_workflow(updated)
             yield _sse("done", json.loads(updated.model_dump_json()))
 
         except httpx.HTTPStatusError as e:
             yield _sse("error", {"message": f"LLM API 错误: {e.response.status_code}"})
-        except json.JSONDecodeError as e:
-            logger.error("AI 编辑 JSON 解析失败: %s", e)
-            yield _sse("error", {"message": f"LLM 返回内容无法解析为 JSON: {e}"})
+        except ValueError as e:
+            logger.error("AI 编辑结果校验失败: %s", e)
+            yield _sse("error", {"message": str(e)})
         except Exception as e:
             logger.error("AI 编辑失败: %s", e)
             yield _sse("error", {"message": str(e)})

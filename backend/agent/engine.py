@@ -17,6 +17,7 @@ import logging
 from typing import Any
 
 from agent.models import Agent, ChatMessage
+from plugins.base import describe_json_schema
 from plugins.registry import execute_plugin, get_plugin
 from shared_llm import call_llm_with_messages, call_llm_with_messages_stream
 
@@ -443,6 +444,7 @@ class AgentEngine:
 
         # 自动注入绑定的 Flows 信息
         system_content += self._build_flow_info()
+        system_content += self._build_skill_schema_info()
 
         if system_content:
             messages.append({"role": "system", "content": system_content})
@@ -612,6 +614,34 @@ class AgentEngine:
                 parts.append("- 输出:")
                 parts.extend(output_info)
             parts.append("")
+
+        return "\n".join(parts)
+
+    def _build_skill_schema_info(self) -> str:
+        """把 Skill 的输入输出 schema 注入给 Agent，减少纯靠 description 猜格式。"""
+        if not self.agent.skills:
+            return ""
+
+        parts = ["\n\n## 可用 Skills 的输入输出要求\n"]
+        parts.append("调用工具时，优先严格遵守下面的输入输出要求，不要自行猜字段名。")
+
+        for agent_skill in self.agent.skills:
+            plugin = get_plugin(agent_skill.skill_id)
+            if not plugin:
+                continue
+
+            parts.append(f"\n### {plugin.meta.name} (`{plugin.meta.id}`)")
+            parts.append(f"- 描述: {plugin.meta.description}")
+
+            input_summary = describe_json_schema(plugin.meta.input_schema)
+            if input_summary:
+                parts.append("- 输入要求:")
+                parts.append(input_summary)
+
+            output_summary = describe_json_schema(plugin.meta.output_schema)
+            if output_summary:
+                parts.append("- 输出形式:")
+                parts.append(output_summary)
 
         return "\n".join(parts)
 

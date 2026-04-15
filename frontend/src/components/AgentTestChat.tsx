@@ -373,7 +373,9 @@ function MessageItem({ message }: { message: ChatMessage }) {
     const displayStr = displayData != null
       ? (typeof displayData === 'string' ? displayData : JSON.stringify(displayData, null, 2))
       : content
-    const isLong = displayStr.length > 500
+    const lineCount = displayStr.split('\n').length
+    const isLong = lineCount > 3 || displayStr.length > 220
+    const bodyClass = expanded || !isLong ? '' : 'line-clamp-3'
 
     return (
       <div className="flex justify-start">
@@ -386,15 +388,11 @@ function MessageItem({ message }: { message: ChatMessage }) {
             <div className="text-xs text-gray-500 mb-2">{metaLine}</div>
           )}
           <div className="text-xs">
-            {typeof displayData === 'string' ? (
-              <div className="bg-white p-2 rounded text-gray-700 whitespace-pre-wrap">
-                {expanded || !isLong ? displayStr : displayStr.slice(0, 500) + '...'}
-              </div>
-            ) : (
-              <pre className="bg-white p-2 rounded overflow-x-auto text-gray-700">
-                {expanded || !isLong ? displayStr : displayStr.slice(0, 500) + '...'}
-              </pre>
-            )}
+            <div
+              className={`bg-white p-2 rounded whitespace-pre-wrap ${typeof displayData === 'string' ? 'text-gray-700' : 'font-mono text-gray-700'} ${bodyClass}`}
+            >
+              {displayStr}
+            </div>
             {isLong && (
               <button
                 onClick={() => setExpanded(!expanded)}
