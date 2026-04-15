@@ -13,6 +13,26 @@ from typing import Any
 from plugins.base import BasePlugin, PluginMeta
 
 
+def _preview_text(data: Any, max_lines: int = 3, max_chars: int = 240) -> str:
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        text = data
+    else:
+        try:
+            text = json.dumps(data, ensure_ascii=False, indent=2)
+        except Exception:
+            text = str(data)
+
+    lines = [line for line in text.splitlines() if line.strip()]
+    preview = "\n".join(lines[:max_lines]) if lines else text[:max_chars]
+    if len(preview) > max_chars:
+        preview = preview[:max_chars].rstrip() + "..."
+    elif len(lines) > max_lines or len(text) > len(preview):
+        preview = preview.rstrip() + "..."
+    return preview
+
+
 class WorkflowExecutorSkill(BasePlugin):
     """Flow 执行器 - 执行指定的 Flow"""
 
@@ -116,3 +136,106 @@ class WorkflowExecutorSkill(BasePlugin):
                 "elapsed": 0,
             }
 
+    async def execute_stream(self, input_data: str, config: dict[str, Any]):
+        """流式执行 Flow，向 Agent 透出列/块进度。"""
+        try:
+            data = json.loads(input_data)
+            workflow_id = data.get("workflow_id")
+            inputs = data.get("inputs", {})
+
+            if not workflow_id:
+                yield {
+                    "type": "result",
+                    "data": {
+                        "success": False,
+                        "output": {},
+                        "error": "缺少 workflow_id 参数",
+                        "elapsed": 0,
+                    },
+                }
+                return
+
+            from storage.file_store import load_workflow
+            from flow.engine import Engine
+
+            workflow = load_workflow(workflow_id)
+            if workflow is None:
+                yield {
+                    "type": "result",
+                    "data": {
+                        "success": False,
+                        "output": {},
+                        "error": f"Flow {workflow_id} 不存在",
+                        "elapsed": 0,
+                    },
+                }
+                return
+
+            engine = Engine(workflow)
+            output: dict[str, Any] = {}
+            total_elapsed = 0.0
+
+            async for event in engine.run_stream(user_inputs=inputs):
+                if event.event_type == "column_start":
+                    yield {
+                        "type": "progress",
+                        "data": f"开始执行第 {event.column_order + 1} 步",
+                    }
+                elif event.event_type == "block_start":
+                    yield {
+                        "type": "progress",
+                        "data": f"正在执行块「{event.block_name}」",
+                    }
+                elif event.event_type == "block_done":
+                    preview = _preview_text(event.data)
+                    message = f"块「{event.block_name}」执行完成"
+                    if preview:
+                        message = f"{message}\n{preview}"
+                    yield {
+                        "type": "progress",
+                        "data": message,
+                    }
+                elif event.event_type == "flow_done":
+                    output = event.data or {}
+                    total_elapsed = event.elapsed
+                elif event.event_type == "error":
+                    yield {
+                        "type": "result",
+                        "data": {
+                            "success": False,
+                            "output": {},
+                            "error": event.error or "执行失败",
+                            "elapsed": event.elapsed,
+                        },
+                    }
+                    return
+
+            yield {
+                "type": "result",
+                "data": {
+                    "success": True,
+                    "output": output,
+                    "error": None,
+                    "elapsed": total_elapsed,
+                },
+            }
+        except json.JSONDecodeError:
+            yield {
+                "type": "result",
+                "data": {
+                    "success": False,
+                    "output": {},
+                    "error": "输入数据不是有效的 JSON",
+                    "elapsed": 0,
+                },
+            }
+        except Exception as e:
+            yield {
+                "type": "result",
+                "data": {
+                    "success": False,
+                    "output": {},
+                    "error": f"执行失败：{str(e)}",
+                    "elapsed": 0,
+                },
+            }

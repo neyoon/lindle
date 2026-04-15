@@ -30,6 +30,22 @@ def set_storage_dir(path: str) -> None:
 # ===== Workflow (Pipeline) 存储 =====
 
 
+def _load_and_repair_workflow_file(file_path) -> Workflow:
+    """加载并修复历史脏数据。"""
+    with open(file_path, encoding="utf-8") as f:
+        raw_data = json.load(f)
+
+    workflow = Workflow.model_validate(raw_data)
+    normalized = workflow.model_dump()
+
+    if raw_data != normalized:
+        ensure_parent(file_path)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(normalized, f, ensure_ascii=False, indent=2)
+
+    return workflow
+
+
 def save_workflow(workflow: Workflow) -> str:
     """保存工作流到文件"""
     file_path = get_user_file("workflows", f"{workflow.id}.json")
@@ -44,9 +60,7 @@ def load_workflow(workflow_id: str) -> Workflow | None:
     file_path = get_user_file("workflows", f"{workflow_id}.json")
     if not file_path.exists():
         return None
-    with open(file_path, encoding="utf-8") as f:
-        data = json.load(f)
-    return Workflow.model_validate(data)
+    return _load_and_repair_workflow_file(file_path)
 
 
 def list_workflows() -> list[dict[str, Any]]:
@@ -58,13 +72,12 @@ def list_workflows() -> list[dict[str, Any]]:
         if not filename.endswith(".json"):
             continue
         file_path = workflow_dir / filename
-        with open(file_path, encoding="utf-8") as f:
-            data = json.load(f)
+        workflow = _load_and_repair_workflow_file(file_path)
         workflows.append({
-            "id": data.get("id", ""),
-            "name": data.get("name", ""),
-            "description": data.get("description", ""),
-            "column_count": len(data.get("columns", [])),
+            "id": workflow.id,
+            "name": workflow.name,
+            "description": workflow.description,
+            "column_count": len(workflow.columns),
         })
     return workflows
 

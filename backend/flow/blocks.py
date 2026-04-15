@@ -188,9 +188,10 @@ async def _execute_plugin(block: Block, context: Context) -> BlockResult:
         from flow.context import render_prompt_template
         input_data, _ = render_prompt_template(block.config.prompt, context)
     else:
-        # 否则使用默认的上游数据
+        # 否则使用默认的结构化上游数据
         connections = [c.model_dump() for c in block.connections] if block.connections else None
-        input_data = context.get_upstream_data(connections)
+        input_value = context.get_upstream_value(connections)
+        input_data = _serialize_plugin_input(input_value)
 
     result = await execute_plugin(plugin_id, input_data)
 
@@ -199,6 +200,17 @@ async def _execute_plugin(block: Block, context: Context) -> BlockResult:
         block_name=block.name,
         data=result,
     )
+
+
+def _serialize_plugin_input(value: Any) -> str:
+    """将结构化值转换为插件可消费的字符串输入"""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict | list | int | float | bool):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
 
 
 async def _execute_output(block: Block, context: Context) -> BlockResult:

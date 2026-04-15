@@ -8,7 +8,16 @@
  * - 执行状态
  */
 import { create } from 'zustand'
-import type { Block, BlockTemplate, BlockType, Column, RunResult, Workflow } from '@/types/workflow'
+import type {
+  Block,
+  BlockRunStatus,
+  BlockTemplate,
+  BlockType,
+  Column,
+  RunResult,
+  StepEvent,
+  Workflow,
+} from '@/types/workflow'
 
 let blockCounter = 0
 let columnCounter = 0
@@ -31,6 +40,9 @@ interface WorkflowState {
   workflow: Workflow
   selectedBlockId: string | null
   runResult: RunResult | null
+  runEvents: StepEvent[]
+  liveOutput: unknown | null
+  blockRunState: Record<string, BlockRunStatus>
   isRunning: boolean
   userInputs: Record<string, string>
 
@@ -68,6 +80,10 @@ interface WorkflowState {
   cancelConnecting: () => void
 
   // 执行 & 用户输入
+  resetRunState: () => void
+  appendRunEvent: (event: StepEvent) => void
+  setLiveOutput: (output: unknown | null) => void
+  setBlockRunState: (blockId: string, status: BlockRunStatus) => void
   setRunResult: (result: RunResult | null) => void
   setIsRunning: (running: boolean) => void
   setUserInput: (key: string, value: string) => void
@@ -86,6 +102,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   workflow: defaultWorkflow,
   selectedBlockId: null,
   runResult: null,
+  runEvents: [],
+  liveOutput: null,
+  blockRunState: {},
   isRunning: false,
   userInputs: {},
   connectingFrom: null,
@@ -334,6 +353,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   cancelConnecting: () => set({ connectingFrom: null }),
 
+  resetRunState: () => set({ runResult: null, runEvents: [], liveOutput: null, blockRunState: {} }),
+  appendRunEvent: (event) => set((state) => ({ runEvents: [...state.runEvents, event] })),
+  setLiveOutput: (output) => set({ liveOutput: output }),
+  setBlockRunState: (blockId, status) =>
+    set((state) => ({
+      blockRunState: { ...state.blockRunState, [blockId]: status },
+    })),
   setRunResult: (result) => set({ runResult: result }),
   setIsRunning: (running) => set({ isRunning: running }),
   setUserInput: (key, value) =>

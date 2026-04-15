@@ -22,7 +22,7 @@ function formatData(data: unknown): string {
 }
 
 export function RunPanel() {
-  const { workflow, runResult, isRunning, userInputs, setUserInput } = useWorkflowStore()
+  const { workflow, runResult, runEvents, liveOutput, isRunning, userInputs, setUserInput } = useWorkflowStore()
   const [showResult, setShowResult] = useState(true)
 
   // 收集所有 Input 块定义的字段
@@ -40,6 +40,18 @@ export function RunPanel() {
   }, [workflow.columns])
 
   const hasInputs = inputFields.length > 0
+  const visibleSteps = useMemo(
+    () => (isRunning ? runEvents : (runResult?.steps || [])).filter(
+      (step) => step.event_type === 'block_start' || step.event_type === 'block_done' || step.event_type === 'error',
+    ),
+    [isRunning, runEvents, runResult?.steps],
+  )
+  const currentBlock = useMemo(
+    () => [...visibleSteps].reverse().find((step) => step.event_type === 'block_start'),
+    [visibleSteps],
+  )
+  const displayedOutput = isRunning ? liveOutput : runResult?.output
+  const displayError = runResult?.error || visibleSteps.find((step) => step.event_type === 'error')?.error
 
   return (
     <div className="editor-runbar">
@@ -74,7 +86,7 @@ export function RunPanel() {
       )}
 
       {/* 运行结果 */}
-      {(runResult || isRunning) && (
+      {(runResult || isRunning || runEvents.length > 0) && (
         <>
           <button
             onClick={() => setShowResult(!showResult)}
@@ -82,7 +94,10 @@ export function RunPanel() {
           >
             <div className="flex items-center gap-2">
               {isRunning ? (
-                <span className="text-sm text-[var(--app-accent)]">运行中...</span>
+                <span className="text-sm text-[var(--app-accent)]">
+                  运行中...
+                  {currentBlock?.block_name ? ` 当前块：${currentBlock.block_name}` : ''}
+                </span>
               ) : runResult?.success ? (
                 <>
                   <CheckCircle size={16} className="text-[var(--app-success)]" />
@@ -100,37 +115,57 @@ export function RunPanel() {
             {showResult ? <ChevronDown size={16} className="text-[var(--app-text-soft)]" /> : <ChevronUp size={16} className="text-[var(--app-text-soft)]" />}
           </button>
 
-          {showResult && runResult && (
+          {showResult && (
             <div className="px-4 pb-4 max-h-[60vh] overflow-y-auto">
               <div className="space-y-2 mb-3">
-                {runResult.steps
-                  .filter((s) => s.event_type === 'block_done')
-                  .map((step, i) => {
-                    const text = formatData(step.data)
-                    return (
-                      <div key={i} className="text-xs">
-                        <span className="font-medium text-[var(--app-text)]">[{step.block_name}]</span>
-                        <span className="ml-2 text-[var(--app-text-muted)]">{step.elapsed.toFixed(1)}s</span>
-                        {text && (
-                          <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-[rgba(255,255,255,0.05)] p-2 text-xs text-[var(--app-text-soft)]">
-                            {text}
-                          </pre>
-                        )}
+                {visibleSteps.map((step, i) => {
+                  const text = step.event_type === 'block_done' ? formatData(step.data) : ''
+                  return (
+                    <div key={`${step.event_type}-${step.block_id || i}-${i}`} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            step.event_type === 'block_done'
+                              ? 'text-[var(--app-success)]'
+                              : step.event_type === 'error'
+                                ? 'text-[var(--app-danger)]'
+                                : 'text-[var(--app-accent)]'
+                          }
+                        >
+                          {step.event_type === 'block_done' ? '完成' : step.event_type === 'error' ? '失败' : '运行中'}
+                        </span>
+                        <span className="font-medium text-[var(--app-text)]">[{step.block_name || '工作流'}]</span>
+                        <span className="text-[var(--app-text-muted)]">{step.elapsed.toFixed(1)}s</span>
                       </div>
-                    )
-                  })}
+                      {text && (
+                        <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-[rgba(255,255,255,0.05)] p-2 text-xs text-[var(--app-text-soft)]">
+                          {text}
+                        </pre>
+                      )}
+                      {step.event_type === 'error' && step.error && (
+                        <div className="mt-1 rounded-2xl bg-[rgba(244,107,122,0.08)] p-2 text-[var(--app-danger)]">
+                          {step.error}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
-              <div className="border-t border-[var(--app-border)] pt-3">
-                <h4 className="mb-1 text-xs font-semibold text-[var(--app-text-soft)]">最终输出</h4>
+              {(displayedOutput != null || isRunning) && (
+                <div className="border-t border-[var(--app-border)] pt-3">
+                <h4 className="mb-1 text-xs font-semibold text-[var(--app-text-soft)]">
+                  {isRunning ? '实时输出' : '最终输出'}
+                </h4>
                 <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-[rgba(109,204,255,0.1)] p-3 text-sm text-[var(--app-text)]">
-                  {formatData(runResult.output)}
+                  {displayedOutput == null ? '等待输出...' : formatData(displayedOutput)}
                 </pre>
-              </div>
+                </div>
+              )}
 
-              {runResult.error && (
+              {displayError && (
                 <div className="mt-2 rounded-2xl bg-[rgba(244,107,122,0.08)] p-3 text-sm text-[var(--app-danger)]">
-                  {runResult.error}
+                  {displayError}
                 </div>
               )}
             </div>

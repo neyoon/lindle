@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import httpx
@@ -42,7 +43,7 @@ class StockAnalysisPlugin(BasePlugin):
         ],
         input_schema={
             "type": "object",
-            "description": "股票查询输入，必须同时提供 symbol 和 market。",
+            "description": "股票查询输入。必须提供 symbol 或 symbols，market 可选；未提供时会自动识别 A股 / 港股 / 美股。",
             "oneOf": [
                 {
                     "type": "object",
@@ -50,15 +51,15 @@ class StockAnalysisPlugin(BasePlugin):
                     "properties": {
                         "symbol": {
                             "type": "string",
-                            "description": "股票代码。A股示例: 601398, 港股示例: 00700, 美股示例: AAPL"
+                            "description": "股票代码。支持 601398 / 600519.SH / 00700 / 700.HK / AAPL / AAPL.US"
                         },
                         "market": {
                             "type": "string",
                             "enum": ["A", "HK", "US"],
-                            "description": "市场类型：A=A股, HK=港股, US=美股"
+                            "description": "市场类型：A=A股, HK=港股, US=美股。可选，留空时自动识别。"
                         }
                     },
-                    "required": ["symbol", "market"],
+                    "required": ["symbol"],
                     "additionalProperties": False
                 },
                 {
@@ -73,20 +74,21 @@ class StockAnalysisPlugin(BasePlugin):
                         "market": {
                             "type": "string",
                             "enum": ["A", "HK", "US"],
-                            "description": "市场类型：A=A股, HK=港股, US=美股"
+                            "description": "市场类型：A=A股, HK=港股, US=美股。可选，留空时自动识别。"
                         }
                     },
-                    "required": ["symbols", "market"],
+                    "required": ["symbols"],
                     "additionalProperties": False
                 }
             ],
             "examples": [
-                {"symbol": "AAPL", "market": "US"},
-                {"symbol": "601398", "market": "A"},
-                {"symbol": "00700", "market": "HK"},
-                {"symbols": ["601398", "000001"], "market": "A"}
+                {"symbol": "AAPL"},
+                {"symbol": "600519"},
+                {"symbol": "00700"},
+                {"symbols": ["600519", "000001"]},
+                {"symbol": "AAPL", "market": "US"}
             ],
-            "notes": "symbol 和 market 都是必填字段。JSON 中必须使用 'symbol' 字段名（不是 stock_code 或 code）。"
+            "notes": "market 不是必填。插件会自动识别 A股 / 港股 / 美股，也兼容 stock_code / code 字段名。"
         },
         output_schema={
             "type": "object",
@@ -148,9 +150,10 @@ class StockAnalysisPlugin(BasePlugin):
     async def execute(self, input_data: str, config: dict[str, Any]) -> Any:
         """执行股票分析查询
 
-        输入格式（JSON，symbol 和 market 必填）：
-        1. 单个查询: {"symbol": "AAPL", "market": "US"}
-        2. 批量查询: {"symbols": ["601398", "000001"], "market": "A"}
+        输入格式（JSON，symbol/symbols 必填，market 可选）：
+        1. 单个查询: {"symbol": "AAPL"}
+        2. 单个查询: {"symbol": "600519"}
+        3. 批量查询: {"symbols": ["601398", "000001"]}
 
         Args:
             input_data: 股票代码或 JSON 格式的查询参数
@@ -173,7 +176,7 @@ class StockAnalysisPlugin(BasePlugin):
             "api_base", "https://server2.lightaitech.com/api/analysis/stock"
         )
 
-        # 解析输入（必须是 JSON，必须同时包含 symbol/symbols 和 market）
+        # 解析输入（必须是 JSON，symbol/symbols 必填，market 可选）
         input_data = input_data.strip()
 
         try:
@@ -183,24 +186,21 @@ class StockAnalysisPlugin(BasePlugin):
                 f"输入必须是 JSON 格式。\n"
                 f"收到: {input_data[:200]}\n\n"
                 f"支持的格式:\n"
-                f'1. 单个查询: {{"symbol": "AAPL", "market": "US"}}\n'
-                f'2. 批量查询: {{"symbols": ["601398", "000001"], "market": "A"}}'
+                f'1. 单个查询: {{"symbol": "AAPL"}}\n'
+                f'2. 单个查询: {{"symbol": "600519"}}\n'
+                f'3. 批量查询: {{"symbols": ["601398", "000001"]}}'
             )
 
         if not isinstance(data, dict):
             raise ValueError("输入必须是 JSON 对象")
 
-        symbol = data.get("symbol")
+        symbol = data.get("symbol") or data.get("stock_code") or data.get("code")
         symbols = data.get("symbols")
         market = data.get("market")
 
         logger.info(f"解析 JSON 输入 - symbol: {symbol}, symbols: {symbols}, market: {market}")
 
-        # 验证 market 必填
-        if not market or market not in ("A", "HK", "US"):
-            raise ValueError(
-                f"market 是必填字段，必须是 'A'、'HK' 或 'US'。当前值: {market!r}"
-            )
+        market = self._normalize_market(market)
 
         # 批量查询
         if symbols and isinstance(symbols, list):
@@ -213,12 +213,89 @@ class StockAnalysisPlugin(BasePlugin):
                 f"symbol 是必填字段。\n"
                 f"收到: {json.dumps(data, ensure_ascii=False)}\n\n"
                 f"支持的格式:\n"
-                f'1. 单个查询: {{"symbol": "AAPL", "market": "US"}}\n'
-                f'2. 批量查询: {{"symbols": ["601398", "000001"], "market": "A"}}'
+                f'1. 单个查询: {{"symbol": "AAPL"}}\n'
+                f'2. 单个查询: {{"symbol": "600519"}}\n'
+                f'3. 批量查询: {{"symbols": ["601398", "000001"]}}'
             )
 
-        logger.info(f"执行单个查询 - Symbol: {symbol}, Market: {market}")
-        return await self._single_query(symbol, market, api_token, api_base)
+        normalized_symbol, normalized_market = self._normalize_symbol_and_market(symbol, market)
+        logger.info(
+            "执行单个查询 - 原始Symbol: %s, 原始Market: %s, 规范后Symbol: %s, 规范后Market: %s",
+            symbol,
+            market,
+            normalized_symbol,
+            normalized_market,
+        )
+        return await self._single_query(normalized_symbol, normalized_market, api_token, api_base)
+
+    def _normalize_market(self, market: Any) -> str | None:
+        if market is None:
+            return None
+        value = str(market).strip().upper()
+        aliases = {
+            "A": "A",
+            "CN": "A",
+            "SH": "A",
+            "SZ": "A",
+            "ASHARE": "A",
+            "A_SHARE": "A",
+            "HK": "HK",
+            "H": "HK",
+            "HKEX": "HK",
+            "US": "US",
+            "NASDAQ": "US",
+            "NYSE": "US",
+        }
+        return aliases.get(value, value or None)
+
+    def _normalize_symbol_and_market(self, symbol: Any, market: str | None) -> tuple[str, str]:
+        if symbol is None:
+            raise ValueError("symbol 不能为空")
+
+        raw = str(symbol).strip().upper()
+        if not raw:
+            raise ValueError("symbol 不能为空")
+
+        cleaned = raw.replace(" ", "")
+        inferred_market: str | None = None
+        normalized_symbol = cleaned
+
+        if match := re.fullmatch(r"(\d{6})\.(SH|SZ|SS)", cleaned):
+            normalized_symbol = match.group(1)
+            inferred_market = "A"
+        elif match := re.fullmatch(r"(SH|SZ)(\d{6})", cleaned):
+            normalized_symbol = match.group(2)
+            inferred_market = "A"
+        elif re.fullmatch(r"\d{6}", cleaned):
+            normalized_symbol = cleaned
+            inferred_market = "A"
+        elif match := re.fullmatch(r"(\d{1,5})\.HK", cleaned):
+            normalized_symbol = match.group(1).zfill(5)
+            inferred_market = "HK"
+        elif match := re.fullmatch(r"HK(\d{1,5})", cleaned):
+            normalized_symbol = match.group(1).zfill(5)
+            inferred_market = "HK"
+        elif re.fullmatch(r"\d{1,5}", cleaned):
+            normalized_symbol = cleaned.zfill(5)
+            inferred_market = "HK"
+        elif match := re.fullmatch(r"([A-Z][A-Z0-9.\-]*)\.US", cleaned):
+            normalized_symbol = match.group(1)
+            inferred_market = "US"
+        elif match := re.fullmatch(r"US[.:]?([A-Z][A-Z0-9.\-]*)", cleaned):
+            normalized_symbol = match.group(1)
+            inferred_market = "US"
+        elif re.fullmatch(r"[A-Z][A-Z0-9.\-]*", cleaned):
+            normalized_symbol = cleaned
+            inferred_market = "US"
+
+        final_market = inferred_market or market
+        if final_market not in ("A", "HK", "US"):
+            raise ValueError(
+                f"无法识别股票市场。请提供 market 字段，或使用可识别的代码格式。\n"
+                f"支持示例: 600519 / 600519.SH / 00700 / 700.HK / AAPL / AAPL.US"
+            )
+
+        return normalized_symbol, final_market
 
     async def _single_query(
         self, symbol: str, market: str, token: str, api_base: str
@@ -266,22 +343,24 @@ class StockAnalysisPlugin(BasePlugin):
             raise ValueError(f"网络请求失败 ({err_type}): 无法连接到 {api_base}")
 
     async def _batch_query(
-        self, symbols: list[str], market: str, token: str, api_base: str
+        self, symbols: list[str], market: str | None, token: str, api_base: str
     ) -> dict[str, Any]:
         """批量股票查询"""
         import asyncio
 
+        normalized_pairs = [self._normalize_symbol_and_market(symbol, market) for symbol in symbols]
         tasks = [
-            self._single_query(symbol, market, token, api_base) for symbol in symbols
+            self._single_query(normalized_symbol, normalized_market, token, api_base)
+            for normalized_symbol, normalized_market in normalized_pairs
         ]
         results_list = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 构建结果字典
         results_dict = {}
-        for symbol, result in zip(symbols, results_list):
+        for original_symbol, result in zip(symbols, results_list):
             if isinstance(result, Exception):
-                results_dict[symbol] = {"error": str(result)}
+                results_dict[str(original_symbol)] = {"error": str(result)}
             else:
-                results_dict[symbol] = result
+                results_dict[str(original_symbol)] = result
 
         return results_dict

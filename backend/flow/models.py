@@ -83,6 +83,13 @@ class Block(BaseModel):
         description="手动指定的连接（为空则自动接收上一栏全部输出）",
     )
 
+    @field_validator("connections", mode="before")
+    @classmethod
+    def _coerce_connections(cls, v: object) -> list[Connection] | object:
+        if v is None:
+            return []
+        return v
+
 
 class Column(BaseModel):
     """栏 - 代表一个执行步骤"""
@@ -91,6 +98,13 @@ class Column(BaseModel):
     order: int = Field(description="栏的顺序（从 0 开始）")
     blocks: list[Block] = Field(default_factory=list, description="栏内的块列表")
     repeat: int = Field(default=1, description="重复执行次数（默认 1）")
+
+    @field_validator("blocks", mode="before")
+    @classmethod
+    def _coerce_blocks(cls, v: object) -> list[Block] | object:
+        if v is None:
+            return []
+        return v
 
     @field_validator("repeat", mode="before")
     @classmethod
@@ -108,6 +122,20 @@ class Workflow(BaseModel):
     description: str = Field(default="", description="工作流描述")
     columns: list[Column] = Field(default_factory=list, description="栏列表（有序）")
     stop_on_error: bool = Field(default=True, description="遇到错误时停止执行")
+
+    @field_validator("columns", mode="before")
+    @classmethod
+    def _coerce_columns(cls, v: object) -> list[Column] | object:
+        if v is None:
+            return []
+        return v
+
+    @field_validator("stop_on_error", mode="before")
+    @classmethod
+    def _coerce_stop_on_error(cls, v: object) -> bool:
+        if v is None:
+            return True
+        return bool(v)
 
     def get_block_by_id(self, block_id: str) -> Block | None:
         for column in self.columns:

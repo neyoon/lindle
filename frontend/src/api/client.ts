@@ -1,7 +1,15 @@
 /**
  * API 客户端
  */
-import type { BlockTemplate, EnabledPlugin, PluginInfo, RunResult, Workflow, WorkflowSummary } from '@/types/workflow'
+import type {
+  BlockTemplate,
+  EnabledPlugin,
+  PluginInfo,
+  RunResult,
+  StepEvent,
+  Workflow,
+  WorkflowSummary,
+} from '@/types/workflow'
 import type { Agent, ChatMessage } from '@/types/agent'
 import type { AuthUser, LoginResponse } from '@/types/auth'
 
@@ -128,6 +136,58 @@ export async function runWorkflow(id: string, inputs: Record<string, unknown>) {
     method: 'POST',
     body: JSON.stringify({ inputs }),
   })
+}
+
+export async function* runWorkflowStream(id: string, inputs: Record<string, unknown>): AsyncGenerator<StepEvent, void, void> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 600000)
+
+  try {
+    const response = await fetch(`${BASE}/run/${id}/stream`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ inputs }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok || !response.body) {
+      if (response.status === 401) clearAuthToken()
+      const error = await response.text()
+      throw new Error(error || `API Error: ${response.status}`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const chunks = buffer.split('\n\n')
+      buffer = chunks.pop() || ''
+
+      for (const chunk of chunks) {
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          const payload = line.slice(6)
+          if (payload === '[DONE]') return
+          yield JSON.parse(payload) as StepEvent
+        }
+      }
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('请求超时（10分钟）')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 // ===== Code Generation =====

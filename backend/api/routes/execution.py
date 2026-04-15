@@ -50,6 +50,7 @@ async def run_workflow(workflow_id: str, request: RunRequest):
             {
                 "event_type": s.event_type,
                 "column_id": s.column_id,
+                "column_order": s.column_order,
                 "block_id": s.block_id,
                 "block_name": s.block_name,
                 "data": s.data,
@@ -80,6 +81,7 @@ async def run_workflow_stream(workflow_id: str, request: RunRequest):
             data = {
                 "event_type": event.event_type,
                 "column_id": event.column_id,
+                "column_order": event.column_order,
                 "block_id": event.block_id,
                 "block_name": event.block_name,
                 "elapsed": round(event.elapsed, 3),

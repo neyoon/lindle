@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from agent.models import Agent, AgentSkill, ChatMessage
 from agent.engine import AgentEngine
+from plugins.base import describe_json_schema
 from shared_llm import call_llm
 from plugins.registry import get_plugin
 from storage.agent_store import delete_agent, list_agents, load_agent, save_agent
@@ -117,8 +118,14 @@ async def generate_system_prompt(req: GeneratePromptRequest):
         skill_id = skill_info.get("skill_id")
         plugin = get_plugin(skill_id)
         if plugin:
+            input_summary = describe_json_schema(plugin.meta.input_schema)
+            output_summary = describe_json_schema(plugin.meta.output_schema)
             skill_descriptions.append(
-                f"- {plugin.meta.name}: {plugin.meta.description}"
+                "\n".join([
+                    f"- {plugin.meta.name}: {plugin.meta.description}",
+                    f"  输入要求: {input_summary or '无特别要求'}",
+                    f"  输出形式: {output_summary or '无固定结构'}",
+                ])
             )
 
     skills_text = "\n".join(skill_descriptions)
@@ -215,7 +222,6 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
 
         try:
             async for event in engine.chat_stream(req.message, history):
-                # event 格式: {"type": "reasoning"|"message"|"done", "data": ...}
                 event_json = json.dumps(event, ensure_ascii=False)
                 yield f"data: {event_json}\n\n"
         except Exception as e:
@@ -232,5 +238,6 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )

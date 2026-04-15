@@ -120,6 +120,16 @@ class Engine:
                         data={"repeat_index": iteration, "repeat_total": repeat},
                     )
 
+                    for block in column.blocks:
+                        yield StepEvent(
+                            event_type="block_start",
+                            column_id=column_iter_id,
+                            column_order=column.order,
+                            block_id=block.id,
+                            block_name=block.name,
+                            elapsed=time.time() - start_time,
+                        )
+
                     # 栏内所有块并行执行
                     results = await self._execute_column(column, context)
 
