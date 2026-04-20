@@ -74,6 +74,24 @@ Paper & Ink 的动效不是视觉润色，是**语义动词**。
 列表项（workflow、agent、skill 卡片）的逐一入场。`translateY(18px) rotate(1.5deg) scale(0.97) → 0/0/1`。
 在 JSX 里通过 `animation-delay: Math.min(0.08 * index, 0.6)s` 实现错位。
 
+## 编织演示（weave-demo）
+
+首页 Chapter III 的 `WeaveDemo` 是一个**复合动效的教学实例**，它不是新增语法，而是把已有六种动效按"编排 → 织线 → 运行 → 收敛"的语义次序组合起来：
+
+| 时刻 | 动效 | 对应的产品动作 |
+| ---- | ---- | ---- |
+| 0.2s | ink-bleed | 三个 Stage 表头渗出 |
+| 1.0 / 1.5 / 2.0s | stamp-land | 三个 block 被盖下 |
+| 2.5 / 3.0s | thread-draw | 两段连线被织出 |
+| 3.9 / 4.5 / 5.1s | border 过渡 + stamp-land-tilted + ink-pulse | block 依次 running |
+| 5.7s | border 过渡（moss） | 全部 done |
+| 5.9s | ink-bleed | "重播" 按钮出现 |
+
+实现要点：
+- 进入视口才开始（`IntersectionObserver(threshold=0.25)`），不抢注意力；
+- "重播"通过 React `key` 强制重挂，所有 CSS 动画从头播；
+- block 状态切换**不重写 animation**，只切换 border / shadow，借助 transition 平滑过渡；因此状态徽章（`weave-block-stamp`）用 `key={state}` 使其在 running → done 之间重挂，重新触发 `stamp-land-tilted`。
+
 ## 动效的"不要"
 
 - 不要给按钮做入场动画。按钮是随时可点击的工具，动画让它看起来不稳定。

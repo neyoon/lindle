@@ -31,7 +31,7 @@
 | 关键帧               | 语义                 | 工具类                              |
 | -------------------- | -------------------- | ----------------------------------- |
 | `ink-bleed`          | 墨渗                 | `.anim-ink`                         |
-| `thread-draw`        | 织线绘制             | 直接作用于 SVG 的 `stroke-dashoffset` |
+| `thread-draw`        | 织线绘制             | `.loom-thread line` + `.loom-knot`（首页 Loom card 底） |
 | `letterpress`        | 活字                 | `.anim-press > span`                |
 | `stamp-land`         | 印章落位             | `.anim-stamp`                       |
 | `stamp-land-tilted`  | 印章（带斜角终态）   | `.anim-stamp-tilted`                |
@@ -70,6 +70,7 @@
 | 端口               | `.editor-port` + `.in / .out / .is-target-ok / .is-target-disabled / .is-source-active` | Block.tsx |
 | 类型标签           | `.block-tag` + `.is-in / .is-ai / .is-out / .is-plugin` | block 顶端类型标 |
 | 状态印             | `.block-stamp` + `.is-running / .is-done / .is-error / .is-added / .is-modified` | block 下缘状态章 |
+| 编织演示           | `.weave-demo / .weave-stage / .weave-row / .weave-col-header / .weave-kicker / .weave-block[.is-running/.is-done] / .weave-block-stamp / .weave-thread / .weave-footer / .weave-status / .weave-replay` | 首页 Chapter III · One Weave（`components/home/WeaveDemo.tsx`） |
 
 ## 典型场景映射
 
@@ -80,6 +81,7 @@
 | 新建一个列表页（workflow / agent 类）  | 参考 `WorkflowListPage.tsx` / `AgentListPage.tsx`：卡片走 `.app-card-soft`、入场用 `loom-land` 错位 |
 | 新建一个配置面板（右侧）               | 参考 `BlockConfigPanel.tsx`：骨架 `.app-panel`、子区块 `.app-card-soft`、入场 `panel-slide-in` |
 | 新建一个弹窗                           | 参考 `SkillEditor.tsx`：背景 `rgba(30,20,15,0.5)`、窗体 `.app-card` + `panel-slide-in`、头部圆章 |
+| 新增一个入场-运行-收敛的动效演示       | 参考 `components/home/WeaveDemo.tsx`：`IntersectionObserver` 触发、`key` 重挂重播、状态切换只换 border/shadow 不重写 animation |
 | 新增一个需要"被确认"语义的徽章         | 复用 `.block-stamp` 或 `.stamp-corner`；情绪色从 rust / moss / bruise 里选 |
 
 ## 检查清单（Code Review 用）

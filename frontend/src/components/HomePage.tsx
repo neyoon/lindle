@@ -7,6 +7,8 @@
 import { ArrowLeft, ArrowRight, Settings, Sparkles, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
+import { BrandMark } from './ui/BrandMark'
+import { WeaveDemo } from './home/WeaveDemo'
 
 interface Props {
   stage: 'overview' | 'entry'
@@ -104,7 +106,8 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
       <header className="app-topbar">
         <div className="app-topbar-inner">
           <div className="flex items-center gap-3">
-            <span className="brand-seal anim-stamp">林</span>
+            <span className="brand-seal anim-stamp" aria-label="Lindle"><BrandMark /></span>
+
             <div className="leading-tight">
               <div className="app-brand-mark">Lindle</div>
               <div className="text-[0.62rem] uppercase tracking-[0.22em] text-[var(--ink-soft)] mt-0.5 font-mono">
@@ -142,7 +145,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                 走进工坊
                 <ArrowRight size={16} />
               </button>
-              <a href="#cap" className="app-button app-button-secondary">读一读原理</a>
+              <a href="#loop" className="app-button app-button-secondary">读一读原理</a>
             </div>
           </div>
 
@@ -175,12 +178,16 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                 </li>
               ))}
             </ul>
-            {/* loom thread */}
+            {/* loom thread — thread-draw 首次绘出，然后静置 */}
             <div className="mt-5 pt-4 border-t border-dashed border-[var(--line)] flex items-center gap-3">
               <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Loom</span>
-              <span className="flex-1 h-px running-thread" />
-              <span className="block w-2 h-2 bg-[var(--rust)]" style={{ transform: 'rotate(45deg)' }} />
-              <span className="flex-1 h-px running-thread" />
+              <svg className="loom-thread" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+                <line x1="0" y1="0.5" x2="100" y2="0.5" pathLength="100" style={{ animationDelay: '0.9s' }} />
+              </svg>
+              <span className="loom-knot" style={{ animationDelay: '1.55s' }} />
+              <svg className="loom-thread" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+                <line x1="0" y1="0.5" x2="100" y2="0.5" pathLength="100" style={{ animationDelay: '1.75s' }} />
+              </svg>
               <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Spindle</span>
             </div>
           </aside>
@@ -247,11 +254,35 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           </div>
         </section>
 
-        {/* ===== LOOP ===== */}
+        {/* ===== ONE WEAVE — 动效演示 ===== */}
+        <section id="loop" className="mt-32">
+          <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
+            <div className="flex flex-col gap-3">
+              <span className="app-kicker">Chapter III · One Weave</span>
+              <p className="italic text-[var(--ink-soft)] text-[0.96rem] leading-relaxed" style={{ fontFamily: 'Fraunces, serif' }}>
+                Watch it weave, once.
+              </p>
+            </div>
+            <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
+              一次<em>编排</em>，
+              <br />一次<em>运行</em>，
+              <br />一条可复用的 Flow。
+            </h2>
+          </div>
+
+          <div className="reveal">
+            <WeaveDemo />
+            <p className="mt-6 text-center italic text-[var(--ink-soft)] text-[0.9rem]" style={{ fontFamily: 'Fraunces, serif' }}>
+              从左向右织线，从左向右运行 —— 编排即结构，运行即显影。
+            </p>
+          </div>
+        </section>
+
+        {/* ===== CONTINUOUS LOOP — 四节点循环 ===== */}
         <section className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
-              <span className="app-kicker">Chapter III · The Weave</span>
+              <span className="app-kicker">Chapter IV · Continuous Loop</span>
               <p className="italic text-[var(--ink-soft)] text-[0.96rem]" style={{ fontFamily: 'Fraunces, serif' }}>
                 One loop, woven continuously.
               </p>
@@ -326,7 +357,7 @@ function EntryView({
                 返回卷首
               </button>
             )}
-            <span className="brand-seal">林</span>
+            <span className="brand-seal" aria-label="Lindle"><BrandMark /></span>
             <div className="leading-tight">
               <div className="app-kicker no-rule">Workbench Entry</div>
               <div className="app-brand-mark">进入工作台</div>
