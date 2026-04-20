@@ -119,13 +119,6 @@ export function BlockConfigPanel() {
             onChange={(e) => renameBlockReference(block.id, e.target.value)}
             placeholder="draft_summary"
           />
-          <p className="mt-1 text-[10px] text-[var(--app-text-muted)]">
-            使用
-            <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{`{{steps.${block.ref}}}`}</code>
-            和
-            <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{`{{steps.${block.ref}.key}}`}</code>
-            引用当前步骤输出。
-          </p>
         </Field>
 
         {canSaveAsTemplate && showTemplateForm && (
@@ -186,8 +179,7 @@ export function BlockConfigPanel() {
         {block.type === 'tool' && <PluginBlockConfig block={block} />}
         {block.type === 'result' && (
           <div className="rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-3 text-sm text-[var(--app-text-soft)]">
-            结果步骤默认透传上游的结构化结果，不再隐式把结果改写成文本。
-            如果后续需要展示文案或格式化文本，应在上游显式增加对应处理步骤。
+            结果步骤无需额外配置。
           </div>
         )}
       </div>
@@ -407,15 +399,15 @@ function AIConfig({ block }: { block: Block }) {
     <>
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-medium text-[var(--app-text-soft)]">提示词</label>
+          <label className="text-xs font-medium text-[var(--app-text-soft)]">步骤说明</label>
           <div className="relative">
             <button
               onClick={() => setShowVarPicker(!showVarPicker)}
               className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-[var(--app-accent-strong)] hover:bg-[var(--app-accent-soft)] rounded-sm transition"
-              title="插入上游变量"
+              title="选择上游内容"
             >
               <Variable size={12} />
-              插入变量
+              引用上游
             </button>
 
             {/* 变量选择面板 */}
@@ -423,41 +415,34 @@ function AIConfig({ block }: { block: Block }) {
               <div className="absolute right-0 top-full mt-1 w-56 rounded-sm border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)] z-30 max-h-64 overflow-y-auto" style={{ animation: 'panel-slide-in 0.3s var(--ease-ink)' }}>
                 {availableVars.length === 0 ? (
                   <p className="p-3 text-xs text-[var(--app-text-muted)] text-center">
-                    暂无可用变量<br />
-                    <span className="text-[10px]">请先在前面的阶段中添加步骤</span>
+                    暂无可引用内容
                   </p>
                 ) : (
                   <>
                     {inputVars.length > 0 && (
                       <div className="px-2 pt-2 pb-1">
-                        <p className="app-kicker no-rule text-[10px] mb-1">用户输入</p>
+                        <p className="app-kicker no-rule text-[10px] mb-1">输入</p>
                         {inputVars.map((v) => (
                           <button
                             key={v.template}
                             onClick={() => insertVar(v.template)}
-                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-[var(--app-accent-soft)] rounded-sm flex items-center justify-between group"
+                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-[var(--app-accent-soft)] rounded-sm"
                           >
                             <span className="text-[var(--app-text)]">{v.label}</span>
-                            <code className="text-[10px] text-[var(--app-accent)] font-mono opacity-0 group-hover:opacity-100 transition">
-                              {v.template}
-                            </code>
                           </button>
                         ))}
                       </div>
                     )}
                     {blockVars.length > 0 && (
                       <div className="px-2 pt-2 pb-1 border-t border-[var(--app-border)]">
-                        <p className="app-kicker no-rule text-[10px] mb-1">上游步骤输出</p>
+                        <p className="app-kicker no-rule text-[10px] mb-1">上游结果</p>
                         {blockVars.map((v) => (
                           <button
                             key={v.template}
                             onClick={() => insertVar(v.template)}
-                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-[var(--app-accent-soft)] rounded-sm flex items-center justify-between group"
+                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-[var(--app-accent-soft)] rounded-sm"
                           >
                             <span className="text-[var(--app-text)]">{v.label}</span>
-                            <code className="text-[10px] text-[var(--app-accent)] font-mono opacity-0 group-hover:opacity-100 transition">
-                              {v.template}
-                            </code>
                           </button>
                         ))}
                       </div>
@@ -475,13 +460,8 @@ function AIConfig({ block }: { block: Block }) {
           onChange={(e) =>
             updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })
           }
-          placeholder="描述这个处理步骤要完成什么...&#10;&#10;使用 {{变量}} 引用上游数据，例如:&#10;{{inputs.topic}} — 引用用户输入&#10;{{steps.research}} — 引用上游步骤输出"
+          placeholder="描述这一步要做什么"
         />
-        {availableVars.length > 0 && (
-          <p className="text-[10px] text-[var(--app-text-muted)] mt-1">
-            使用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{'}</code>变量名<code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'}}'}</code> 精确引用上游数据；不用变量则自动传入全部上游数据
-          </p>
-        )}
       </div>
 
       <Field label="LLM 模型">
@@ -925,11 +905,6 @@ function InputConfig({ block }: { block: Block }) {
 
   return (
     <>
-      <p className="text-xs text-[var(--app-text-soft)]">
-        定义运行时用户需要填写的输入字段。
-        处理步骤和工具模板中可以用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{inputs.稳定引用名}}'}</code> 引用。
-      </p>
-
       {fields.length === 0 ? (
         <div className="py-4 text-center">
           <p className="text-sm text-[var(--app-text-muted)] mb-3">暂无字段，点击下方添加</p>
@@ -990,10 +965,6 @@ function InputConfig({ block }: { block: Block }) {
                 </label>
               </div>
 
-              {/* 变量名提示 */}
-              <p className="text-[10px] text-[var(--app-text-muted)] font-mono">
-                变量名: {'{{'}<span className="text-[var(--app-accent-strong)]">inputs.{field.name}</span>{'}}'}
-              </p>
               {otherFieldNames.has(field.name) && (
                 <p className="text-[10px] text-[var(--app-warning)] font-medium mt-0.5">
                   稳定引用名「{field.name}」与其他收集步骤中的字段重复，运行时会互相覆盖
