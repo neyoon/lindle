@@ -122,6 +122,38 @@
 
 这一步是后续回归测试和 AI 自动修正的基础。
 
+### 7. 总体设置与本地偏好
+
+背景：之前顶栏复用的 UserMenu 把"本地用户/本地工作区"当作一个伪概念，但系统从 v1.2 起就已经不再有真实用户模型，这层语义需要收掉。同时 Provider 与工作区层面的偏好混在同一个入口里，也需要拆干净。
+
+此版本里收敛为：
+
+- 顶栏入口不再是"用户菜单"，统一为设置入口
+  - 点击齿轮后展开下拉，两项并列：设置 / Provider
+  - 去掉 UserMenu 相关类型、组件和 LOCAL_USER 占位
+  - 去掉 Provider 标题里多余的“设置”二字，改为直接用 Provider
+- 齿轮动效沿用现有纸墨体系
+  - 落印时复用 stamp-land / ease-ink
+  - 悬浮时缓慢自转，下拉展开时持续低速旋转
+  - 下拉面板沿用 panel-slide-in，和工具栏导出菜单保持一致
+- 设置页按章节拆分，不再把两组内容塞到一张页面
+  - 设置（section=general）：承接工作区体验相关偏好
+  - Provider（section=provider）：承接模型源相关配置
+  - 首次运行若未配置 API Key，仍引导到 Provider 章节
+- 引入本地偏好存储 `AppPreferences`
+  - 通过 `frontend/src/utils/preferences.ts` 以 `lindle.app.preferences` 为 key 保存在 localStorage
+  - 字段至少包含：`language` / `displayMode` / `showAdvancedOptions` / `customMode` / `defaultStopOnError`
+  - 目前 `defaultStopOnError` 会实际影响新建 Flow 的 `stop_on_error` 默认值，其余项先作占位开关
+- Flow 工具栏去掉运行期的"失败即停 / 忽略错误"切换按钮
+  - 对应地在 store 里移除 `setStopOnError`
+  - 这条语义改由"新建时的默认策略 + FlowSpec 自身字段"共同承担，不再是顶栏即时切换项
+
+待后续版本继续完成的事项：
+
+- 把 `language` / `displayMode` 真正接入界面渲染
+- 把 `showAdvancedOptions` / `customMode` 与具体编辑器/面板打通
+- 本地偏好同步到后端账号层（在真正引入账号体系之后）
+
 ## 关键设计问题
 
 ### 测试应该围绕最终结果，还是围绕中间步骤
