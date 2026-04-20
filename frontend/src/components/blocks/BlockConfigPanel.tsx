@@ -587,7 +587,7 @@ function PluginBlockConfig({ block }: { block: Block }) {
             rows={6}
             value={prompt}
             onChange={(e) => updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })}
-            placeholder="留空则自动传递上游数据。可使用 {{变量}} 语法自定义输入格式，如：&#10;{&#10;  &quot;symbol&quot;: &quot;{{input.stock_code}}&quot;&#10;}"
+            placeholder="留空则自动传递上游数据。可使用 {{变量}} 语法自定义输入格式，如：&#10;{&#10;  &quot;query&quot;: &quot;{{input.keyword}}&quot;&#10;}"
           />
           <button
             onClick={() => setShowVariables(!showVariables)}

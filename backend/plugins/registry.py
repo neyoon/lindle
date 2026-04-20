@@ -16,7 +16,6 @@ from plugins.base import BasePlugin, PluginMeta
 from plugins.analyst_soul import AnalystSoulSkill
 from plugins.custom_skills import CustomSkill, load_custom_skill
 from plugins.mock_tool import MockToolPlugin
-from plugins.stock_analysis import StockAnalysisPlugin
 from plugins.workflow_executor import WorkflowExecutorSkill
 from plugins.workflow_designer import WorkflowDesignerSkill
 from storage.user_scoped import ensure_parent, get_user_file
@@ -186,7 +185,6 @@ async def execute_plugin(plugin_id: str, input_data: str) -> Any:
 def _register_builtin_plugins() -> None:
     register_plugin(AnalystSoulSkill())
     register_plugin(MockToolPlugin())
-    register_plugin(StockAnalysisPlugin())
     register_plugin(WorkflowExecutorSkill())
     register_plugin(WorkflowDesignerSkill())
 
