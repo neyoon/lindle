@@ -7,7 +7,7 @@
 3. 处理重复栏（repeat）
 4. 收集结果并返回
 
-这是整个 Tweak 的"心脏"。
+这是整个 Lindle 的"心脏"。
 """
 
 from __future__ import annotations
@@ -19,8 +19,11 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator
 
 from flow.blocks import BlockExecutor
+from flow.canonical import CanonicalWorkflow, canonicalize_flowspec, canonicalize_workflow
 from flow.context import BlockResult, Context
+from flow.flowspec import FlowSpec, workflow_to_flowspec
 from flow.models import BlockType, Column, Workflow
+from flow.execution_plan import ExecutableColumn, ExecutionPlan, compile_execution_plan
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +61,8 @@ class Engine:
         result = await engine.run(user_inputs={"url": "https://..."})
     """
 
-    def __init__(self, workflow: Workflow):
-        self.workflow = workflow
+    def __init__(self, workflow: Workflow | FlowSpec | CanonicalWorkflow | ExecutionPlan):
+        self.plan = self._coerce_execution_plan(workflow)
 
     async def run(self, user_inputs: dict[str, Any] | None = None) -> ExecutionResult:
         """执行工作流（一次性返回结果）"""
@@ -98,7 +101,7 @@ class Engine:
         - 支持栏重复（repeat）
         """
         context = Context(user_inputs=user_inputs or {})
-        columns = self.workflow.get_sorted_columns()
+        columns = self.plan.columns
         start_time = time.time()
 
         try:
@@ -111,7 +114,7 @@ class Engine:
                 )
 
                 for iteration in range(repeat):
-                    column_iter_id = f"{column.id}" if repeat == 1 else f"{column.id}@iter{iteration}"
+                    column_iter_id = f"{column.column_id}" if repeat == 1 else f"{column.column_id}@iter{iteration}"
 
                     yield StepEvent(
                         event_type="column_start",
@@ -120,7 +123,8 @@ class Engine:
                         data={"repeat_index": iteration, "repeat_total": repeat},
                     )
 
-                    for block in column.blocks:
+                    for executable in column.blocks:
+                        block = executable.block
                         yield StepEvent(
                             event_type="block_start",
                             column_id=column_iter_id,
@@ -172,7 +176,7 @@ class Engine:
 
     @staticmethod
     def _collect_downstream_plugin_hints(
-        columns: list[Column], current_idx: int
+        columns: list[ExecutableColumn], current_idx: int
     ) -> list[dict]:
         """检查下一栏是否包含插件块，收集其 input_schema 作为格式提示"""
         from plugins.registry import get_plugin
@@ -183,7 +187,8 @@ class Engine:
 
         hints = []
         next_column = columns[next_idx]
-        for block in next_column.blocks:
+        for executable in next_column.blocks:
+            block = executable.block
             if block.type != BlockType.PLUGIN or not block.config.plugin_id:
                 continue
             # 如果插件块已经配置了 prompt 模板，说明用户手动处理了格式转换
@@ -198,32 +203,32 @@ class Engine:
                 })
         return hints
 
-    async def _execute_column(self, column: Column, context: Context) -> list[BlockResult]:
+    async def _execute_column(self, column: ExecutableColumn, context: Context) -> list[BlockResult]:
         """并行执行一栏内的所有块"""
         if not column.blocks:
             return []
 
         if len(column.blocks) == 1:
             # 单块，直接执行
-            result = await BlockExecutor.execute(column.blocks[0], context)
+            result = await BlockExecutor.execute(column.blocks[0].block, context)
             return [result]
 
         # 多块并行
-        tasks = [BlockExecutor.execute(block, context) for block in column.blocks]
+        tasks = [BlockExecutor.execute(executable.block, context) for executable in column.blocks]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         final_results: list[BlockResult] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.error("块 [%s] 执行失败: %s", column.blocks[i].name, result)
+                logger.error("块 [%s] 执行失败: %s", column.blocks[i].block.name, result)
                 # 如果启用了 stop_on_error，立即抛出异常
-                if self.workflow.stop_on_error:
+                if self.plan.stop_on_error:
                     raise result
                 # 否则将错误包装为 BlockResult
                 final_results.append(
                     BlockResult(
-                        block_id=column.blocks[i].id,
-                        block_name=column.blocks[i].name,
+                        block_id=column.blocks[i].block.id,
+                        block_name=column.blocks[i].block.name,
                         data=f"错误: {result}",
                     )
                 )
@@ -231,3 +236,13 @@ class Engine:
                 final_results.append(result)
 
         return final_results
+
+    @staticmethod
+    def _coerce_execution_plan(workflow: Workflow | FlowSpec | CanonicalWorkflow | ExecutionPlan) -> ExecutionPlan:
+        if isinstance(workflow, ExecutionPlan):
+            return workflow
+        if isinstance(workflow, CanonicalWorkflow):
+            return compile_execution_plan(workflow)
+        if isinstance(workflow, FlowSpec):
+            return compile_execution_plan(canonicalize_flowspec(workflow))
+        return compile_execution_plan(canonicalize_flowspec(workflow_to_flowspec(workflow)))

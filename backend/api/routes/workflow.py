@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from exporters import build_workflow_description, build_workflow_export
 from flow.models import BlockType, Workflow
+from flow.validation import WorkflowValidationError, ensure_valid_workflow
 from plugins.base import describe_json_schema
 from storage.file_store import delete_workflow, list_workflows, load_workflow, save_workflow
 
@@ -47,6 +48,7 @@ async def get_workflow(workflow_id: str):
 @router.post("/", response_model=Workflow)
 async def create_workflow(workflow: Workflow):
     """创建工作流"""
+    _raise_if_invalid(workflow)
     save_workflow(workflow)
     return workflow
 
@@ -58,6 +60,7 @@ async def update_workflow(workflow_id: str, workflow: Workflow):
     if existing is None:
         raise HTTPException(status_code=404, detail="工作流不存在")
     workflow.id = workflow_id
+    _raise_if_invalid(workflow)
     save_workflow(workflow)
     return workflow
 
@@ -100,14 +103,14 @@ async def export_workflow(workflow_id: str):
 # ===== AI 编辑 =====
 
 _AI_EDIT_SYSTEM_PROMPT = """\
-你是一个工作流编辑助手。用户会给你一个 Tweak 工作流的 JSON 和一条修改指令。
+你是一个工作流编辑助手。用户会给你一个 Lindle 工作流的 JSON 和一条修改指令。
 你需要根据指令修改工作流 JSON，并返回修改后的**完整** JSON。
 
 **重要：你必须只返回有效的 JSON 对象，不要包含任何解释、思考过程或 markdown 代码块。**
 
 ## 核心概念
 
-Tweak 是一个**多步骤流水线**：
+Lindle 是一个**多步骤流水线**：
 - **Column**（栏）= 一个执行步骤。Column 按 order 字段从小到大依次执行。
 - **Block**（块）= 最小执行单元。同一个 Column 内的多个 Block **并行**执行。
 
@@ -274,9 +277,30 @@ def _parse_generated_workflow(text: str, workflow_id: str) -> Workflow:
     parsed["id"] = workflow_id
 
     try:
-        return Workflow.model_validate(parsed)
+        workflow = Workflow.model_validate(parsed)
     except Exception as e:
         raise ValueError(f"AI 生成失败：工作流结构校验未通过（{e}）") from e
+    try:
+        ensure_valid_workflow(workflow)
+    except WorkflowValidationError as e:
+        raise ValueError(f"AI 生成失败：工作流业务校验未通过（{'; '.join(issue.message for issue in e.issues)}）") from e
+    return workflow
+
+
+def _raise_if_invalid(workflow: Workflow) -> None:
+    try:
+        ensure_valid_workflow(workflow)
+    except WorkflowValidationError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "工作流校验未通过",
+                "issues": [
+                    {"code": issue.code, "message": issue.message, "path": issue.path}
+                    for issue in exc.issues
+                ],
+            },
+        ) from exc
 
 
 def _sse(event: str, data: dict) -> str:

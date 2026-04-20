@@ -53,6 +53,14 @@ class GeneratePromptResponse(BaseModel):
     system_prompt: str
 
 
+class ConversationResponse(BaseModel):
+    """Agent 对话响应"""
+
+    agent_id: str
+    messages: list[dict] = Field(default_factory=list)
+    updated_at: str | None = None
+
+
 @router.get("/", response_model=list[AgentSummary])
 async def get_agents():
     """获取所有 Agent 列表"""
@@ -221,14 +229,6 @@ class ChatResponse(BaseModel):
 
     messages: list[dict]  # 完整的消息列表（包含 tool_call/tool_result）
     reasoning: str = ""  # 思考过程
-
-
-class ConversationResponse(BaseModel):
-    """Agent 对话响应"""
-
-    agent_id: str
-    messages: list[dict] = Field(default_factory=list)
-    updated_at: str | None = None
 
 
 def _build_saved_conversation(

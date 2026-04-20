@@ -207,7 +207,7 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
         })
 
     return {
-        "manifest_type": "tweak_flow",
+        "manifest_type": "lindle_flow",
         "manifest_version": "1.2",
         "exported_at": _exported_at(),
         "summary": {
@@ -275,7 +275,7 @@ def build_agent_export(agent: Agent) -> dict[str, Any]:
         skills.append(skill_item)
 
     return {
-        "manifest_type": "tweak_agent",
+        "manifest_type": "lindle_agent",
         "manifest_version": "1.2",
         "exported_at": _exported_at(),
         "summary": {

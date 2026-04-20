@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from flow.engine import Engine
+from flow.validation import WorkflowValidationError, ensure_valid_workflow
 from storage.file_store import load_workflow
 
 router = APIRouter(prefix="/api/run", tags=["execution"])
@@ -39,6 +40,19 @@ async def run_workflow(workflow_id: str, request: RunRequest):
     workflow = load_workflow(workflow_id)
     if workflow is None:
         raise HTTPException(status_code=404, detail="工作流不存在")
+    try:
+        ensure_valid_workflow(workflow)
+    except WorkflowValidationError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "工作流校验未通过",
+                "issues": [
+                    {"code": issue.code, "message": issue.message, "path": issue.path}
+                    for issue in exc.issues
+                ],
+            },
+        ) from exc
 
     engine = Engine(workflow)
     result = await engine.run(user_inputs=request.inputs)
@@ -73,6 +87,19 @@ async def run_workflow_stream(workflow_id: str, request: RunRequest):
     workflow = load_workflow(workflow_id)
     if workflow is None:
         raise HTTPException(status_code=404, detail="工作流不存在")
+    try:
+        ensure_valid_workflow(workflow)
+    except WorkflowValidationError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "工作流校验未通过",
+                "issues": [
+                    {"code": issue.code, "message": issue.message, "path": issue.path}
+                    for issue in exc.issues
+                ],
+            },
+        ) from exc
 
     engine = Engine(workflow)
 

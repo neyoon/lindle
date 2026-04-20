@@ -2,7 +2,7 @@
 代码生成器
 
 将工作流定义转换为**自包含**的结构化 Python 项目。
-生成的项目不依赖 miniflow，可以独立运行。
+生成的项目不依赖 Lindle，可以独立运行。
 
 生成的项目结构:
     my_workflow/
@@ -26,7 +26,7 @@
 - 生成的代码可以直接 python main.py 运行
 - LLM 可以直接阅读文件层次理解整个流程
 - 每个文件短小精悍，职责单一
-- 不依赖 miniflow 包，完全自包含
+- 不依赖 Lindle 包，完全自包含
 """
 
 from __future__ import annotations
@@ -118,7 +118,7 @@ class CodeGenerator:
 {workflow.name}
 {workflow.description or ""}
 
-自动生成 by Tweak
+自动生成 by Lindle
 使用方式: python main.py
 """
 

@@ -9,6 +9,7 @@ FastAPI 应用入口
 - workspace: 块模板（制造工坊）
 - settings: LLM 配置管理
 
+当前默认运行在本地单机模式，为每个请求注入固定的本地用户上下文。
 生产模式下同时托管前端静态文件（由 Dockerfile 中 vite build 生成）。
 """
 
@@ -16,20 +17,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.auth_service import authenticate_request, is_auth_exempt_path
-from api.routes import agents, auth, codegen, execution, plugins, settings, workflow, workspace
+from api.routes import agents, codegen, execution, plugins, settings, workflow, workspace
 from api.routes.settings import init_settings
-from api.user_context import reset_current_user, set_current_user
+from api.user_context import build_local_user, reset_current_user, set_current_user
 
 app = FastAPI(
-    title="Tweak",
-    description="极简 AI 工作流引擎",
+    title="Lindle",
+    description="AI 能力编排工作台",
     version="0.1.0",
 )
 
@@ -44,23 +43,16 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    if is_auth_exempt_path(request.url.path):
-        return await call_next(request)
-
+async def local_user_middleware(request: Request, call_next):
+    current_user = build_local_user()
+    context_token = set_current_user(current_user)
+    request.state.current_user = current_user
     try:
-        current_user = await authenticate_request(request)
-        token = set_current_user(current_user)
-        request.state.current_user = current_user
-        try:
-            return await call_next(request)
-        finally:
-            reset_current_user(token)
-    except HTTPException as exc:
-        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        return await call_next(request)
+    finally:
+        reset_current_user(context_token)
 
 # 注册路由
-app.include_router(auth.router)
 app.include_router(workflow.router)
 app.include_router(execution.router)
 app.include_router(codegen.router)
@@ -105,7 +97,7 @@ else:
     @app.get("/")
     async def root():
         return {
-            "message": "Tweak API 运行中",
+            "message": "Lindle API 运行中",
             "docs": "http://localhost:8000/docs",
             "frontend": "http://localhost:3000",
         }

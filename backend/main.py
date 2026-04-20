@@ -1,5 +1,5 @@
 """
-Tweak 启动入口
+Lindle 启动入口
 
 启动方式: python main.py
 默认端口: 8000

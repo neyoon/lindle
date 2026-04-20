@@ -66,7 +66,7 @@ def test_build_workflow_export_keeps_default_input_semantics():
 
     exported = build_workflow_export(workflow)
 
-    assert exported["manifest_type"] == "tweak_flow"
+    assert exported["manifest_type"] == "lindle_flow"
     assert exported["execution_semantics"]["default_ai_input"] == "formatted_text"
     assert exported["execution_semantics"]["default_plugin_input"] == "structured_upstream_value"
     assert exported["inputs"][0]["name"] == "topic"
@@ -106,7 +106,7 @@ def test_build_agent_export_keeps_skill_config_and_bound_flows(monkeypatch):
 
     exported = build_agent_export(agent)
 
-    assert exported["manifest_type"] == "tweak_agent"
+    assert exported["manifest_type"] == "lindle_agent"
     assert exported["summary"]["model_provider_id"] == "provider_default"
     assert exported["skills"][0]["config"]["flows"] == "wf_bound,missing_flow"
     assert exported["skills"][0]["bound_flows"][0]["workflow_id"] == "wf_bound"
