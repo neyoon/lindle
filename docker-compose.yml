@@ -1,11 +1,11 @@
 services:
-  miniflow:
+  lindle:
     build: .
     ports:
       - "8008:8000"
     volumes:
-      - miniflow-data:/app/data
+      - lindle-data:/app/data
     restart: unless-stopped
 
 volumes:
-  miniflow-data:
+  lindle-data:
