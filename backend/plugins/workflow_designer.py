@@ -100,19 +100,20 @@ class WorkflowDesignerSkill(BasePlugin):
             # 导入工作流相关模块
             from datetime import datetime
             from storage.file_store import save_workflow
-            from flow.models import Workflow
+            from flow.flowspec import FlowSpec
 
             # 创建空白工作流
             workflow_id = f"wf_{int(datetime.now().timestamp() * 1000)}_{id(self) % 1000000}"
-            workflow = Workflow(
-                id=workflow_id,
+            spec = FlowSpec(
+                workflow_id=workflow_id,
                 name=name,
                 description=f"由 Agent 创建：{instruction[:100]}",
-                columns=[],
+                goal=instruction,
+                inputs=[],
+                outputs=[],
+                steps=[],
+                meta={"source": "workflow_designer"},
             )
-
-            # 保存空白工作流
-            save_workflow(workflow)
 
             yield {"type": "progress", "data": "正在调用 AI 生成工作流内容..."}
             print(f"[workflow_designer] 正在调用 AI 生成工作流内容...")
@@ -148,7 +149,7 @@ class WorkflowDesignerSkill(BasePlugin):
             from api.routes.workflow import _AI_EDIT_SYSTEM_PROMPT, _build_plugins_info
 
             plugins_info = _build_plugins_info()
-            workflow_json = workflow.model_dump_json(indent=2)
+            flowspec_json = spec.model_dump_json(indent=2)
 
             # 强制要求 JSON 输出
             system_prompt = _AI_EDIT_SYSTEM_PROMPT + plugins_info + "\n\n**重要：你必须只返回有效的 JSON 对象，不要包含任何其他内容。**"
@@ -157,7 +158,7 @@ class WorkflowDesignerSkill(BasePlugin):
                 {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
-                    "content": f"当前工作流 JSON：\n{workflow_json}\n\n修改指令：{instruction}",
+                    "content": f"当前 FlowSpec JSON：\n{flowspec_json}\n\n修改指令：{instruction}",
                 },
             ]
 

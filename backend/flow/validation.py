@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from flow.canonical import CanonicalWorkflow, canonicalize_workflow
+from flow.context import extract_template_variables
 from flow.models import BlockType, Workflow
 
 
@@ -116,14 +117,13 @@ def validate_workflow(workflow: Workflow | CanonicalWorkflow) -> list[Validation
 
 def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
-    block_ids = {
-        block.id
-        for column in workflow.columns
-        for block in column.blocks
-    }
+    sorted_columns = workflow.get_sorted_columns()
+    block_ids = {block.id for column in sorted_columns for block in column.blocks}
     field_names_seen: set[str] = set()
+    available_input_names: set[str] = set()
+    available_blocks: dict[str, set[str] | None] = {}
 
-    for column_index, column in enumerate(workflow.columns):
+    for column_index, column in enumerate(sorted_columns):
         if column.repeat < 1:
             issues.append(
                 ValidationIssue(
@@ -183,6 +183,31 @@ def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
                             )
                         )
                     field_names_seen.add(field.name)
+                    available_input_names.add(field.name)
+
+            prompt_to_validate = block.config.prompt if block.type in {BlockType.AI, BlockType.PLUGIN} else None
+            if prompt_to_validate:
+                issues.extend(
+                    _validate_template_variables(
+                        prompt_to_validate,
+                        path=f"{path}.config.prompt",
+                        available_input_names=available_input_names,
+                        available_blocks=available_blocks,
+                    )
+                )
+
+            if block.type == BlockType.PLUGIN and block.config.plugin_input_bindings:
+                for binding_key, binding in block.config.plugin_input_bindings.items():
+                    if binding.kind != "variable":
+                        continue
+                    issues.extend(
+                        _validate_expression(
+                            str(binding.value),
+                            path=f"{path}.config.plugin_input_bindings.{binding_key}",
+                            available_input_names=available_input_names,
+                            available_blocks=available_blocks,
+                        )
+                    )
 
             for connection_index, connection in enumerate(block.connections):
                 if connection.from_block_id not in block_ids:
@@ -194,7 +219,97 @@ def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
                         )
                     )
 
+            available_blocks[block.name] = set(block.output_schema.keys) if block.output_schema else None
+
     return issues
+
+
+def _validate_template_variables(
+    prompt: str,
+    *,
+    path: str,
+    available_input_names: set[str],
+    available_blocks: dict[str, set[str] | None],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    for variable in extract_template_variables(prompt):
+        issues.extend(
+            _validate_expression(
+                variable,
+                path=path,
+                available_input_names=available_input_names,
+                available_blocks=available_blocks,
+            )
+        )
+    return issues
+
+
+def _validate_expression(
+    expr: str,
+    *,
+    path: str,
+    available_input_names: set[str],
+    available_blocks: dict[str, set[str] | None],
+) -> list[ValidationIssue]:
+    expr = expr.strip()
+    if not expr:
+        return []
+
+    if expr.startswith("input."):
+        field_name = expr[6:]
+        if field_name in available_input_names:
+            return []
+        return [
+            ValidationIssue(
+                code="invalid_variable_reference",
+                message=f"引用了不存在的输入字段：{expr}",
+                path=path,
+            )
+        ]
+
+    if "." in expr:
+        block_name, _, key_path = expr.partition(".")
+        if block_name not in available_blocks:
+            return [
+                ValidationIssue(
+                    code="invalid_variable_reference",
+                    message=f"引用了不存在的上游块：{block_name}",
+                    path=path,
+                )
+            ]
+        allowed_keys = available_blocks[block_name]
+        if not key_path:
+            return []
+        if allowed_keys is None:
+            return [
+                ValidationIssue(
+                    code="invalid_variable_reference",
+                    message=f"块 {block_name} 未定义可引用的输出字段：{key_path}",
+                    path=path,
+                )
+            ]
+        first_key = key_path.split(".")[0]
+        if first_key not in allowed_keys:
+            return [
+                ValidationIssue(
+                    code="invalid_variable_reference",
+                    message=f"块 {block_name} 不存在输出字段：{first_key}",
+                    path=path,
+                )
+            ]
+        return []
+
+    if expr in available_blocks:
+        return []
+    if expr in available_input_names:
+        return []
+    return [
+        ValidationIssue(
+            code="invalid_variable_reference",
+            message=f"引用了不存在的变量：{expr}",
+            path=path,
+        )
+    ]
 
 
 def ensure_valid_workflow(workflow: Workflow | CanonicalWorkflow) -> None:

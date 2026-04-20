@@ -20,7 +20,7 @@ import json
 import logging
 from typing import Any
 
-from flow.context import BlockResult, Context, render_prompt_template
+from flow.context import BlockResult, Context, render_prompt_template, resolve_context_expression
 from shared_llm import call_llm
 from flow.models import Block, BlockType
 
@@ -183,8 +183,16 @@ async def _execute_plugin(block: Block, context: Context) -> BlockResult:
     if not plugin_id:
         raise ValueError(f"插件块 [{block.name}] 未配置 plugin_id")
 
-    # 如果配置了 prompt 模板，使用模板渲染
-    if block.config.prompt:
+    if block.config.plugin_input_bindings:
+        payload: dict[str, Any] = {}
+        for key, binding in block.config.plugin_input_bindings.items():
+            if binding.kind == "literal":
+                payload[key] = binding.value
+                continue
+            payload[key] = resolve_context_expression(str(binding.value), context)
+        input_data = json.dumps(payload, ensure_ascii=False)
+    elif block.config.prompt:
+        # 如果配置了 prompt 模板，使用模板渲染
         from flow.context import render_prompt_template
         input_data, _ = render_prompt_template(block.config.prompt, context)
     else:
@@ -219,7 +227,7 @@ async def _execute_output(block: Block, context: Context) -> BlockResult:
     输出块直接透传上游数据作为最终结果。
     """
     connections = [c.model_dump() for c in block.connections] if block.connections else None
-    upstream_data = context.get_upstream_data(connections)
+    upstream_data = context.get_upstream_value(connections)
 
     return BlockResult(
         block_id=block.id,

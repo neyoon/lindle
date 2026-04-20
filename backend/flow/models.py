@@ -44,6 +44,16 @@ class Connection(BaseModel):
     from_key: str | None = Field(default=None, description="来源块输出的特定 JSON key（可选）")
 
 
+class PluginInputBinding(BaseModel):
+    """插件输入绑定
+
+    用于字段映射式配置，避免默认手写整段 JSON 模板。
+    """
+
+    kind: str = Field(default="variable", description="variable | literal")
+    value: Any = Field(default="", description="变量表达式或字面量")
+
+
 class BlockConfig(BaseModel):
     """块的配置"""
 
@@ -51,6 +61,10 @@ class BlockConfig(BaseModel):
     model: str | None = Field(default=None, description="AI 块使用的模型")
     fields: list[InputField] | None = Field(default=None, description="输入字段定义")
     plugin_id: str | None = Field(default=None, description="插件 ID")
+    plugin_input_bindings: dict[str, PluginInputBinding] | None = Field(
+        default=None,
+        description="插件字段映射配置",
+    )
 
 
 class InputField(BaseModel):

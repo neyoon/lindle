@@ -2,14 +2,20 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from flow.models import Workflow
+from flow.blocks import BlockExecutor
+from flow.context import BlockResult, Context
 from flow.flowspec import workflow_to_flowspec
 from flow.canonical import canonicalize_workflow
 from flow.execution_plan import compile_execution_plan
+from flow.materialize import materialize_flowspec
 from flow.validation import validate_workflow
 from storage import file_store
+from api.routes.workflow import _parse_generated_workflow
 
 
 def test_workflow_model_coerces_nullable_collections():
@@ -232,6 +238,138 @@ def test_compile_execution_plan_preserves_columns_and_connections():
     ]
 
 
+def test_materialize_flowspec_preserves_workflow_shape():
+    workflow = Workflow.model_validate({
+        "id": "wf_test",
+        "name": "测试流程",
+        "description": "物化测试",
+        "columns": [
+            {
+                "id": "col_input",
+                "order": 0,
+                "repeat": 1,
+                "blocks": [
+                    {
+                        "id": "blk_input",
+                        "type": "input",
+                        "name": "输入",
+                        "config": {
+                            "fields": [{"name": "topic", "label": "主题", "field_type": "text", "required": True, "default": None}]
+                        },
+                        "connections": [],
+                    }
+                ],
+            },
+            {
+                "id": "col_ai",
+                "order": 1,
+                "repeat": 2,
+                "blocks": [
+                    {
+                        "id": "blk_ai",
+                        "type": "ai",
+                        "name": "写作",
+                        "config": {"prompt": "围绕 {{input.topic}} 写一段文字"},
+                        "connections": [{"from_block_id": "blk_input", "from_key": None}],
+                    }
+                ],
+            },
+        ],
+    })
+
+    spec = workflow_to_flowspec(workflow)
+    materialized = materialize_flowspec(spec)
+
+    assert materialized.id == workflow.id
+    assert materialized.name == workflow.name
+    assert len(materialized.columns) == 2
+    assert materialized.columns[1].id == "col_ai"
+    assert materialized.columns[1].repeat == 2
+    assert materialized.columns[1].blocks[0].id == "blk_ai"
+    assert materialized.columns[1].blocks[0].connections[0].from_block_id == "blk_input"
+
+
+def test_parse_generated_workflow_accepts_flowspec_payload():
+    generated = """
+    {
+      "workflow_id": "wf_will_be_overridden",
+      "name": "AI 生成流程",
+      "description": "测试 FlowSpec 解析",
+      "goal": "输入主题后生成摘要",
+      "inputs": [
+        {
+          "input_ref": "input_blk_input_topic",
+          "name": "topic",
+          "label": "主题",
+          "field_type": "text",
+          "required": true,
+          "default": null
+        }
+      ],
+      "outputs": [
+        {
+          "output_ref": "output_blk_output",
+          "name": "输出",
+          "source_step_refs": ["step_blk_output"]
+        }
+      ],
+      "steps": [
+        {
+          "step_ref": "step_blk_input",
+          "title": "输入",
+          "type": "input",
+          "purpose": "接收用户输入",
+          "depends_on": [],
+          "output_contract": {},
+          "prompt": null,
+          "input_refs": ["input_blk_input_topic"],
+          "source_block_id": "blk_input",
+          "source_column_id": "col_input",
+          "repeat": 1,
+          "order_hint": 0
+        },
+        {
+          "step_ref": "step_blk_ai",
+          "title": "总结",
+          "type": "ai",
+          "purpose": "总结输入主题",
+          "depends_on": ["step_blk_input"],
+          "output_contract": {},
+          "prompt": "请总结 {{input.topic}}",
+          "input_refs": [],
+          "source_block_id": "blk_ai",
+          "source_column_id": "col_ai",
+          "repeat": 1,
+          "order_hint": 1
+        },
+        {
+          "step_ref": "step_blk_output",
+          "title": "输出",
+          "type": "output",
+          "purpose": "输出最终结果",
+          "depends_on": ["step_blk_ai"],
+          "output_contract": {},
+          "prompt": null,
+          "input_refs": [],
+          "source_block_id": "blk_output",
+          "source_column_id": "col_output",
+          "repeat": 1,
+          "order_hint": 2
+        }
+      ],
+      "stop_on_error": true,
+      "meta": { "source": "test" }
+    }
+    """
+
+    workflow = _parse_generated_workflow(generated, "wf_test")
+
+    assert workflow.id == "wf_test"
+    assert workflow.name == "AI 生成流程"
+    assert [column.id for column in workflow.get_sorted_columns()] == ["col_input", "col_ai", "col_output"]
+    assert workflow.get_block_by_id("blk_ai") is not None
+
+
 def test_validate_workflow_reports_duplicate_inputs_and_invalid_connections():
     workflow = Workflow.model_validate({
         "id": "wf_invalid",
@@ -282,3 +420,131 @@ def test_validate_workflow_reports_duplicate_inputs_and_invalid_connections():
     assert "invalid_block_name" in codes
     assert "missing_ai_prompt" in codes
     assert "invalid_connection_source" in codes
+
+
+def test_validate_workflow_reports_invalid_variable_references():
+    workflow = Workflow.model_validate({
+        "id": "wf_invalid_vars",
+        "name": "变量错误",
+        "description": "",
+        "columns": [
+            {
+                "id": "col_1",
+                "order": 0,
+                "repeat": 1,
+                "blocks": [
+                    {
+                        "id": "blk_input",
+                        "type": "input",
+                        "name": "输入",
+                        "config": {
+                            "fields": [
+                                {"name": "topic", "label": "主题", "field_type": "text", "required": True, "default": None},
+                            ]
+                        },
+                        "connections": [],
+                    }
+                ],
+            },
+            {
+                "id": "col_2",
+                "order": 1,
+                "repeat": 1,
+                "blocks": [
+                    {
+                        "id": "blk_ai",
+                        "type": "ai",
+                        "name": "总结",
+                        "config": {"prompt": "请处理 {{input.missing}} 和 {{不存在的块.score}}"},
+                        "connections": [],
+                    }
+                ],
+            },
+        ],
+    })
+
+    issues = validate_workflow(workflow)
+    codes = [issue.code for issue in issues]
+    assert "invalid_variable_reference" in codes
+
+
+@pytest.mark.asyncio
+async def test_output_block_keeps_structured_upstream_value():
+    block = Workflow.model_validate({
+        "id": "wf_output_test",
+        "name": "输出测试",
+        "description": "",
+        "columns": [
+            {
+                "id": "col_output",
+                "order": 0,
+                "repeat": 1,
+                "blocks": [
+                    {
+                        "id": "blk_output",
+                        "type": "output",
+                        "name": "输出",
+                        "config": {},
+                        "connections": [],
+                    }
+                ],
+            }
+        ],
+    }).columns[0].blocks[0]
+
+    context = Context()
+    context.add_column_results("col_ai", [
+        BlockResult(block_id="blk_ai", block_name="分析", data={"summary": "ok", "score": 8})
+    ])
+
+    result = await BlockExecutor.execute(block, context)
+    assert result.data == {"summary": "ok", "score": 8}
+
+
+@pytest.mark.asyncio
+async def test_plugin_block_supports_input_bindings(monkeypatch):
+    block = Workflow.model_validate({
+        "id": "wf_plugin_binding",
+        "name": "插件映射测试",
+        "description": "",
+        "columns": [
+            {
+                "id": "col_plugin",
+                "order": 0,
+                "repeat": 1,
+                "blocks": [
+                    {
+                        "id": "blk_plugin",
+                        "type": "plugin",
+                        "name": "搜索插件",
+                        "config": {
+                            "plugin_id": "mock_tool",
+                            "plugin_input_bindings": {
+                                "query": {"kind": "variable", "value": "input.keyword"},
+                                "limit": {"kind": "literal", "value": 5}
+                            }
+                        },
+                        "connections": [],
+                    }
+                ],
+            }
+        ],
+    }).columns[0].blocks[0]
+
+    captured: dict[str, str] = {}
+
+    async def fake_execute_plugin(plugin_id: str, input_data: str):
+        captured["plugin_id"] = plugin_id
+        captured["input_data"] = input_data
+        return {"ok": True}
+
+    import plugins.registry as plugin_registry
+
+    monkeypatch.setattr(plugin_registry, "execute_plugin", fake_execute_plugin)
+
+    context = Context(user_inputs={"keyword": "lindle"})
+    result = await BlockExecutor.execute(block, context)
+
+    assert result.data == {"ok": True}
+    assert captured["plugin_id"] == "mock_tool"
+    assert json.loads(captured["input_data"]) == {"query": "lindle", "limit": 5}

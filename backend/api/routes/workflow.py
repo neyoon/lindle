@@ -13,6 +13,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from exporters import build_workflow_description, build_workflow_export
+from flow.canonical import canonicalize_workflow
+from flow.execution_plan import compile_execution_plan
+from flow.flowspec import FlowSpec, workflow_to_flowspec
+from flow.materialize import materialize_flowspec
 from flow.models import BlockType, Workflow
 from flow.validation import WorkflowValidationError, ensure_valid_workflow
 from plugins.base import describe_json_schema
@@ -43,6 +47,34 @@ async def get_workflow(workflow_id: str):
     if workflow is None:
         raise HTTPException(status_code=404, detail="工作流不存在")
     return workflow
+
+
+@router.get("/{workflow_id}/flowspec")
+async def get_workflow_flowspec(workflow_id: str):
+    """获取工作流的 FlowSpec 视图。"""
+    workflow = load_workflow(workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="工作流不存在")
+    return workflow_to_flowspec(workflow)
+
+
+@router.get("/{workflow_id}/canonical")
+async def get_workflow_canonical(workflow_id: str):
+    """获取工作流的 CanonicalFlow 视图。"""
+    workflow = load_workflow(workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="工作流不存在")
+    return canonicalize_workflow(workflow)
+
+
+@router.get("/{workflow_id}/execution-plan")
+async def get_workflow_execution_plan(workflow_id: str):
+    """获取工作流的 ExecutionPlan 视图。"""
+    workflow = load_workflow(workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="工作流不存在")
+    canonical = canonicalize_workflow(workflow)
+    return compile_execution_plan(canonical)
 
 
 @router.post("/", response_model=Workflow)
@@ -103,106 +135,113 @@ async def export_workflow(workflow_id: str):
 # ===== AI 编辑 =====
 
 _AI_EDIT_SYSTEM_PROMPT = """\
-你是一个工作流编辑助手。用户会给你一个 Lindle 工作流的 JSON 和一条修改指令。
-你需要根据指令修改工作流 JSON，并返回修改后的**完整** JSON。
+你是一个工作流编辑助手。用户会给你一个 Lindle FlowSpec JSON 和一条修改指令。
+你需要根据指令修改 FlowSpec JSON，并返回修改后的**完整** JSON。
 
 **重要：你必须只返回有效的 JSON 对象，不要包含任何解释、思考过程或 markdown 代码块。**
 
 ## 核心概念
 
-Lindle 是一个**多步骤流水线**：
-- **Column**（栏）= 一个执行步骤。Column 按 order 字段从小到大依次执行。
-- **Block**（块）= 最小执行单元。同一个 Column 内的多个 Block **并行**执行。
+Lindle 的 AI 创建链路先产生 **FlowSpec**，它表达“主步骤、依赖和意图”，不是最终执行 JSON。
+系统之后会把 FlowSpec 收敛成可编辑、可执行的结构。
 
-### 并行 vs 串行的判断标准（关键）
+## FlowSpec 结构
 
-**同一个 Column（并行）**：两个块之间**没有数据依赖**——即 B 不需要 A 的输出作为输入。
-**不同 Column（串行）**：B **依赖** A 的输出才能工作。
+顶层结构：
+- `workflow_id`: 工作流 ID，必须保持不变
+- `name`: 工作流名称
+- `description`: 工作流描述
+- `goal`: 整体目标
+- `inputs`: 输入字段列表
+- `outputs`: 输出定义列表
+- `steps`: 主步骤列表
+- `stop_on_error`: 布尔值
+- `meta`: 对象，可保留已有内容
 
-判断方法：问自己"如果 A 还没执行完，B 能不能开始？" 能 → 同列并行；不能 → 分列串行。
+输入项结构：
+- `{ "input_ref", "name", "label", "field_type", "required", "default" }`
 
-**特别注意：如果 B 的 prompt 中使用了 {{A}} 或 {{A.xxx}} 引用 A 的输出，则 B 必须依赖 A，必须放在 A 的后续 Column 中。**
+输出项结构：
+- `{ "output_ref", "name", "source_step_refs": [] }`
 
-示例：
-- "翻译成英文" + "翻译成日文" → 都只需要原文输入，互不依赖 → **同一列并行**
-- "写文章" → "润色文章" → 润色需要文章内容 → **不同列串行**
-- "总结文档" + "提取关键词" → 都只需要原始文档 → **同一列并行**
-- "分析数据" → "可视化结果" → 可视化需要分析结果 → **不同列串行**
-- "获取股票数据" → "数据清洗" → 清洗需要获取的数据 → **不同列串行**
-- "获取新闻" + "获取股价" → 两个独立的数据源 → **同一列并行**
+步骤结构：
+- `step_ref`: 稳定步骤引用，已有步骤必须保持不变
+- `title`: 步骤显示名称
+- `type`: `"input" | "ai" | "output" | "plugin"`
+- `purpose`: 这一步要完成什么
+- `depends_on`: 依赖的上游 `step_ref` 列表
+- `plugin_id`: plugin 步骤必填
+- `output_contract`: 输出结构摘要，可为 `{}`，例如 `{ "keys": ["summary", "score"], "descriptions": { "summary": "摘要" } }`
+- `prompt`: AI / plugin 步骤可用
+- `input_refs`: input 步骤引用的输入字段
+- `source_block_id`: 旧结构来源块 ID，已有步骤必须保持不变
+- `source_column_id`: 旧结构来源列 ID，已有步骤必须保持不变
+- `repeat`: 当前步骤所在阶段的 repeat
+- `order_hint`: 当前步骤所在阶段的大致顺序
 
-典型的工作流结构示例：
-  Column 0 (输入) → Column 1 (多个并行AI处理) → Column 2 (汇总) → Column 3 (输出)
-  一个 Column 里可以放多个互不依赖的 Block。
+## 并行 vs 串行判断标准
 
-## 数据流规则
+问自己一句话：
+“如果 A 还没执行完，B 能不能开始？”
 
-- **默认自动流通**：后一个 Column 中的 Block 会自动接收前一个 Column 所有 Block 的输出，无需手动连线。
-- **手动连线（connections）**：只有当需要跳过某些步骤、或精确指定数据来源时才使用。大多数情况 connections 应为空数组 []。
-- connections 格式: [{ "from_block_id": "blk_xxx", "from_key": null }]，from_key 可用于指定源块 output_schema 中的某个 key。
+- 能开始：并行，不要写依赖
+- 不能开始：串行，B 必须把 A 写进 `depends_on`
 
-## 模板变量（AI 块 prompt 中引用数据）
+特别注意：
+- 如果步骤 B 的 prompt 中使用了 `{{A}}` 或 `{{A.xxx}}` 引用 A 的结果，则 B 必须依赖 A
+- 多个互不依赖、只共享同一输入来源的步骤，应并行存在，不要无脑串行展开
 
-AI 块的 prompt 中可以使用 `{{变量}}` 语法引用上游数据。运行时引擎会自动渲染这些变量。
+## 数据流与模板变量
 
 支持的变量格式：
 - `{{input.字段名}}` → 引用 input 块中用户输入的某个字段（字段名 = fields 中的 name 值）
-- `{{块名称}}` → 引用某个上游块的完整输出（块名称 = block 的 name 值）
-- `{{块名称.key}}` → 引用某个上游块 output_schema 中的特定 key
+- `{{步骤名称}}` → 引用某个上游步骤的完整输出
+- `{{步骤名称.key}}` → 引用某个上游步骤 output_contract 中的特定 key
 
 示例：
-- 假设有一个 input 块，fields 包含 { name: "topic", label: "主题" }，则后续 AI 块可写：
+- 假设有一个 input 步骤，fields 包含 { name: "topic", label: "主题" }，则后续 AI 步骤可写：
   prompt: "请围绕 {{input.topic}} 写一篇文章"
-- 假设有一个名为 "翻译" 的 AI 块，则后续块可写：
+- 假设有一个名为 "翻译" 的 AI 步骤，则后续步骤可写：
   prompt: "请总结以下内容：{{翻译}}"
-- 假设有一个名为 "分析" 的 AI 块设置了 output_schema keys: ["summary", "score"]，则可写：
+- 假设有一个名为 "分析" 的 AI 步骤设置了 output_contract keys: ["summary", "score"]，则可写：
   prompt: "评分为 {{分析.score}}，摘要为 {{分析.summary}}"
 
 **重要**：
-- 引用 input 块的用户输入时，**必须**使用 `{{input.字段name}}` 格式，不要省略 `input.` 前缀
-- 如果不使用模板变量，上游数据也会通过默认数据流自动传入，但使用模板变量可以更精确地控制数据注入位置
-- **如果块 B 的 prompt 中使用了 {{A}} 或 {{A.xxx}}，则 B 必须依赖 A，必须放在 A 的后续 Column 中（不能并行）**
+- 引用 input 用户输入时，必须使用 `{{input.字段name}}`
+- 如果步骤 B 的 prompt 中使用了 `{{A}}` 或 `{{A.xxx}}`，则 B 必须依赖 A
 
-## JSON 结构
+## Plugin 步骤
 
-- workflow: { id, name, description, columns: [...] }
-- column: { id, order, blocks: [...], repeat }
-- block: { id, type, name, config, output_schema, connections }
-  - type: "input" | "ai" | "output" | "plugin"
-  - config:
-    - AI 块: { prompt: "提示词内容", model: null }（model 为 null 使用默认 Provider）
-    - 输入块: { fields: [{ name, label, field_type, required, default }] }
-    - 输出块: { prompt: null }（通常配置为空）
-    - 插件块: { plugin_id: "xxx", prompt: "可选的输入模板" }
-      - 系统默认会把上游结构化结果直接传给插件，不会加块名包装文本
-      - prompt 用于转换上游数据格式，支持 {{变量}} 语法
-      - 只有在单个上游结果已经与插件输入格式完全匹配时，prompt 才可以为 null
-      - 如果需要字段改名、补充常量、合并多个来源或重组结构，必须在 prompt 中使用模板变量转换，例如：
-        prompt: '{"query": "{{input.keyword}}"}'
-  - output_schema: { keys: ["key1", "key2"], descriptions: {} } 或 null
+- `type` 必须是 `"plugin"`
+- `plugin_id` 必填
+- `plugin_input_bindings` 优先作为字段映射式配置
+- 如果单个上游结果已经与插件输入格式完全匹配，`prompt` 可以为 null
+- 如果需要字段改名、补常量、合并多个来源或重组结构，必须在 `prompt` 中用模板变量做转换
+- plugin 的 `output_contract` 应反映插件输出结构，便于后续引用
 
 ## 编辑原则（最重要）
 
 - **增量修改**：只修改用户指令涉及的部分，保留其余所有内容不变
-- **保留已有结构**：不要删除或重写用户没有提到的 Column / Block
-- **保留已有 ID**：已存在的 column/block 的 id 必须保持原样，不要生成新 id 替换
-- **保留已有配置**：已存在的 block 的 prompt、config、connections 等不要改动（除非用户明确要求）
+- **保留已有步骤引用**：已存在的 `step_ref` / `source_block_id` / `source_column_id` 必须保持原样
+- **保留已有配置**：已存在步骤的 `prompt` / `plugin_id` / `depends_on` / `output_contract` 不要随意改动
+- **优先表达主步骤**：不要输出引擎细节，不要人为拆出“只是格式适配”的隐式步骤
+- **只有改变用户可理解语义的工作才应成为独立步骤**
 
 ## 格式规则
 
-1. 保持 workflow 的 id 不变
-2. **仅**在新增 block/column 时生成新 id，格式: "col_<13位时间戳>_<4位随机>" / "blk_<13位时间戳>_<4位随机>"
-3. 保持 column 的 order 字段连续（0, 1, 2, ...）
-4. **根据数据依赖关系决定并行/串行**：互不依赖的块放同一 Column 并行执行，有依赖的分不同 Column 串行执行
-5. **不要无脑串行**：如果多个块的输入来源相同且互不依赖，必须放在同一个 Column 中并行
-6. connections 大多数情况留空 []，依赖自动数据流即可
-7. AI 块的 config.prompt 应写清楚具体的指令内容
-8. 输入块的 field_type 只能是: "text" | "number" | "textarea" | "file"，不支持 select 等其他类型
-9. **块的 name 不得包含英文句号「.」**，因为「.」是模板变量的嵌套 key 分隔符（如 `{{块名.key1.key2}}`）
-10. **所有列表字段都必须输出为数组，不能是 null**：`workflow.columns`、`column.blocks`、`block.connections` 为空时也必须分别返回 `[]`
-11. `column.repeat` 不能为空，未指定时返回 `1`
-12. 只输出修改后的完整 workflow JSON，不要输出任何解释、思考过程或 markdown 代码块
-13. 输出必须是有效的 JSON 格式，可以直接被 JSON.parse() 解析"""
+1. 保持 `workflow_id` 不变
+2. 仅在新增步骤时生成新的 `step_ref` / `source_block_id` / `source_column_id`
+3. 新增 ID 格式：
+   - `step_<语义化名称>`
+   - `blk_<13位时间戳>_<4位随机>`
+   - `col_<13位时间戳>_<4位随机>`
+4. `field_type` 只能是 `"text" | "number" | "textarea" | "file"`
+5. 步骤 `title` 不得包含英文句号 `.`
+6. 所有列表字段必须输出为数组，不能是 null
+7. `repeat` 未指定时返回 `1`
+8. `order_hint` 要能反映大致顺序，从 0 开始
+9. 只输出完整 FlowSpec JSON，不要输出任何解释、思考过程或 markdown 代码块
+10. 输出必须是有效 JSON，可直接被 JSON.parse() 解析"""
 
 
 class AIEditRequest(BaseModel):
@@ -219,11 +258,6 @@ def _strip_json_wrapper(text: str) -> str:
 
 
 def _validate_generated_workflow_payload(data: object) -> None:
-    """严格校验 LLM 生成的 workflow 结构。
-
-    这里故意不做兜底修复。对 AI 生成结果来说，`null` / 缺字段 / 类型错误
-    都应视为生成失败，而不是静默纠正。
-    """
     if not isinstance(data, dict):
         raise ValueError("AI 生成失败：顶层必须是 JSON 对象")
 
@@ -260,6 +294,36 @@ def _validate_generated_workflow_payload(data: object) -> None:
                 raise ValueError(f"AI 生成失败：columns[{index}].blocks[{block_index}].connections 必须是数组")
 
 
+def _validate_generated_flowspec_payload(data: object) -> None:
+    if not isinstance(data, dict):
+        raise ValueError("AI 生成失败：顶层必须是 JSON 对象")
+
+    steps = data.get("steps")
+    if steps is None:
+        raise ValueError("AI 生成失败：FlowSpec.steps 不能为空")
+    if not isinstance(steps, list):
+        raise ValueError("AI 生成失败：FlowSpec.steps 必须是数组")
+
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict):
+            raise ValueError(f"AI 生成失败：steps[{index}] 必须是对象")
+        for key in ("depends_on", "input_refs"):
+            if key in step and step[key] is None:
+                raise ValueError(f"AI 生成失败：steps[{index}].{key} 不能为 null")
+            if key in step and not isinstance(step[key], list):
+                raise ValueError(f"AI 生成失败：steps[{index}].{key} 必须是数组")
+        if "repeat" in step and step["repeat"] is None:
+            raise ValueError(f"AI 生成失败：steps[{index}].repeat 不能为 null")
+        if "repeat" in step and not isinstance(step["repeat"], int):
+            raise ValueError(f"AI 生成失败：steps[{index}].repeat 必须是整数")
+
+    for field_name in ("inputs", "outputs"):
+        if field_name in data and data[field_name] is None:
+            raise ValueError(f"AI 生成失败：FlowSpec.{field_name} 不能为 null")
+        if field_name in data and not isinstance(data[field_name], list):
+            raise ValueError(f"AI 生成失败：FlowSpec.{field_name} 必须是数组")
+
+
 def _parse_generated_workflow(text: str, workflow_id: str) -> Workflow:
     text = _strip_json_wrapper(text)
 
@@ -273,13 +337,21 @@ def _parse_generated_workflow(text: str, workflow_id: str) -> Workflow:
     except json.JSONDecodeError as e:
         raise ValueError(f"AI 生成失败：返回的工作流 JSON 不合法（{e.msg}，位置 {e.pos}）") from e
 
-    _validate_generated_workflow_payload(parsed)
-    parsed["id"] = workflow_id
-
-    try:
-        workflow = Workflow.model_validate(parsed)
-    except Exception as e:
-        raise ValueError(f"AI 生成失败：工作流结构校验未通过（{e}）") from e
+    if "steps" in parsed:
+        _validate_generated_flowspec_payload(parsed)
+        parsed["workflow_id"] = workflow_id
+        try:
+            spec = FlowSpec.model_validate(parsed)
+        except Exception as e:
+            raise ValueError(f"AI 生成失败：FlowSpec 结构校验未通过（{e}）") from e
+        workflow = materialize_flowspec(spec)
+    else:
+        _validate_generated_workflow_payload(parsed)
+        parsed["id"] = workflow_id
+        try:
+            workflow = Workflow.model_validate(parsed)
+        except Exception as e:
+            raise ValueError(f"AI 生成失败：工作流结构校验未通过（{e}）") from e
     try:
         ensure_valid_workflow(workflow)
     except WorkflowValidationError as e:
@@ -374,16 +446,16 @@ def _build_plugins_info() -> str:
             lines.append(json.dumps(meta.output_schema, ensure_ascii=False, indent=2))
             lines.append("```")
 
-        lines.append("\n**使用方式:**")
-        lines.append(f"1. 在 block 中设置: type: \"plugin\", config: {{ plugin_id: \"{meta.id}\" }}")
-        lines.append("2. 系统默认会把上游结构化结果直接传给插件，不会附带块名包装文本")
-        lines.append("3. 配置输入模板（config.prompt）：")
-        lines.append("   - 只有在单个上游结果已经与插件输入格式完全匹配时，config.prompt 才可以留空")
-        lines.append("   - 如果需要字段改名、补充常量、合并多个来源或重组结构，必须在 config.prompt 中使用模板变量转换")
-        lines.append("   - 例如：如果插件需要 {\"query\": \"...\"} 但上游是 {\"keyword\": \"...\"}，")
-        lines.append(f"     则设置 config.prompt = '{{\"query\": \"{{{{input.keyword}}}}\"}}'")
-        lines.append("4. 插件块的 output_schema 应该根据插件的输出格式设置 keys 列表，以便下游块引用")
-        lines.append(f"   - 例如：output_schema: {{ keys: {list(meta.output_schema.get('properties', {}).keys()) if meta.output_schema and 'properties' in meta.output_schema else ['result']} }}")
+        lines.append("\n**在 FlowSpec 中的使用方式:**")
+        lines.append(f"1. 新增一个 step，设置: type: \"plugin\", plugin_id: \"{meta.id}\"")
+        lines.append("2. 系统默认会把上游结构化结果直接传给插件，不会附带步骤名包装文本")
+        lines.append("3. 优先使用字段映射（plugin_input_bindings）表达插件输入来源")
+        lines.append("   - 例如：plugin_input_bindings: {\"query\": {\"kind\": \"variable\", \"value\": \"input.keyword\"}}")
+        lines.append("4. 只有在字段映射不足以表达复杂重组时，才使用 step.prompt")
+        lines.append("   - 例如：如果需要把多个来源组合成复杂 JSON，才设置 step.prompt")
+        lines.append(f"     step.prompt = '{{\"query\": \"{{{{input.keyword}}}}\"}}'")
+        lines.append("5. 插件步骤的 output_contract 应根据插件输出格式设置 keys 列表，以便下游步骤引用")
+        lines.append(f"   - 例如：output_contract: {{ keys: {list(meta.output_schema.get('properties', {}).keys()) if meta.output_schema and 'properties' in meta.output_schema else ['result']} }}")
         lines.append("")
 
     return "\n".join(lines)
@@ -413,7 +485,7 @@ async def ai_edit_workflow(workflow_id: str, body: AIEditRequest):
     # 构建插件信息
     plugins_info = _build_plugins_info()
 
-    workflow_json = workflow.model_dump_json(indent=2)
+    flowspec_json = workflow_to_flowspec(workflow).model_dump_json(indent=2)
     var_hint = _build_available_variables(workflow)
 
     logger.info(f"AI 编辑 - 插件信息长度: {len(plugins_info)} 字符")
@@ -423,7 +495,7 @@ async def ai_edit_workflow(workflow_id: str, body: AIEditRequest):
         {"role": "system", "content": _AI_EDIT_SYSTEM_PROMPT + plugins_info},
         {
             "role": "user",
-            "content": f"当前工作流 JSON：\n{workflow_json}\n{var_hint}\n修改指令：{body.instruction}",
+            "content": f"当前 FlowSpec JSON：\n{flowspec_json}\n{var_hint}\n修改指令：{body.instruction}",
         },
     ]
 

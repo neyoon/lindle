@@ -228,6 +228,36 @@ def _format_value(value: Any) -> str:
     return str(value)
 
 
+def extract_template_variables(prompt: str) -> list[str]:
+    pattern = r"\{\{(.+?)\}\}"
+    return [match.strip() for match in re.findall(pattern, prompt or "")]
+
+
+def resolve_context_expression(expr: str, context: Context) -> Any | None:
+    expr = (expr or "").strip()
+    if not expr:
+        return None
+
+    if expr.startswith("input."):
+        field_name = expr[6:]
+        return context.user_inputs.get(field_name)
+
+    if "." in expr:
+        block_name, _, key_str = expr.partition(".")
+        block_name = block_name.strip()
+        result = context.get_block_result_by_name(block_name)
+        if result is None:
+            return None
+        key_path = [p.strip() for p in key_str.split(".")]
+        return _resolve_nested(result.data, key_path)
+
+    result = context.get_block_result_by_name(expr)
+    if result is not None:
+        return result.data
+
+    return context.user_inputs.get(expr)
+
+
 def render_prompt_template(prompt: str, context: Context) -> tuple[str, bool]:
     """渲染 prompt 中的 {{变量}} 模板
 
@@ -252,38 +282,17 @@ def render_prompt_template(prompt: str, context: Context) -> tuple[str, bool]:
 
     def _replace(match: re.Match) -> str:
         var = match.group(1).strip()
-
-        # {{input.xxx}} — 用户输入字段
+        value = resolve_context_expression(var, context)
+        if value is not None:
+            return _format_value(value)
         if var.startswith("input."):
-            field_name = var[6:]
-            value = context.user_inputs.get(field_name)
-            if value is not None:
-                return str(value)
-            return f"[未找到输入字段: {field_name}]"
-
-        # {{块名.key...}} — 第一个 "." 之前为块名，之后为嵌套 key 路径
-        # 约定：块名不得含 "."，"." 一律作为 key 分隔符
+            return f"[未找到输入字段: {var[6:]}]"
         if "." in var:
             block_name, _, key_str = var.partition(".")
-            block_name = block_name.strip()
-            result = context.get_block_result_by_name(block_name)
+            result = context.get_block_result_by_name(block_name.strip())
             if result is None:
-                return f"[未找到块: {block_name}]"
-            key_path = [p.strip() for p in key_str.split(".")]
-            value = _resolve_nested(result.data, key_path)
-            if value is not None:
-                return _format_value(value)
-            return f"[块 {block_name} 无 key: {key_str}]"
-
-        # {{块名}} — 整个块的输出
-        result = context.get_block_result_by_name(var)
-        if result is not None:
-            return result.format_as_text()
-
-        # 兜底: 也许是不带 input. 前缀的用户输入
-        if var in context.user_inputs:
-            return str(context.user_inputs[var])
-
+                return f"[未找到块: {block_name.strip()}]"
+            return f"[块 {block_name.strip()} 无 key: {key_str}]"
         return f"[未找到变量: {var}]"
 
     rendered = re.sub(pattern, _replace, prompt)

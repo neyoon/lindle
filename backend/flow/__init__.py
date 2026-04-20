@@ -38,6 +38,10 @@ from flow.execution_plan import (
     ExecutionPlan,
     compile_execution_plan,
 )
+from flow.materialize import (
+    materialize_canonical_workflow,
+    materialize_flowspec,
+)
 from flow.validation import (
     ValidationIssue,
     WorkflowValidationError,
@@ -77,6 +81,8 @@ __all__ = [
     "ExecutableColumn",
     "ExecutionPlan",
     "compile_execution_plan",
+    "materialize_canonical_workflow",
+    "materialize_flowspec",
     "ValidationIssue",
     "WorkflowValidationError",
     "validate_workflow",
