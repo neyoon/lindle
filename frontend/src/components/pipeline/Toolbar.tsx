@@ -5,10 +5,8 @@ import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Play, Save, Factory, ArrowLeft, Download, FileText, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
-import { saveWorkflow, updateWorkflow, runWorkflowStream, downloadCode, downloadWorkflowManifest, getAuthHeaders } from '@/api/client'
+import { saveWorkflow, updateWorkflow, runWorkflowStream, downloadCode, downloadWorkflowManifest } from '@/api/client'
 import type { Workflow, Block, StepEvent } from '@/types/workflow'
-import { ThemeToggle } from '../ui/ThemeToggle'
-
 const API_BASE = '/api'
 
 interface ToolbarProps {
@@ -98,7 +96,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
     try {
       const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/ai-edit`, {
         method: 'POST',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instruction: aiInstruction.trim() }),
         signal: controller.signal,
       })
@@ -293,9 +291,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
     }
     setShowExportMenu(false)
     try {
-      const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/describe`, {
-        headers: getAuthHeaders(),
-      })
+      const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/describe`)
       if (!resp.ok) throw new Error('获取描述失败')
       const data = await resp.json()
       // 打开新窗口显示描述文本
@@ -338,12 +334,11 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <ThemeToggle />
         {/* AI 编辑 */}
         <div className="relative flex items-center">
           {showAIEdit ? (
-            <div className="flex items-center gap-1.5 rounded-2xl border border-[var(--app-border-strong)] bg-[rgba(109,204,255,0.1)] px-2 py-1">
-              <Sparkles size={14} className="shrink-0 text-[var(--app-accent)]" />
+            <div className="flex items-center gap-1.5 rounded-sm border border-[var(--app-border-strong)] bg-[var(--app-accent-soft)] px-2 py-1">
+              <Sparkles size={14} className="shrink-0 text-[var(--app-accent-strong)]" />
               <input
                 ref={aiInputRef}
                 className="w-64 border-none bg-transparent text-sm text-[var(--app-text)] outline-none placeholder:text-[var(--app-text-muted)]"
@@ -364,7 +359,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
                   <button
                     onClick={handleAIEdit}
                     disabled={!aiInstruction.trim()}
-                    className="rounded-full bg-[var(--app-accent-strong)] px-2 py-0.5 text-xs font-medium text-white transition disabled:opacity-40 shrink-0"
+                    className="rounded-sm bg-[var(--app-accent)] px-2 py-0.5 text-xs font-medium text-[var(--paper)] transition disabled:opacity-40 shrink-0 hover:bg-[var(--app-accent-strong)]"
                   >
                     执行
                   </button>
@@ -405,7 +400,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
           onClick={() => setStopOnError(!workflow.stop_on_error)}
           className={`app-button ${
             workflow.stop_on_error
-              ? 'border border-[rgba(255,180,77,0.22)] bg-[rgba(255,180,77,0.08)] text-[var(--app-warning)]'
+              ? 'border border-[var(--app-warm)] bg-[var(--rust-soft)] text-[var(--app-accent-strong)]'
               : 'app-button-ghost'
           }`}
           title={workflow.stop_on_error ? '遇到错误时停止执行' : '遇到错误时继续执行'}
@@ -427,7 +422,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
           {showExportMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-              <div className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]">
+              <div className="absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-sm border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]" style={{ animation: 'panel-slide-in 0.35s var(--ease-ink)' }}>
                 <button
                   onClick={handleExportManifest}
                   className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
@@ -486,10 +481,10 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
 
     {/* AI 编辑流式面板 */}
     {showStreamPanel && (
-      <div className="border-b border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-4 py-3">
+      <div className="border-b border-[var(--app-border)] bg-[var(--app-accent-soft)] px-4 py-3" style={{ animation: 'panel-slide-in 0.4s var(--ease-ink)' }}>
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-2">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--app-accent)]">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--app-accent-strong)]">
               {aiLoading ? (
                 <><Loader2 size={12} className="animate-spin" /> AI 正在修改工作流...</>
               ) : aiError ? (
@@ -504,7 +499,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
               {aiLoading ? (
                 <button
                   onClick={handleAbort}
-                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-[var(--app-danger)] transition hover:bg-[rgba(244,107,122,0.08)]"
+                  className="flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-medium text-[var(--app-danger)] transition hover:bg-[var(--bruise-soft)]"
                 >
                   <Square size={10} fill="currentColor" />
                   打断
@@ -513,14 +508,14 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
                 <>
                   <button
                     onClick={handleUndo}
-                    className="flex items-center gap-1 rounded-full border border-[rgba(255,180,77,0.22)] px-2.5 py-1 text-xs font-medium text-[var(--app-warning)] transition hover:bg-[rgba(255,180,77,0.08)]"
+                    className="flex items-center gap-1 rounded-sm border border-[var(--app-warm)] px-2.5 py-1 text-xs font-medium text-[var(--app-warning)] transition hover:bg-[var(--rust-soft)]"
                   >
                     <Undo2 size={12} />
                     撤销
                   </button>
                   <button
                     onClick={handleConfirmEdit}
-                    className="flex items-center gap-1 rounded-full border border-[rgba(62,207,142,0.22)] px-2.5 py-1 text-xs font-medium text-[var(--app-success)] transition hover:bg-[rgba(62,207,142,0.08)]"
+                    className="flex items-center gap-1 rounded-sm border border-[var(--moss-soft)] px-2.5 py-1 text-xs font-medium text-[var(--app-success)] transition hover:bg-[var(--moss-soft)]"
                   >
                     <Check size={12} />
                     确认
@@ -539,7 +534,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
           {aiThinking && (
             <div className="mb-2">
               <span className="text-[10px] font-medium text-[var(--app-text-soft)]">思考过程</span>
-              <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-[rgba(255,255,255,0.05)] p-2 text-xs italic leading-relaxed text-[var(--app-text-soft)]">
+              <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-2 text-xs italic leading-relaxed text-[var(--app-text-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>
                 {aiThinking}
               </pre>
             </div>
@@ -549,7 +544,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
               <span className="text-[10px] font-medium text-[var(--app-text-soft)]">生成内容</span>
               <pre
                 ref={streamPanelRef}
-                className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-[rgba(255,255,255,0.06)] p-2 font-mono text-xs leading-relaxed text-[var(--app-text)]"
+                className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-sm border border-[var(--line)] bg-[var(--card)] p-2 font-mono text-xs leading-relaxed text-[var(--app-text)]"
               >
                 {aiDelta}
               </pre>

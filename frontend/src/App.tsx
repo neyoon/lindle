@@ -1,5 +1,5 @@
 /**
- * Tweak 主应用
+ * Lindle 主应用
  *
  * 页面:
  * 0. 首页（选择 Flow 或 Agent）
@@ -25,18 +25,20 @@ import { AgentListPage } from './components/AgentListPage'
 import { AgentEditorPage } from './components/AgentEditorPage'
 import { SkillLibraryPage } from './components/SkillLibraryPage'
 import { SettingsPage } from './components/SettingsPage'
-import { LoginPage } from './components/LoginPage'
 import { UserMenu } from './components/UserMenu'
 import { useWorkflowStore } from './stores/workflow'
-import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent, login, setAuthToken, getCurrentUser, clearAuthToken, logout } from './api/client'
-import type { AuthUser } from './types/auth'
+import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent } from './api/client'
 
-type Page = 'home-overview' | 'login' | 'home-entry' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
+type Page = 'home-overview' | 'home-entry' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
+
+const LOCAL_USER = {
+  user_id: 'local-user',
+  username: '本地工作区',
+  role: 'local',
+}
 
 export default function App() {
   const [page, setPage] = useState<Page>('home-overview')
-  const [authChecked, setAuthChecked] = useState(false)
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [checkedSettings, setCheckedSettings] = useState(false)
   const [currentAgentId, setCurrentAgentId] = useState<string | undefined>(undefined)
   const autoSavedWorkflowRef = useRef(false)
@@ -51,36 +53,8 @@ export default function App() {
     setPage('settings')
   }
 
+  // 本地模式下检查是否已配置 API Key，未配置则引导到设置页
   useEffect(() => {
-    getCurrentUser()
-      .then((user) => {
-        setAuthUser(user)
-        setPage((currentPage) => (
-          currentPage === 'home-overview' || currentPage === 'login'
-            ? 'home-entry'
-            : currentPage
-        ))
-      })
-      .catch(() => {
-        clearAuthToken()
-        setAuthUser(null)
-      })
-      .finally(() => setAuthChecked(true))
-  }, [])
-
-  useEffect(() => {
-    if (authUser && page === 'home-overview') {
-      setPage('home-entry')
-    }
-  }, [authUser, page])
-
-  // 登录后检查是否已配置 API Key，未配置则引导到设置页
-  useEffect(() => {
-    if (!authUser) {
-      setCheckedSettings(false)
-      return
-    }
-
     getSettings()
       .then((s) => {
         if (!s.api_key_set) {
@@ -90,28 +64,7 @@ export default function App() {
       })
       .catch(() => {})
       .finally(() => setCheckedSettings(true))
-  }, [authUser])
-
-  const handleLogin = async (username: string, password: string) => {
-    const result = await login(username, password)
-    setAuthToken(result.token)
-    const currentUser = await getCurrentUser()
-    setAuthUser(currentUser)
-    setPage('home-entry')
-  }
-
-  const handleLogout = async () => {
-    try {
-      await logout()
-    } catch {}
-    clearAuthToken()
-    setAuthUser(null)
-    setCheckedSettings(false)
-    setCurrentAgentId(undefined)
-    autoSavedWorkflowRef.current = false
-    autoSavedAgentRef.current = false
-    setPage('home-overview')
-  }
+  }, [])
 
   // 打开已有工作流
   const handleOpenWorkflow = async (workflowId: string) => {
@@ -151,30 +104,12 @@ export default function App() {
     setPage('flow-list')
   }
 
-  if (!authChecked) return null
-
-  if (!authUser) {
-    if (page === 'login') {
-      return <LoginPage onLogin={handleLogin} onBack={() => setPage('home-overview')} />
-    }
-
-    return (
-      <HomePage
-        stage="overview"
-        onShowEntry={() => setPage('login')}
-        onSelectFlow={() => setPage('login')}
-        onSelectAgent={() => setPage('login')}
-      />
-    )
-  }
-
   // 初始检查中不渲染
   if (!checkedSettings) return null
 
   const headerActions = (
     <UserMenu
-      user={authUser}
-      onLogout={handleLogout}
+      user={LOCAL_USER}
       onOpenSettings={() => {
         openSettingsFrom(page)
       }}
@@ -186,12 +121,12 @@ export default function App() {
   if (page === 'home-overview' || page === 'home-entry') {
     content = (
       <HomePage
-        stage="entry"
-        onShowOverview={undefined}
+        stage={page === 'home-overview' ? 'overview' : 'entry'}
+        onShowOverview={() => setPage('home-overview')}
         onShowEntry={() => setPage('home-entry')}
         onSelectFlow={() => setPage('flow-list')}
         onSelectAgent={() => setPage('agent-list')}
-        headerActions={headerActions}
+        headerActions={page === 'home-entry' ? headerActions : undefined}
       />
     )
   } else if (page === 'settings') {

@@ -90,13 +90,14 @@ export function RunPanel() {
         <>
           <button
             onClick={() => setShowResult(!showResult)}
-            className="flex w-full items-center justify-between px-4 py-2 hover:bg-[rgba(255,255,255,0.04)]"
+            className="flex w-full items-center justify-between px-4 py-2 hover:bg-[var(--paper-warm)] transition"
           >
             <div className="flex items-center gap-2">
               {isRunning ? (
-                <span className="text-sm text-[var(--app-accent)]">
-                  运行中...
-                  {currentBlock?.block_name ? ` 当前块：${currentBlock.block_name}` : ''}
+                <span className="flex items-center gap-2 text-sm text-[var(--app-accent-strong)]">
+                  <span className="block w-1.5 h-1.5 rounded-full bg-[var(--rust)]" style={{ animation: 'ink-pulse 1.4s ease-in-out infinite' }} />
+                  运行中
+                  {currentBlock?.block_name ? <span className="font-mono text-xs text-[var(--ink-soft)]">· {currentBlock.block_name}</span> : null}
                 </span>
               ) : runResult?.success ? (
                 <>
@@ -138,12 +139,12 @@ export function RunPanel() {
                         <span className="text-[var(--app-text-muted)]">{step.elapsed.toFixed(1)}s</span>
                       </div>
                       {text && (
-                        <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-[rgba(255,255,255,0.05)] p-2 text-xs text-[var(--app-text-soft)]">
+                        <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-2 text-xs text-[var(--app-text-soft)]">
                           {text}
                         </pre>
                       )}
                       {step.event_type === 'error' && step.error && (
-                        <div className="mt-1 rounded-2xl bg-[rgba(244,107,122,0.08)] p-2 text-[var(--app-danger)]">
+                        <div className="mt-1 rounded-sm border border-[var(--bruise-soft)] bg-[var(--bruise-soft)] p-2 text-[var(--app-danger)]">
                           {step.error}
                         </div>
                       )}
@@ -154,17 +155,17 @@ export function RunPanel() {
 
               {(displayedOutput != null || isRunning) && (
                 <div className="border-t border-[var(--app-border)] pt-3">
-                <h4 className="mb-1 text-xs font-semibold text-[var(--app-text-soft)]">
+                <h4 className="app-kicker no-rule mb-2 text-[0.65rem]">
                   {isRunning ? '实时输出' : '最终输出'}
                 </h4>
-                <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-[rgba(109,204,255,0.1)] p-3 text-sm text-[var(--app-text)]">
+                <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-[var(--line)] bg-[var(--card-soft)] p-3 text-sm text-[var(--app-text)]">
                   {displayedOutput == null ? '等待输出...' : formatData(displayedOutput)}
                 </pre>
                 </div>
               )}
 
               {displayError && (
-                <div className="mt-2 rounded-2xl bg-[rgba(244,107,122,0.08)] p-3 text-sm text-[var(--app-danger)]">
+                <div className="mt-2 rounded-sm border border-[var(--bruise-soft)] bg-[var(--bruise-soft)] p-3 text-sm text-[var(--app-danger)]">
                   {displayError}
                 </div>
               )}

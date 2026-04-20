@@ -4,7 +4,6 @@ import { ArrowLeft, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import type { BlockConfig, BlockTemplate, BlockType } from '@/types/workflow'
 import type { ProviderResponse } from '@/api/client'
 import { createTemplate, deleteTemplate, listProviders, listTemplates, updateTemplate } from '@/api/client'
-import { ThemeToggle } from '../ui/ThemeToggle'
 
 interface Props {
   onBack: () => void
@@ -82,7 +81,6 @@ export function ManufacturePage({ onBack, headerActions }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             {!isCreating && !editing && (
               <button onClick={() => setIsCreating(true)} className="app-button app-button-primary">
                 <Plus size={16} />
@@ -175,8 +173,8 @@ function TemplateCard({
 
   return (
     <article className="app-card-soft group p-5">
-      <div className="text-3xl">{template.icon || '[]'}</div>
-      <h3 className="mt-4 text-lg font-semibold text-[var(--app-text)]">{template.name}</h3>
+      <div className="text-3xl" style={{ fontFamily: 'Fraunces, serif' }}>{template.icon || '[]'}</div>
+      <h3 className="mt-4 text-lg font-medium text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>{template.name}</h3>
       <p className="app-muted mt-2 min-h-[3rem] text-sm leading-7">{template.description || '无描述'}</p>
       <span className="app-pill mt-4">{typeLabel}</span>
       <div className="mt-5 flex gap-2 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">

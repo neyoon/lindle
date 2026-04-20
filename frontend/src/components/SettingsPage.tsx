@@ -24,7 +24,6 @@ import {
   updateProvider,
   type ProviderResponse,
 } from '@/api/client'
-import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Props {
   onBack: () => void
@@ -181,7 +180,6 @@ export function SettingsPage({ onBack, headerActions }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <button onClick={startAdd} disabled={editingId === 'new'} className="app-button app-button-primary disabled:opacity-50">
               <Plus size={16} />
               添加 Provider
@@ -198,7 +196,7 @@ export function SettingsPage({ onBack, headerActions }: Props) {
               <div className="app-kicker mb-3">Model registry</div>
               <h2 className="app-section-title text-3xl md:text-4xl">管理所有 OpenAI 兼容 Provider</h2>
               <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-                Flow、Agent 和 AI 编辑能力都依赖这里的 Provider。
+                Lindle 的 Flow、Agent 和 AI 编辑能力都依赖这里的 Provider。
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -322,7 +320,7 @@ export function SettingsPage({ onBack, headerActions }: Props) {
         <section className="app-card-soft mt-6 p-5">
           <div className="app-kicker mb-2">Compatibility note</div>
           <p className="app-muted text-sm leading-7">
-            Tweak 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面和 Ollama 本地部署。
+            Lindle 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面和 Ollama 本地部署。
             你可以同时添加多个不同来源的Provider，在工作流 AI 块和 Agent 中分别选择。
           </p>
         </section>
@@ -389,10 +387,10 @@ function ProviderCard({
       </div>
 
       {testResult && (
-        <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+        <div className={`mt-4 rounded-sm border px-4 py-3 text-sm ${
           testResult.success
-            ? 'border-[rgba(62,207,142,0.25)] bg-[rgba(62,207,142,0.08)] text-[var(--app-success)]'
-            : 'border-[rgba(244,107,122,0.25)] bg-[rgba(244,107,122,0.08)] text-[var(--app-danger)]'
+            ? 'border-[var(--moss-soft)] bg-[var(--moss-soft)] text-[var(--app-success)]'
+            : 'border-[var(--bruise-soft)] bg-[var(--bruise-soft)] text-[var(--app-danger)]'
         }`}>
           <div className="flex items-start gap-2">
             {testResult.success ? <CheckCircle size={16} className="mt-0.5 shrink-0" /> : <XCircle size={16} className="mt-0.5 shrink-0" />}
@@ -511,10 +509,10 @@ function ProviderForm({
       </div>
 
       {testResult && (
-        <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+        <div className={`mt-4 rounded-sm border px-4 py-3 text-sm ${
           testResult.success
-            ? 'border-[rgba(62,207,142,0.25)] bg-[rgba(62,207,142,0.08)] text-[var(--app-success)]'
-            : 'border-[rgba(244,107,122,0.25)] bg-[rgba(244,107,122,0.08)] text-[var(--app-danger)]'
+            ? 'border-[var(--moss-soft)] bg-[var(--moss-soft)] text-[var(--app-success)]'
+            : 'border-[var(--bruise-soft)] bg-[var(--bruise-soft)] text-[var(--app-danger)]'
         }`}>
           <div className="flex items-start gap-2">
             {testResult.success ? <CheckCircle size={16} className="mt-0.5 shrink-0" /> : <XCircle size={16} className="mt-0.5 shrink-0" />}

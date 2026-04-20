@@ -61,7 +61,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   }
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!e.dataTransfer.types.includes('application/miniflow-block')) return
+    if (!e.dataTransfer.types.includes('application/lindle-block')) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDropIndex(calcDropIndex(e))
@@ -70,7 +70,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setDropIndex(null)
-    const raw = e.dataTransfer.getData('application/miniflow-block')
+    const raw = e.dataTransfer.getData('application/lindle-block')
     if (!raw) return
     try {
       const { blockId, columnId: fromColumnId } = JSON.parse(raw)
@@ -83,12 +83,12 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
     <div className="editor-column flex h-full w-52 shrink-0 flex-col">
       {/* 栏头 */}
       <div className="editor-column-header flex items-center justify-between px-3 py-2.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--app-accent)]">
-          Step {column.order + 1}
+        <span className="app-kicker no-rule text-[0.68rem] text-[var(--app-accent-strong)]">
+          Stage {String(column.order + 1).padStart(2, '0')}
         </span>
         <div className="flex items-center gap-1">
           {column.repeat > 1 && (
-            <span className="flex items-center gap-0.5 text-xs font-medium text-[var(--app-accent)]">
+            <span className="flex items-center gap-0.5 font-mono text-[0.7rem] font-medium text-[var(--app-accent-strong)]">
               <Repeat size={12} />
               x{column.repeat}
             </span>
@@ -98,14 +98,14 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
               const n = prompt('重复次数:', String(column.repeat))
               if (n) setColumnRepeat(column.id, parseInt(n))
             }}
-            className="rounded p-1 text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
+            className="rounded-sm p-1 text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
             title="设置重复次数"
           >
             <Repeat size={13} />
           </button>
           <button
             onClick={() => removeColumn(column.id)}
-            className="rounded p-1 text-[var(--app-text-muted)] hover:text-[var(--app-danger)]"
+            className="rounded-sm p-1 text-[var(--app-text-muted)] hover:text-[var(--app-danger)]"
             title="删除栏"
           >
             <Trash2 size={13} />
@@ -123,7 +123,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
         {column.blocks.map((block, i) => (
           <div key={block.id} className="flex flex-col items-center">
             {dropIndex === i && (
-              <div className="mb-2 h-1 w-[140px] animate-pulse rounded-full bg-[var(--app-accent)]" />
+              <div className="mb-2 h-[2px] w-[140px] bg-[var(--app-accent)]" style={{ animation: 'ink-pulse 1s ease-in-out infinite' }} />
             )}
             <BlockView
               block={block}
@@ -135,7 +135,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
           </div>
         ))}
         {dropIndex === column.blocks.length && (
-          <div className="h-1 w-[140px] animate-pulse rounded-full bg-[var(--app-accent)]" />
+          <div className="h-[2px] w-[140px] bg-[var(--app-accent)]" style={{ animation: 'ink-pulse 1s ease-in-out infinite' }} />
         )}
       </div>
 
@@ -143,14 +143,14 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
       <div className="relative border-t border-[var(--app-border)] p-3">
         <button
           onClick={() => setShowAddMenu(!showAddMenu)}
-          className="flex w-full items-center justify-center gap-1 rounded-2xl border border-dashed border-[var(--app-border-strong)] py-2 text-xs text-[var(--app-text-soft)] transition hover:border-[var(--app-accent)] hover:bg-[rgba(109,204,255,0.08)] hover:text-[var(--app-accent)]"
+          className="flex w-full items-center justify-center gap-1 rounded-sm border border-dashed border-[var(--app-border-strong)] py-2 text-xs text-[var(--app-text-soft)] transition hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent-strong)]"
         >
           <Plus size={14} />
           添加块
         </button>
 
         {showAddMenu && (
-          <div className="absolute bottom-full left-3 right-3 z-10 mb-1 max-h-80 overflow-y-auto overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]">
+          <div className="absolute bottom-full left-3 right-3 z-10 mb-1 max-h-80 overflow-y-auto overflow-hidden rounded-sm border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]" style={{ animation: 'panel-slide-in 0.35s var(--ease-ink)' }}>
             {/* 核心块 */}
             {CORE_BLOCK_OPTIONS.map((opt) => (
               <button

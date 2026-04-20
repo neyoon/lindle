@@ -1,5 +1,5 @@
 /**
- * Tweak 类型定义
+ * Lindle 类型定义
  *
  * 核心概念:
  * - Workflow: 工作流，由有序的 Column 组成

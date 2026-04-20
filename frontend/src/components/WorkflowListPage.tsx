@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Clock, Factory, FileCode, Plus, Puzzle, Settings, Trash2, Workflow } from 'lucide-react'
 import { listWorkflows, deleteWorkflow, exportFlowsToSkill } from '@/api/client'
-import { ThemeToggle } from './ui/ThemeToggle'
 
 interface WorkflowSummary {
   id: string
@@ -147,7 +146,6 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <ThemeToggle />
             {onOpenPlugins && (
               <button onClick={onOpenPlugins} className="app-button app-button-ghost">
                 <Puzzle size={16} />
@@ -217,7 +215,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
               <button
                 onClick={handleBatchDelete}
                 disabled={isExporting || isDeletingBatch}
-                className="app-button border border-[rgba(244,107,122,0.22)] bg-[rgba(244,107,122,0.08)] text-[var(--app-danger)] disabled:opacity-50"
+                className="app-button app-button-danger disabled:opacity-50"
               >
                 <Trash2 size={16} />
                 {isDeletingBatch ? '删除中...' : '批量删除'}
@@ -251,7 +249,8 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
                 <article
                   key={wf.id}
                   onClick={() => onOpen(wf.id)}
-                  className="app-card-soft group cursor-pointer p-5 transition hover:-translate-y-1"
+                  className="app-card-soft group cursor-pointer p-5"
+                  style={{ animation: `loom-land 0.6s var(--ease-ink) ${Math.min(0.08 * (workflows.indexOf(wf) || 0), 0.6)}s backwards` }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
@@ -260,13 +259,13 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
                         checked={selectedIds.has(wf.id)}
                         onChange={(e) => handleToggleSelect(wf.id, e)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-1 rounded border-[var(--app-border-strong)] bg-transparent text-[var(--app-accent-strong)] focus:ring-[var(--app-accent)]"
+                        className="mt-1 rounded-sm border-[var(--app-border-strong)] bg-transparent text-[var(--app-accent)] focus:ring-[var(--app-accent-soft)]"
                       />
-                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-3 text-[var(--app-accent)]">
+                      <div className="w-11 h-11 rounded-full border-[1.5px] border-[var(--ink)] inline-flex items-center justify-center text-[var(--ink)] transition-transform duration-500 group-hover:rotate-[18deg] shrink-0">
                         <Workflow size={18} />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="truncate text-lg font-semibold text-[var(--app-text)]">{wf.name}</h3>
+                        <h3 className="truncate text-lg font-medium text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>{wf.name}</h3>
                         <p className="app-muted mt-2 line-clamp-2 min-h-[3rem] text-sm leading-6">
                           {wf.description || '暂无描述'}
                         </p>
@@ -274,7 +273,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, wf.id, wf.name)}
-                      className="rounded-full p-2 text-[var(--app-text-muted)] transition hover:bg-[rgba(244,107,122,0.08)] hover:text-[var(--app-danger)]"
+                      className="rounded-sm p-2 text-[var(--app-text-muted)] transition hover:bg-[var(--bruise-soft)] hover:text-[var(--app-danger)]"
                       title="删除"
                     >
                       <Trash2 size={14} />

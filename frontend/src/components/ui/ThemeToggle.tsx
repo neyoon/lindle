@@ -1,29 +1,7 @@
-import { MoonStar, SunMedium } from 'lucide-react'
-import { useUITheme } from './theme'
-
+/**
+ * 旧的主题切换组件 —— 在 Paper & Ink 单主题方案下保留为占位 null，
+ * 这样所有 import 它的位置都不会破。需要时可改为更细粒度的视觉切换器。
+ */
 export function ThemeToggle() {
-  const { theme, setTheme } = useUITheme()
-
-  return (
-    <div className="theme-toggle">
-      <button
-        type="button"
-        onClick={() => setTheme('blue')}
-        className={theme === 'blue' ? 'is-active' : ''}
-        aria-pressed={theme === 'blue'}
-      >
-        <MoonStar size={14} />
-        蓝色
-      </button>
-      <button
-        type="button"
-        onClick={() => setTheme('white')}
-        className={theme === 'white' ? 'is-active' : ''}
-        aria-pressed={theme === 'white'}
-      >
-        <SunMedium size={14} />
-        白色
-      </button>
-    </div>
-  )
+  return null
 }

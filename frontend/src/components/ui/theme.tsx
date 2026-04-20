@@ -1,7 +1,14 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+/**
+ * UI 主题
+ *
+ * Lindle 的视觉是单一的「Paper & Ink」纸墨风格，
+ * 此处仅保留旧的 Provider/hook 形态以便组件继续 import，
+ * 但不再切换主题 —— 始终是 paper。
+ */
+import { createContext, useContext, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 
-export type UITheme = 'blue' | 'white'
+export type UITheme = 'paper'
 
 interface UIThemeContextValue {
   theme: UITheme
@@ -9,29 +16,18 @@ interface UIThemeContextValue {
   toggleTheme: () => void
 }
 
-const STORAGE_KEY = 'miniflow-ui-theme'
-
 const UIThemeContext = createContext<UIThemeContextValue | null>(null)
 
-function readStoredTheme(): UITheme {
-  if (typeof window === 'undefined') return 'blue'
-  const saved = window.localStorage.getItem(STORAGE_KEY)
-  return saved === 'white' ? 'white' : 'blue'
-}
-
 export function UIThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<UITheme>(() => readStoredTheme())
-
   useEffect(() => {
-    document.documentElement.dataset.uiTheme = theme
-    window.localStorage.setItem(STORAGE_KEY, theme)
-  }, [theme])
+    document.documentElement.dataset.uiTheme = 'paper'
+  }, [])
 
   const value = useMemo<UIThemeContextValue>(() => ({
-    theme,
-    setTheme,
-    toggleTheme: () => setTheme((current) => (current === 'blue' ? 'white' : 'blue')),
-  }), [theme])
+    theme: 'paper',
+    setTheme: () => {},
+    toggleTheme: () => {},
+  }), [])
 
   return (
     <UIThemeContext.Provider value={value}>

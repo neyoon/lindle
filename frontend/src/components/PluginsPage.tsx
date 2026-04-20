@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { ArrowLeft, Check, Power, Settings, X } from 'lucide-react'
 import type { PluginInfo } from '@/types/workflow'
 import { listPlugins, togglePlugin, updatePluginConfig } from '@/api/client'
-import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Props {
   onBack: () => void
@@ -56,7 +55,6 @@ export function PluginsPage({ onBack, headerActions }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             {headerActions}
           </div>
         </div>
@@ -138,15 +136,15 @@ function PluginCard({
           {(meta.input_schema || meta.output_schema) && (
             <div className="mt-4 space-y-3">
               {meta.input_schema && (
-                <details className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
+                <details className="rounded-sm border border-[var(--app-border)] bg-[var(--paper-warm)] p-4">
                   <summary className="cursor-pointer text-sm font-medium text-[var(--app-text)]">输入格式</summary>
-                  <pre className="app-muted mt-3 overflow-x-auto text-xs leading-6">{JSON.stringify(meta.input_schema, null, 2)}</pre>
+                  <pre className="app-muted mt-3 overflow-x-auto text-xs leading-6 font-mono">{JSON.stringify(meta.input_schema, null, 2)}</pre>
                 </details>
               )}
               {meta.output_schema && (
-                <details className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
+                <details className="rounded-sm border border-[var(--app-border)] bg-[var(--paper-warm)] p-4">
                   <summary className="cursor-pointer text-sm font-medium text-[var(--app-text)]">输出格式</summary>
-                  <pre className="app-muted mt-3 overflow-x-auto text-xs leading-6">{JSON.stringify(meta.output_schema, null, 2)}</pre>
+                  <pre className="app-muted mt-3 overflow-x-auto text-xs leading-6 font-mono">{JSON.stringify(meta.output_schema, null, 2)}</pre>
                 </details>
               )}
             </div>

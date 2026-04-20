@@ -66,14 +66,19 @@ export function BlockConfigPanel() {
   return (
     <div className="h-full flex flex-col">
       {/* 头部 */}
-      <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[rgba(109,204,255,0.06)] px-4 py-3">
-        <h3 className="text-sm font-semibold text-[var(--app-accent)]">配置: {block.name}</h3>
+      <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--paper-warm)] px-4 py-3">
+        <div>
+          <div className="app-kicker no-rule text-[0.62rem] mb-0.5">Block Config</div>
+          <h3 className="text-sm font-medium text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>
+            {block.name}
+          </h3>
+        </div>
         <div className="flex items-center gap-2">
           {canSaveAsTemplate && (
             <button
               onClick={handleSaveAsTemplate}
               disabled={saving}
-              className="rounded p-1.5 text-[var(--app-accent)] transition hover:bg-[var(--app-accent-soft)] disabled:opacity-50"
+              className="rounded-sm p-1.5 text-[var(--app-accent-strong)] transition hover:bg-[var(--app-accent-soft)] disabled:opacity-50"
               title="保存为模板"
             >
               <Save size={14} />
@@ -90,12 +95,12 @@ export function BlockConfigPanel() {
         {/* 块名称 */}
         <Field label="名称">
           <input
-            className={`input-field ${block.name.includes('.') ? 'border-red-400 focus:ring-red-200 focus:border-red-400' : ''}`}
+            className={`input-field ${block.name.includes('.') ? 'border-[var(--bruise)] focus:ring-[var(--bruise-soft)]' : ''}`}
             value={block.name}
             onChange={(e) => updateBlock(block!.id, { name: e.target.value })}
           />
           {block.name.includes('.') && (
-            <p className="text-[10px] text-red-500 mt-0.5">名称不能包含「.」，请修改</p>
+            <p className="text-[10px] text-[var(--app-danger)] mt-0.5">名称不能包含「.」，请修改</p>
           )}
         </Field>
 
@@ -156,12 +161,12 @@ function ConnectionDisplay({
           return (
             <div
               key={conn.from_block_id}
-              className="rounded-2xl border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-2.5 py-2 text-xs"
+              className="rounded-sm border border-[var(--app-border)] bg-[var(--paper-warm)] px-2.5 py-2 text-xs"
             >
               {/* 连接头: 名称 + 删除 */}
-              <div className="flex items-center justify-between text-[var(--app-accent)]">
+              <div className="flex items-center justify-between text-[var(--app-accent-strong)]">
                 <span className="flex items-center gap-1.5">
-                  <span className="text-sky-400">←</span>
+                  <span className="text-[var(--app-accent)]">←</span>
                   <span className="font-medium">{sourceBlock?.name || conn.from_block_id}</span>
                 </span>
                 <button
@@ -196,7 +201,7 @@ function ConnectionDisplay({
 
               {/* 已选 key 提示 */}
               {conn.from_key && (
-                <p className="mt-1 text-[10px] text-[var(--app-accent)]">
+                <p className="mt-1 text-[10px] text-[var(--app-accent-strong)]">
                   仅接收: <span className="font-mono font-medium">{conn.from_key}</span>
                 </p>
               )}
@@ -328,11 +333,11 @@ function AIConfig({ block }: { block: Block }) {
     <>
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-medium text-gray-500">提示词</label>
+          <label className="text-xs font-medium text-[var(--app-text-soft)]">提示词</label>
           <div className="relative">
             <button
               onClick={() => setShowVarPicker(!showVarPicker)}
-              className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-sky-600 hover:bg-sky-50 rounded transition"
+              className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-[var(--app-accent-strong)] hover:bg-[var(--app-accent-soft)] rounded-sm transition"
               title="插入上游变量"
             >
               <Variable size={12} />
@@ -341,9 +346,9 @@ function AIConfig({ block }: { block: Block }) {
 
             {/* 变量选择面板 */}
             {showVarPicker && (
-              <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-30 max-h-64 overflow-y-auto">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-sm border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)] z-30 max-h-64 overflow-y-auto" style={{ animation: 'panel-slide-in 0.3s var(--ease-ink)' }}>
                 {availableVars.length === 0 ? (
-                  <p className="p-3 text-xs text-gray-400 text-center">
+                  <p className="p-3 text-xs text-[var(--app-text-muted)] text-center">
                     暂无可用变量<br />
                     <span className="text-[10px]">请先在前面的栏中添加块</span>
                   </p>
@@ -351,15 +356,15 @@ function AIConfig({ block }: { block: Block }) {
                   <>
                     {inputVars.length > 0 && (
                       <div className="px-2 pt-2 pb-1">
-                        <p className="text-[10px] text-gray-400 font-medium mb-1">用户输入</p>
+                        <p className="app-kicker no-rule text-[10px] mb-1">用户输入</p>
                         {inputVars.map((v) => (
                           <button
                             key={v.template}
                             onClick={() => insertVar(v.template)}
-                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-sky-50 rounded flex items-center justify-between group"
+                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-[var(--app-accent-soft)] rounded-sm flex items-center justify-between group"
                           >
-                            <span className="text-gray-700">{v.label}</span>
-                            <code className="text-[10px] text-sky-500 font-mono opacity-0 group-hover:opacity-100 transition">
+                            <span className="text-[var(--app-text)]">{v.label}</span>
+                            <code className="text-[10px] text-[var(--app-accent)] font-mono opacity-0 group-hover:opacity-100 transition">
                               {v.template}
                             </code>
                           </button>
@@ -367,16 +372,16 @@ function AIConfig({ block }: { block: Block }) {
                       </div>
                     )}
                     {blockVars.length > 0 && (
-                      <div className="px-2 pt-2 pb-1 border-t border-gray-100">
-                        <p className="text-[10px] text-gray-400 font-medium mb-1">上游块输出</p>
+                      <div className="px-2 pt-2 pb-1 border-t border-[var(--app-border)]">
+                        <p className="app-kicker no-rule text-[10px] mb-1">上游块输出</p>
                         {blockVars.map((v) => (
                           <button
                             key={v.template}
                             onClick={() => insertVar(v.template)}
-                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-sky-50 rounded flex items-center justify-between group"
+                            className="w-full text-left px-2 py-1.5 text-xs hover:bg-[var(--app-accent-soft)] rounded-sm flex items-center justify-between group"
                           >
-                            <span className="text-gray-700">{v.label}</span>
-                            <code className="text-[10px] text-sky-500 font-mono opacity-0 group-hover:opacity-100 transition">
+                            <span className="text-[var(--app-text)]">{v.label}</span>
+                            <code className="text-[10px] text-[var(--app-accent)] font-mono opacity-0 group-hover:opacity-100 transition">
                               {v.template}
                             </code>
                           </button>
@@ -399,8 +404,8 @@ function AIConfig({ block }: { block: Block }) {
           placeholder="告诉 AI 你想让它做什么...&#10;&#10;使用 {{变量}} 引用上游数据，例如:&#10;{{input.url}} — 引用用户输入&#10;{{块名称}} — 引用上游块输出"
         />
         {availableVars.length > 0 && (
-          <p className="text-[10px] text-gray-400 mt-1">
-            使用 <code className="bg-gray-100 px-1 rounded">{'{{'}</code>变量名<code className="bg-gray-100 px-1 rounded">{'}}'}</code> 精确引用上游数据；不用变量则自动传入全部上游数据
+          <p className="text-[10px] text-[var(--app-text-muted)] mt-1">
+            使用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{'}</code>变量名<code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'}}'}</code> 精确引用上游数据；不用变量则自动传入全部上游数据
           </p>
         )}
       </div>
@@ -423,7 +428,7 @@ function AIConfig({ block }: { block: Block }) {
           ))}
         </select>
         {block.config.model && (
-          <p className="text-[10px] text-gray-400 mt-0.5">
+          <p className="text-[10px] text-[var(--app-text-muted)] mt-0.5">
             已选择: {providers.find((p) => p.id === block.config.model)?.name || block.config.model}
           </p>
         )}
@@ -433,15 +438,15 @@ function AIConfig({ block }: { block: Block }) {
       <div>
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+          className="flex items-center gap-1 text-xs text-[var(--app-text-soft)] hover:text-[var(--app-text)]"
         >
           {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           高级选项
         </button>
 
         {showAdvanced && (
-          <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-2">
-            <p className="text-xs text-gray-500">
+          <div className="mt-2 p-3 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm space-y-2">
+            <p className="text-xs text-[var(--app-text-soft)]">
               定义输出的 JSON key，让下游块可以精确引用。
             </p>
             <OutputSchemaEditor
@@ -489,13 +494,13 @@ function OutputSchemaEditor({
     <div className="space-y-1">
       {keys.map((key, i) => (
         <div key={i} className="flex items-center gap-2">
-          <span className="text-xs font-mono bg-white px-2 py-1 rounded border flex-1">{key}</span>
-          <button onClick={() => removeKey(i)} className="text-red-400 text-xs hover:text-red-600">
+          <span className="text-xs font-mono bg-[var(--card)] px-2 py-1 rounded-sm border border-[var(--line)] flex-1">{key}</span>
+          <button onClick={() => removeKey(i)} className="text-[var(--app-danger)] text-xs hover:text-[var(--rust-ink)]">
             删除
           </button>
         </div>
       ))}
-      <button onClick={addKey} className="text-xs text-sky-500 hover:text-sky-700">
+      <button onClick={addKey} className="text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)]">
         + 添加 Key
       </button>
     </div>
@@ -569,12 +574,12 @@ function PluginBlockConfig({ block }: { block: Block }) {
 
   return (
     <>
-      <div className="p-3 bg-teal-50 rounded-lg">
-        <p className="text-xs text-teal-700 font-medium mb-1">插件块</p>
-        <p className="text-xs text-teal-600">
+      <div className="p-3 bg-[var(--moss-soft)] border border-[var(--line)] rounded-sm">
+        <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--moss)' }}>Plugin Block</p>
+        <p className="text-xs text-[var(--app-text)]">
           插件 ID: <span className="font-mono">{block.config.plugin_id || '未配置'}</span>
         </p>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-[var(--app-text-soft)] mt-2">
           插件的参数（如 Token）在「插件管理」页面中配置。
         </p>
       </div>
@@ -591,30 +596,30 @@ function PluginBlockConfig({ block }: { block: Block }) {
           />
           <button
             onClick={() => setShowVariables(!showVariables)}
-            className="text-xs text-sky-500 hover:text-sky-700 flex items-center gap-1"
+            className="text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)] flex items-center gap-1"
           >
             <Variable size={12} />
             {showVariables ? '隐藏' : '显示'}可用变量
           </button>
           {showVariables && availableVariables.length > 0 && (
-            <div className="p-2 bg-sky-50 rounded text-xs space-y-1 max-h-40 overflow-y-auto">
+            <div className="p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm text-xs space-y-1 max-h-40 overflow-y-auto">
               {availableVariables.map((v, i) => (
                 <div key={i} className="flex items-start gap-2">
-                  <code className="text-sky-700 font-mono shrink-0">{v.ref}</code>
-                  <span className="text-gray-500">← {v.desc}</span>
+                  <code className="text-[var(--app-accent-strong)] font-mono shrink-0">{v.ref}</code>
+                  <span className="text-[var(--app-text-soft)]">← {v.desc}</span>
                 </div>
               ))}
             </div>
           )}
           {showVariables && availableVariables.length === 0 && (
-            <p className="text-xs text-gray-400 p-2 bg-gray-50 rounded">
+            <p className="text-xs text-[var(--app-text-muted)] p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm">
               当前没有可用的上游变量（需要在前面的栏中添加输入块或其他块）
             </p>
           )}
         </div>
       </Field>
 
-      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+      <div className="text-xs text-[var(--app-text-soft)] p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm">
         <p className="font-medium mb-1">说明：</p>
         <ul className="list-disc list-inside space-y-0.5">
           <li>留空：插件自动接收上游数据（JSON 或文本格式）</li>
@@ -627,14 +632,14 @@ function PluginBlockConfig({ block }: { block: Block }) {
       {pluginSchema && (pluginSchema.input_schema || pluginSchema.output_schema) && (
         <div className="space-y-3">
           {pluginSchema.input_schema && (
-            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-              <p className="text-xs font-medium text-amber-700 mb-1.5">插件期望的输入格式</p>
+            <div className="p-3 bg-[var(--rust-soft)] rounded-sm border border-[var(--line)]">
+              <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--rust-ink)' }}>插件期望的输入格式</p>
               <PluginSchemaDisplay schema={pluginSchema.input_schema} />
             </div>
           )}
           {pluginSchema.output_schema && (
-            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-              <p className="text-xs font-medium text-emerald-700 mb-1.5">插件输出格式</p>
+            <div className="p-3 bg-[var(--moss-soft)] rounded-sm border border-[var(--line)]">
+              <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--moss)' }}>插件输出格式</p>
               <PluginSchemaDisplay schema={pluginSchema.output_schema} />
             </div>
           )}
@@ -653,14 +658,14 @@ function PluginSchemaDisplay({ schema }: { schema: Record<string, unknown> }) {
 
   return (
     <div className="space-y-1.5">
-      {description && <p className="text-[11px] text-gray-600">{description}</p>}
-      {notes && <p className="text-[11px] text-amber-600 font-medium">{notes}</p>}
+      {description && <p className="text-[11px] text-[var(--app-text-soft)]">{description}</p>}
+      {notes && <p className="text-[11px] text-[var(--app-accent-strong)] font-medium">{notes}</p>}
       {examples && examples.length > 0 && (
         <div>
-          <p className="text-[10px] text-gray-500 mb-0.5">示例：</p>
+          <p className="text-[10px] text-[var(--app-text-muted)] mb-0.5">示例：</p>
           <div className="space-y-1">
             {examples.map((ex, i) => (
-              <code key={i} className="block text-[10px] bg-white/80 px-2 py-1 rounded border border-gray-200 font-mono text-gray-700 break-all">
+              <code key={i} className="block text-[10px] bg-[var(--card)] px-2 py-1 rounded-sm border border-[var(--line)] font-mono text-[var(--app-text-soft)] break-all">
                 {typeof ex === 'string' ? ex : JSON.stringify(ex)}
               </code>
             ))}
@@ -669,12 +674,12 @@ function PluginSchemaDisplay({ schema }: { schema: Record<string, unknown> }) {
       )}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="text-[10px] text-sky-500 hover:text-sky-700"
+        className="text-[10px] text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)]"
       >
         {expanded ? '收起' : '查看完整 Schema'}
       </button>
       {expanded && (
-        <pre className="text-[10px] bg-white/80 p-2 rounded border border-gray-200 font-mono text-gray-600 overflow-x-auto max-h-48 overflow-y-auto">
+        <pre className="text-[10px] bg-[var(--card)] p-2 rounded-sm border border-[var(--line)] font-mono text-[var(--app-text-soft)] overflow-x-auto max-h-48 overflow-y-auto">
           {JSON.stringify(schema, null, 2)}
         </pre>
       )}
@@ -732,30 +737,30 @@ function InputConfig({ block }: { block: Block }) {
 
   return (
     <>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-[var(--app-text-soft)]">
         定义运行时用户需要填写的输入字段。
-        AI 块的提示词中可以用 <code className="bg-gray-100 px-1 rounded">{'{{input.字段名}}'}</code> 引用。
+        AI 块的提示词中可以用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{input.字段名}}'}</code> 引用。
       </p>
 
       {fields.length === 0 ? (
         <div className="py-4 text-center">
-          <p className="text-sm text-gray-400 mb-3">暂无字段，点击下方添加</p>
+          <p className="text-sm text-[var(--app-text-muted)] mb-3">暂无字段，点击下方添加</p>
         </div>
       ) : (
         <div className="space-y-2">
           {fields.map((field, i) => (
-            <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
+            <div key={i} className="p-3 bg-[var(--paper-warm)] rounded-sm border border-[var(--line)] space-y-2">
               {/* 第一行: 标签 + 删除 */}
               <div className="flex items-center gap-2">
                 <input
-                  className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-sky-300 focus:border-sky-400"
+                  className="input-field flex-1 py-1 text-sm"
                   value={field.label}
                   onChange={(e) => updateField(i, { label: e.target.value })}
                   placeholder="字段标签"
                 />
                 <button
                   onClick={() => removeField(i)}
-                  className="p-1 text-gray-400 hover:text-red-500 transition"
+                  className="p-1 text-[var(--app-text-muted)] hover:text-[var(--app-danger)] transition"
                   title="删除字段"
                 >
                   <X size={14} />
@@ -765,7 +770,7 @@ function InputConfig({ block }: { block: Block }) {
               {/* 第二行: 类型 + 必填 */}
               <div className="flex items-center gap-2">
                 <select
-                  className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-sky-300"
+                  className="input-field flex-1 py-1 text-xs"
                   value={field.field_type}
                   onChange={(e) => updateField(i, { field_type: e.target.value as InputField['field_type'] })}
                 >
@@ -775,28 +780,28 @@ function InputConfig({ block }: { block: Block }) {
                     </option>
                   ))}
                 </select>
-                <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap cursor-pointer">
+                <label className="flex items-center gap-1 text-xs text-[var(--app-text-soft)] whitespace-nowrap cursor-pointer">
                   <input
                     type="checkbox"
                     checked={field.required}
                     onChange={(e) => updateField(i, { required: e.target.checked })}
-                    className="rounded border-gray-300 text-sky-500 focus:ring-sky-300"
+                    className="rounded-sm border-[var(--line-strong)] text-[var(--app-accent)] focus:ring-[var(--app-accent-soft)]"
                   />
                   必填
                 </label>
               </div>
 
               {/* 变量名提示 */}
-              <p className="text-[10px] text-gray-400 font-mono">
-                变量名: {'{{'}<span className="text-sky-500">input.{field.name}</span>{'}}'}
+              <p className="text-[10px] text-[var(--app-text-muted)] font-mono">
+                变量名: {'{{'}<span className="text-[var(--app-accent-strong)]">input.{field.name}</span>{'}}'}
               </p>
               {otherFieldNames.has(field.name) && (
-                <p className="text-[10px] text-amber-600 font-medium mt-0.5">
+                <p className="text-[10px] text-[var(--app-warning)] font-medium mt-0.5">
                   字段名「{field.name}」与其他 Input 块中的字段重复，运行时会互相覆盖
                 </p>
               )}
               {fields.filter((f) => f.name === field.name).length > 1 && (
-                <p className="text-[10px] text-red-500 font-medium mt-0.5">
+                <p className="text-[10px] text-[var(--app-danger)] font-medium mt-0.5">
                   当前块内存在同名字段，请修改
                 </p>
               )}
@@ -807,7 +812,7 @@ function InputConfig({ block }: { block: Block }) {
 
       <button
         onClick={addField}
-        className="w-full py-2 text-xs text-sky-500 hover:text-sky-700 hover:bg-sky-50 border border-dashed border-sky-200 rounded-lg transition"
+        className="w-full py-2 text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)] hover:bg-[var(--app-accent-soft)] border border-dashed border-[var(--line-strong)] rounded-sm transition"
       >
         + 添加输入字段
       </button>
@@ -820,7 +825,7 @@ function InputConfig({ block }: { block: Block }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-[var(--app-text-soft)] mb-1">{label}</label>
       {children}
     </div>
   )

@@ -1,6 +1,12 @@
-import { ArrowDown, ArrowLeft, ArrowRight, Factory, Settings, Sparkles, Wrench, Workflow } from 'lucide-react'
+/**
+ * Lindle 首页 —— Paper & Ink 设计语言
+ *
+ * stage = 'overview'  : 卷首（介绍 + Flow / Agent 两端 + 织线 timeline）
+ * stage = 'entry'     : 入场（Settings / Flow / Agent 三个入口卡）
+ */
+import { ArrowLeft, ArrowRight, Settings, Sparkles, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { ThemeToggle } from './ui/ThemeToggle'
+import { useEffect, useRef } from 'react'
 
 interface Props {
   stage: 'overview' | 'entry'
@@ -12,436 +18,388 @@ interface Props {
   headerActions?: ReactNode
 }
 
-const flowHighlights = [
-  {
-    title: '可视化流程编排',
-    description: '流程结构直接可见，阶段顺序、节点关系与执行路径更容易理解和调整。',
-  },
-  {
-    title: '自然语言参与构建',
-    description: '除了手动编排，也可以通过自然语言生成或修改流程，不必从头逐项手写。',
-  },
-  {
-    title: 'Flow 与 Agent 打通',
-    description: '流程不仅用于执行，还可以继续沉淀为模板、Skill，并进入 Agent 的调用链路；Agent 也可以反向帮助生成和调整 Flow。',
-  },
+const HERO_TITLE = '把任务，像纺织一样收敛成结构。'
+
+const LOOP = [
+  { num: 'i.',   title: '编排', desc: '把任务组织成可见阶段。' },
+  { num: 'ii.',  title: '制造', desc: '高频节点沉淀成模板。' },
+  { num: 'iii.', title: '封装', desc: '导出为可调用的 Skill。' },
+  { num: 'iv.',  title: '调度', desc: 'Agent 按上下文调用。' },
 ]
 
-const capabilityPanels = {
-  flow: {
-    kicker: 'Flow',
-    title: '可视化流程编排',
-    description: '将复杂任务拆成清晰阶段，通过节点连接与阶段组织定义输入、处理与输出。整个执行结构可见、可调、可复用，也可以由自然语言继续辅助生成与修改。',
-    points: [
-      '可视化组织阶段与节点',
-      '支持拖拽调整执行关系',
-      '支持自然语言生成与修改',
-    ],
-  },
-  agent: {
-    kicker: 'Agent',
-    title: '动态能力调用',
-    description: 'Agent 侧的特殊性不在聊天本身，而在它能把 Skill、Flow 执行器和系统提示词组合成运行时决策层。',
-    points: [
-      '根据上下文动态调用能力',
-      '可执行已有 Flow 与 Skills',
-      '可协助生成与修正新的 Flow',
-    ],
-  },
-  relation: {
-    kicker: 'Flow x Agent',
-    title: '结构化执行与动态调用',
-    description: 'Flow 负责把任务结构化、可视化、可执行；Agent 负责在运行时理解任务、选择能力并组织调用，同时也能继续协助生产新的 Flow。两者是一条连续链路。',
-    points: [
-      'Flow 提炼任务工作流',
-      'Agent 进行能力调度',
-      '根据调用结果优化逻辑',
-    ],
-  },
-} as const
-
-const loopSteps = [
-  {
-    icon: Workflow,
-    title: 'Flow 编排',
-    code: '01',
-    description: '将复杂任务组织为清晰、可见、可调整的流程结构。',
-  },
-  {
-    icon: Factory,
-    title: '模板制造',
-    code: '02',
-    description: '把高频节点沉淀为可复用模板，减少重复搭建。',
-  },
-  {
-    icon: Wrench,
-    title: '导出 Skill',
-    code: '03',
-    description: '将流程能力进一步封装，进入可调用的能力层。',
-  },
-  {
-    icon: Sparkles,
-    title: 'Agent 调用',
-    code: '04',
-    description: '在对话与任务中按上下文动态调用这些能力，并协助生成或修改下一轮 Flow。',
-  },
+const LOOM_STAGES = [
+  { idx: 'i.',   name: '目标理解',     desc: '识别任务边界',     state: 'done' as const },
+  { idx: 'ii.',  name: '阶段组织',     desc: '拆分执行阶段',     state: 'done' as const },
+  { idx: 'iii.', name: '节点连接',     desc: '组织处理路径',     state: 'now'  as const },
+  { idx: 'iv.',  name: 'Canonical Flow', desc: '抽象 · 可复用',  state: 'wait' as const },
 ]
 
-export function HomePage({ stage, onShowOverview, onShowEntry, onSelectFlow, onSelectAgent, onOpenSettings, headerActions }: Props) {
+/** Hook: IntersectionObserver to add `.in` to elements with `.reveal` */
+function useReveal(deps: unknown[] = []) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in')
+          io.unobserve(e.target)
+        }
+      })
+    }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' })
+    root.querySelectorAll('.reveal').forEach((el) => io.observe(el))
+    return () => io.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+  return containerRef
+}
+
+/** 把一段中文逐字包成 span，配合 .anim-press 做活字排印动画 */
+function PressTitle({ text, base = 0.18, step = 0.07 }: { text: string; base?: number; step?: number }) {
+  return (
+    <span className="anim-press">
+      {Array.from(text).map((ch, i) => (
+        <span key={i} style={{ animationDelay: `${base + i * step}s` }}>
+          {ch === ' ' ? '\u00A0' : ch}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+export function HomePage({
+  stage,
+  onShowOverview,
+  onShowEntry,
+  onSelectFlow,
+  onSelectAgent,
+  onOpenSettings,
+  headerActions,
+}: Props) {
   if (stage === 'entry') {
-    return (
-      <div className="app-shell">
-        <header className="app-topbar">
-          <div className="app-topbar-inner">
-            <div className="flex items-center gap-3">
-              {onShowOverview && (
-                <button onClick={onShowOverview} className="app-button app-button-ghost">
-                  <ArrowLeft size={16} />
-                  返回展示
-                </button>
-              )}
-              <div>
-                <div className="app-kicker">Workbench entry</div>
-                <div className="app-brand-mark">进入工作台</div>
+    return <EntryView
+      onShowOverview={onShowOverview}
+      onSelectFlow={onSelectFlow}
+      onSelectAgent={onSelectAgent}
+      onOpenSettings={onOpenSettings}
+      headerActions={headerActions}
+    />
+  }
+  return <OverviewView
+    onShowEntry={onShowEntry}
+    onSelectAgent={onSelectAgent}
+    headerActions={headerActions}
+  />
+}
+
+/* ============================================================
+   Overview — 卷首
+   ============================================================ */
+function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEntry: () => void; onSelectAgent: () => void; headerActions?: ReactNode }) {
+  const containerRef = useReveal([])
+
+  return (
+    <div ref={containerRef} className="app-shell">
+      <header className="app-topbar">
+        <div className="app-topbar-inner">
+          <div className="flex items-center gap-3">
+            <span className="brand-seal anim-stamp">林</span>
+            <div className="leading-tight">
+              <div className="app-brand-mark">Lindle</div>
+              <div className="text-[0.62rem] uppercase tracking-[0.22em] text-[var(--ink-soft)] mt-0.5 font-mono">
+                loom · spindle
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              {headerActions}
+          </div>
+          <div className="flex items-center gap-2">{headerActions}</div>
+        </div>
+      </header>
+
+      <main className="app-page py-12 md:py-16 lg:py-20">
+        {/* ===== HERO ===== */}
+        <section className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-center">
+          <div>
+            <span className="app-kicker anim-ink" style={{ animationDelay: '0.1s' }}>
+              Chapter I · Loom &amp; Spindle
+            </span>
+            <h1 className="app-section-title mt-6 text-4xl leading-[1.18] md:text-5xl lg:text-[3.6rem]"
+                style={{ fontWeight: 500 }}>
+              <PressTitle text="把任务，" base={0.20} />
+              <br />
+              <PressTitle text="像" base={0.52} />
+              <em><PressTitle text="纺织" base={0.60} /></em>
+              <PressTitle text="一样" base={0.74} />
+              <br />
+              <PressTitle text="收敛成结构。" base={0.88} />
+            </h1>
+            <p className="anim-ink mt-5 italic text-[var(--ink-soft)] text-lg"
+               style={{ fontFamily: 'Fraunces, serif', animationDelay: '1.5s' }}>
+              To weave capability, to converge intent.
+            </p>
+            <div className="anim-ink mt-9 flex flex-wrap gap-3" style={{ animationDelay: '1.75s' }}>
+              <button onClick={onShowEntry} className="app-button app-button-primary">
+                走进工坊
+                <ArrowRight size={16} />
+              </button>
+              <a href="#cap" className="app-button app-button-secondary">读一读原理</a>
             </div>
           </div>
-        </header>
 
-        <main className="app-page py-10 md:py-14">
-          <section className="app-card p-8 md:p-12">
-            <div className="max-w-3xl">
-              <div className="app-kicker mb-3">Operation entry</div>
-              <h1 className="app-section-title text-4xl leading-tight md:text-5xl">选择你的起点</h1>
-              <p className="app-muted mt-4 text-sm leading-8 md:text-base">
-                进入 Flow 或者 Agent 工作台。
+          {/* Loom card */}
+          <aside className="app-card stitched anim-loom relative p-7 pt-8">
+            <span className="stamp-corner">Canvas · 01 / 04</span>
+            <div className="font-serif italic text-lg" style={{ fontFamily: 'Fraunces, serif' }}>需求 → 结构化工作流</div>
+            <div className="mt-1 mb-5 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-[var(--ink-soft)]">
+              workflow preview · 4 stages
+            </div>
+            <ul className="flex flex-col">
+              {LOOM_STAGES.map((s) => (
+                <li key={s.idx} className="grid grid-cols-[34px_1fr_auto] gap-3 items-center py-3 border-b border-dashed border-[var(--line)] last:border-b-0">
+                  <span className="font-serif italic text-[var(--rust)]" style={{ fontFamily: 'Fraunces, serif' }}>{s.idx}</span>
+                  <div>
+                    <div className="font-medium text-[0.95rem]" style={{ fontFamily: '"Noto Serif SC", serif' }}>{s.name}</div>
+                    <div className="font-mono text-[0.7rem] text-[var(--ink-soft)] mt-0.5">{s.desc}</div>
+                  </div>
+                  <span className={`font-mono text-[0.66rem] tracking-wider ${
+                    s.state === 'done' ? 'text-[var(--moss)]' :
+                    s.state === 'now'  ? 'text-[var(--rust)] relative pr-3.5' :
+                    'text-[var(--ink-faint)]'
+                  }`}>
+                    {s.state === 'done' ? 'done' : s.state === 'now' ? 'run' : 'wait'}
+                    {s.state === 'now' && (
+                      <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--rust)]"
+                            style={{ animation: 'ink-pulse 1.6s ease-in-out infinite' }} />
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {/* loom thread */}
+            <div className="mt-5 pt-4 border-t border-dashed border-[var(--line)] flex items-center gap-3">
+              <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Loom</span>
+              <span className="flex-1 h-px running-thread" />
+              <span className="block w-2 h-2 bg-[var(--rust)]" style={{ transform: 'rotate(45deg)' }} />
+              <span className="flex-1 h-px running-thread" />
+              <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Spindle</span>
+            </div>
+          </aside>
+        </section>
+
+        {/* ===== CAPABILITIES ===== */}
+        <section id="cap" className="mt-32">
+          <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
+            <div className="flex flex-col gap-3">
+              <span className="app-kicker">Chapter II · Two Ends</span>
+              <p className="italic text-[var(--ink-soft)] text-[0.96rem] leading-relaxed" style={{ fontFamily: 'Fraunces, serif' }}>
+                Structure, then skill —<br />Flow on one end, Agent on the other.
               </p>
             </div>
+            <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
+              一端<em>编排</em>结构，
+              <br />另一端<em>调度</em>能力。
+            </h2>
+          </div>
 
-            <div className={`mt-10 grid gap-4 ${onOpenSettings ? 'lg:grid-cols-[0.65fr_1fr_1fr]' : 'md:grid-cols-2'}`}>
-              {onOpenSettings && (
-                <button onClick={onOpenSettings} className="app-card-soft flex flex-col items-start gap-4 p-6 text-left transition hover:-translate-y-1">
-                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-4 text-[var(--app-accent)]">
-                    <Settings size={22} />
-                  </div>
-                  <div>
-                    <div className="app-kicker mb-2">System setup</div>
-                    <h2 className="app-section-title text-2xl">设置</h2>
-                    <p className="app-muted mt-2 text-sm leading-7">
-                      配置模型源、默认 Provider 与 AI 编辑能力。
-                    </p>
-                  </div>
-                </button>
-              )}
+          <div className="reveal stagger grid gap-3.5 md:grid-cols-2">
+            <button onClick={onShowEntry} className="app-card-soft p-9 text-left flex flex-col gap-4 relative overflow-hidden group">
+              <span className="absolute -bottom-[55%] -right-[25%] w-4/5 aspect-square rounded-full border border-dashed border-[var(--line)] pointer-events-none transition-transform duration-700 group-hover:[transform:rotate(-10deg)_scale(1.05)]" />
+              <div className="flex items-center justify-between">
+                <span className="w-[50px] h-[50px] rounded-full border-[1.5px] border-[var(--ink)] inline-flex items-center justify-center text-[var(--ink)] transition-transform duration-500 group-hover:rotate-[18deg]">
+                  <Workflow size={20} />
+                </span>
+                <span className="app-kicker no-rule font-mono">Deterministic</span>
+              </div>
+              <div className="font-medium text-[1.6rem]" style={{ fontFamily: '"Noto Serif SC", serif' }}>进入 Flow</div>
+              <div className="italic text-[var(--ink-soft)] text-[0.92rem]" style={{ fontFamily: 'Fraunces, serif' }}>
+                Where each stage is visible.
+              </div>
+              <p className="text-[var(--ink-mid)] text-[0.92rem] leading-relaxed">
+                把任务拆成可见的阶段，定义输入、处理与输出，沉淀为可复用的结构。
+              </p>
+              <span className="self-start mt-2 inline-flex items-center gap-2 px-4 py-1.5 border border-[var(--ink)] rounded-sm font-mono text-[0.74rem] tracking-[0.14em] uppercase transition-colors duration-300 group-hover:bg-[var(--ink)] group-hover:text-[var(--paper)]">
+                workflows / new →
+              </span>
+            </button>
 
-              <button onClick={onSelectFlow} className="app-card-soft group flex h-full flex-col items-start gap-5 p-6 text-left transition hover:-translate-y-1">
-                <div className="flex w-full items-start justify-between">
-                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-4 text-[var(--app-accent)]">
-                    <Workflow size={26} />
-                  </div>
-                </div>
-                <div>
-                  <div className="app-kicker mb-2">Deterministic systems</div>
-                  <h2 className="app-section-title text-3xl">进入 Flow</h2>
-                  <p className="app-muted mt-3 text-sm leading-7">
-                    开始可视化流程编排，组织结构、执行路径与复用方式。
-                  </p>
-                </div>
-              </button>
+            <button onClick={onSelectAgent} className="app-card-soft p-9 text-left flex flex-col gap-4 relative overflow-hidden group">
+              <span className="absolute -bottom-[55%] -right-[25%] w-4/5 aspect-square rounded-full border border-dashed border-[var(--line)] pointer-events-none transition-transform duration-700 group-hover:[transform:rotate(-10deg)_scale(1.05)]" />
+              <div className="flex items-center justify-between">
+                <span className="w-[50px] h-[50px] rounded-full border-[1.5px] border-[var(--rust)] inline-flex items-center justify-center text-[var(--rust)] transition-transform duration-500 group-hover:rotate-[18deg]">
+                  <Sparkles size={20} />
+                </span>
+                <span className="app-kicker no-rule font-mono">Dynamic</span>
+              </div>
+              <div className="font-medium text-[1.6rem] flex items-center gap-2" style={{ fontFamily: '"Noto Serif SC", serif' }}>
+                进入 Agent
+                <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>BETA</span>
+              </div>
+              <div className="italic text-[var(--ink-soft)] text-[0.92rem]" style={{ fontFamily: 'Fraunces, serif' }}>
+                A conversation that performs.
+              </div>
+              <p className="text-[var(--ink-mid)] text-[0.92rem] leading-relaxed">
+                在对话里按上下文调度 Skills 与 Flows，把运行时意图组织成一次执行。
+              </p>
+              <span className="self-start mt-2 inline-flex items-center gap-2 px-4 py-1.5 border border-[var(--ink)] rounded-sm font-mono text-[0.74rem] tracking-[0.14em] uppercase transition-colors duration-300 group-hover:bg-[var(--rust)] group-hover:border-[var(--rust)] group-hover:text-[var(--paper)]">
+                agents / new →
+              </span>
+            </button>
+          </div>
+        </section>
 
-              <button onClick={onSelectAgent} className="app-card-soft group flex h-full flex-col items-start gap-5 p-6 text-left transition hover:-translate-y-1">
-                <div className="flex w-full items-start justify-between">
-                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-4 text-[var(--app-accent)]">
-                    <Sparkles size={26} />
-                  </div>
-                </div>
-                <div>
-                  <div className="app-kicker mb-2">Dynamic orchestration</div>
-                  <h2 className="app-section-title flex items-center gap-2 text-3xl">
-                    进入 Agent
-                    <span className="app-pill border-0 bg-[rgba(244,107,122,0.12)] text-[var(--app-danger)]">Beta</span>
-                  </h2>
-                  <p className="app-muted mt-3 text-sm leading-7">
-                    开始对话式能力调用，组合 Skills 与 Flows 执行任务。
-                  </p>
-                </div>
-              </button>
+        {/* ===== LOOP ===== */}
+        <section className="mt-32">
+          <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
+            <div className="flex flex-col gap-3">
+              <span className="app-kicker">Chapter III · The Weave</span>
+              <p className="italic text-[var(--ink-soft)] text-[0.96rem]" style={{ fontFamily: 'Fraunces, serif' }}>
+                One loop, woven continuously.
+              </p>
             </div>
-          </section>
-        </main>
-      </div>
-    )
-  }
+            <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
+              编织不是一次，
+              <br />是<em>持续</em>的沉淀。
+            </h2>
+          </div>
 
-  const capabilityCards = [
-    { id: 'flow', ...capabilityPanels.flow },
-    { id: 'agent', ...capabilityPanels.agent },
-    { id: 'relation', ...capabilityPanels.relation },
-  ] as const
+          <div className="reveal stagger relative pt-7 pb-10">
+            <div className="absolute left-0 right-0 top-[46px] flex items-center pointer-events-none gap-0">
+              <div className="flex-1 running-thread" />
+              <div className="flex-1 running-thread rust" />
+              <div className="flex-1 running-thread" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative">
+              {LOOP.map((s, i) => (
+                <div key={s.title} className="text-center px-2">
+                  <span className="block w-3.5 h-3.5 bg-[var(--rust)] mx-auto mb-7 relative"
+                        style={{ transform: 'rotate(45deg)', animation: `knot-in 0.7s var(--ease-ink) ${0.05 + i * 0.15}s backwards` }}>
+                    <span className="absolute -inset-[5px] border border-dashed border-[var(--rust)] rounded-full opacity-50"
+                          style={{ transform: 'rotate(-45deg)' }} />
+                  </span>
+                  <span className="block italic text-[0.82rem] text-[var(--rust)] mb-1" style={{ fontFamily: 'Fraunces, serif' }}>{s.num}</span>
+                  <h4 className="text-[1rem] font-medium mb-1" style={{ fontFamily: '"Noto Serif SC", serif' }}>{s.title}</h4>
+                  <p className="font-mono text-[0.68rem] text-[var(--ink-soft)] tracking-wide leading-snug">{s.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
+        {/* ===== Footer signature ===== */}
+        <div className="mt-20 pt-10 border-t border-[var(--line)] flex items-center justify-between font-mono text-[0.7rem] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
+          <span>Lindle · MIT</span>
+          <span className="italic normal-case tracking-normal text-[var(--ink-mid)] inline-flex items-center gap-3 text-[0.86rem]"
+                style={{ fontFamily: 'Fraunces, serif' }}>
+            <span className="inline-block w-16 align-middle running-thread" />
+            Orchestrate, as one weaves
+            <span className="inline-block w-16 align-middle running-thread" />
+          </span>
+          <button onClick={onShowEntry} className="hover:text-[var(--rust)] transition">
+            workshop →
+          </button>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+/* ============================================================
+   Entry — 三入口卡（Settings · Flow · Agent）
+   ============================================================ */
+function EntryView({
+  onShowOverview, onSelectFlow, onSelectAgent, onOpenSettings, headerActions,
+}: {
+  onShowOverview?: () => void
+  onSelectFlow: () => void
+  onSelectAgent: () => void
+  onOpenSettings?: () => void
+  headerActions?: ReactNode
+}) {
   return (
     <div className="app-shell">
       <header className="app-topbar">
         <div className="app-topbar-inner">
-          <div>
-            <div className="app-kicker">Visual Systems for Structured Flows</div>
-            <div className="app-brand-mark">
-              <a href="https://www.lightaitech.com" className="app-brand-link">
-                LightAITech
-              </a>
-              <span aria-hidden="true">｜</span>
-              <span>TWeak</span>
+          <div className="flex items-center gap-3">
+            {onShowOverview && (
+              <button onClick={onShowOverview} className="app-button app-button-ghost">
+                <ArrowLeft size={15} />
+                返回卷首
+              </button>
+            )}
+            <span className="brand-seal">林</span>
+            <div className="leading-tight">
+              <div className="app-kicker no-rule">Workbench Entry</div>
+              <div className="app-brand-mark">进入工作台</div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            {headerActions}
-          </div>
+          <div className="flex items-center gap-2">{headerActions}</div>
         </div>
       </header>
 
-      <main className="app-page py-10 md:py-14 lg:py-16">
-        <section className="app-card overflow-hidden p-7 md:p-12 lg:min-h-[78vh] lg:p-14">
-          <div className="flex h-full flex-col justify-center">
-            <div className="max-w-4xl space-y-6">
-              <div className="app-kicker">Visual flow orchestration</div>
-              <h1 className="app-section-title max-w-5xl text-4xl leading-tight md:text-6xl md:leading-[1.06]">
-                可视化流程编排，
-                <br />
-                让复杂任务一目了然
-              </h1>
-              <p className="app-muted max-w-4xl text-base leading-8 md:text-lg">
-                将复杂任务组织为清晰、可见、可调整的流程结构，使执行路径、阶段关系与能力边界一目了然。同时支持自然语言处理，不必逐项手写配置。
-              </p>
-            </div>
-
-            <div className="mt-10 lg:mt-14">
-              <div className="app-card-soft relative overflow-hidden p-5 md:p-6 lg:p-8">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 opacity-80"
-                >
-                  <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-[rgba(109,204,255,0.08)] to-transparent" />
-                  <div className="absolute inset-0 bg-[linear-gradient(var(--app-grid)_1px,transparent_1px),linear-gradient(90deg,var(--app-grid)_1px,transparent_1px)] bg-[size:22px_22px]" />
-                </div>
-
-                <div className="relative">
-                  <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                    <div>
-                      <div className="app-kicker mb-2">Micro orchestration preview</div>
-                      <h2 className="app-section-title text-2xl md:text-3xl">可视化编排示意</h2>
-                    </div>
-                    <div className="rounded-full border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] px-3 py-1 text-xs text-[var(--app-text-soft)]">
-                      Input {'->'} Flow
-                    </div>
-                  </div>
-
-                  <div className="rounded-[26px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.06)] p-4 md:p-5 lg:p-6">
-                    <div className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] px-4 py-3">
-                      <div className="app-kicker mb-2">Input</div>
-                      <div className="font-mono text-sm leading-7 text-[var(--app-text)]">
-                        &gt; 将需求整理为结构清楚、可复用、可继续扩展的流程
-                        <span className="hero-cursor ml-1 inline-block h-[1.05em] w-2 align-[-0.18em]" />
-                      </div>
-                    </div>
-
-                    <div className="relative mt-5 overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-[rgba(109,204,255,0.05)] p-4 md:p-5">
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 hidden md:block"
-                      >
-                        <div className="absolute inset-0 bg-[linear-gradient(var(--app-grid)_1px,transparent_1px),linear-gradient(90deg,var(--app-grid)_1px,transparent_1px)] bg-[size:20px_20px] opacity-45" />
-                        <div className="micro-flow-sweep absolute inset-y-4 left-[18%] w-[18%] rounded-full bg-[linear-gradient(90deg,transparent,rgba(109,204,255,0.2),transparent)] blur-md" />
-                      </div>
-
-                      <div className="relative z-10">
-                        <div className="app-kicker mb-4">Flow</div>
-                        <div className="grid gap-3 md:grid-cols-[0.9fr_1fr_1fr_0.9fr]">
-                          <div className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.36)] p-4 backdrop-blur-sm">
-                            <div className="app-kicker mb-2">01 Stage</div>
-                            <div className="app-section-title text-base">目标理解</div>
-                            <p className="app-muted mt-2 text-xs leading-6">识别任务边界与关键约束</p>
-                            <div className="mt-4 h-1.5 w-14 rounded-full bg-[rgba(109,204,255,0.22)]" />
-                          </div>
-                          <div className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.28)] p-4 backdrop-blur-sm md:translate-y-5">
-                            <div className="app-kicker mb-2">02 Stage</div>
-                            <div className="app-section-title text-base">阶段组织</div>
-                            <p className="app-muted mt-2 text-xs leading-6">拆分执行阶段与依赖关系</p>
-                            <div className="mt-4 flex gap-2">
-                              <span className="h-2.5 w-2.5 rounded-full bg-[var(--app-accent)]" />
-                              <span className="h-2.5 w-8 rounded-full bg-[rgba(109,204,255,0.18)]" />
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.28)] p-4 backdrop-blur-sm">
-                            <div className="app-kicker mb-2">03 Stage</div>
-                            <div className="app-section-title text-base">节点连接</div>
-                            <p className="app-muted mt-2 text-xs leading-6">组织处理单元与数据路径</p>
-                            <div className="mt-4 flex items-center gap-2">
-                              <span className="h-px flex-1 bg-[rgba(109,204,255,0.28)]" />
-                              <span className="h-2.5 w-2.5 rounded-full border border-[var(--app-border-strong)]" />
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.38)] p-4 backdrop-blur-sm md:translate-y-5">
-                            <div className="app-kicker mb-2">04 Result</div>
-                            <div className="app-section-title text-base">Flow</div>
-                            <p className="app-muted mt-2 text-xs leading-6">得到抽象、可执行、可复用的结构</p>
-                            <div className="mt-4 h-1.5 w-16 rounded-full bg-[rgba(109,204,255,0.24)]" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-3 md:grid-cols-3">
-              {flowHighlights.map((item, index) => (
-                <div key={item.title} className="rounded-3xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
-                  <div className="app-kicker mb-2">{String(index + 1).padStart(2, '0')}</div>
-                  <h3 className="app-section-title text-lg">{item.title}</h3>
-                  <p className="app-muted mt-2 text-sm leading-7">{item.description}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 flex items-center justify-center">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] px-4 py-2 text-xs text-[var(--app-text-soft)]">
-                <span>继续向下看 Flow 如何进入 Agent</span>
-                <ArrowDown size={14} className="text-[var(--app-accent)]" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="app-card mt-8 p-7 md:mt-10 md:p-10 lg:p-12">
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-10">
-            <div className="lg:sticky lg:top-28 lg:self-start">
-              <div className="app-kicker mb-3">Capability narrative</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">Flow / Agent / 串联</h2>
-              <p className="app-muted mt-4 max-w-md text-sm leading-8 md:text-base">
-                先把任务做成结构，再把结构沉淀为能力，最后由 Agent 在运行时调用它们。
-              </p>
-            </div>
-
-            <div className="space-y-6">
-              {capabilityCards.map((card, index) => (
-                <article
-                  key={card.id}
-                  className="app-card-soft p-6 md:p-7 lg:min-h-[300px]"
-                >
-                  <div className="flex flex-col gap-6 lg:h-full lg:justify-between">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                      <div className="max-w-2xl">
-                        <div className="app-kicker mb-3">{card.kicker}</div>
-                        <h3 className="app-section-title text-3xl md:text-4xl">{card.title}</h3>
-                        <p className="app-muted mt-4 text-sm leading-8 md:text-base">
-                          {card.description}
-                        </p>
-                      </div>
-                      <div className="self-start rounded-full border border-[var(--app-border)] bg-[var(--app-accent-soft)] px-3 py-1 text-xs text-[var(--app-text-soft)]">
-                        0{index + 1}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {card.points.map((item, pointIndex) => (
-                        <div key={item} className="rounded-2xl border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-4">
-                          <div className="app-kicker mb-2">{String(pointIndex + 1).padStart(2, '0')}</div>
-                          <p className="text-sm leading-7 text-[var(--app-text)]">{item}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="app-card mt-8 p-7 md:mt-10 md:p-12 lg:p-14">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-            <div className="max-w-3xl">
-              <div className="app-kicker mb-3">System diagram</div>
-              <h2 className="app-section-title text-3xl md:text-5xl">流程示意图</h2>
-            </div>
-            <p className="app-muted max-w-2xl text-sm leading-8 md:justify-self-end md:text-base">
-              从流程编排到能力调用，结构并不会中断，而是持续沉淀、封装并进入新的执行场景。
+      <main className="app-page py-12 md:py-16">
+        <section className="app-card p-9 md:p-12 stitched">
+          <div className="max-w-3xl">
+            <span className="app-kicker mb-3 inline-flex">Chapter IV · Entry</span>
+            <h1 className="app-section-title text-3xl md:text-5xl leading-tight mt-3 anim-press">
+              <PressTitle text="选择你的" base={0.05} />
+              <em><PressTitle text="起点" base={0.45} /></em>
+              <PressTitle text="。" base={0.65} />
+            </h1>
+            <p className="text-[var(--ink-mid)] mt-4 text-base leading-relaxed anim-ink" style={{ animationDelay: '0.85s' }}>
+              进入 Flow 或 Agent；如果是首次使用，先去配置一次 Provider。
             </p>
           </div>
 
-          <div className="relative mt-10 rounded-[32px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-6 md:p-8">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 hidden lg:block"
-            >
-              <div className="absolute left-[12%] top-[38%] h-px w-[17%] bg-gradient-to-r from-transparent via-[var(--app-accent)] to-transparent opacity-75" />
-              <div className="absolute left-[35%] top-[38%] h-px w-[17%] bg-gradient-to-r from-transparent via-[var(--app-accent)] to-transparent opacity-75" />
-              <div className="absolute left-[58%] top-[38%] h-px w-[16%] bg-gradient-to-r from-transparent via-[var(--app-accent)] to-transparent opacity-75" />
-              <div className="absolute left-[75%] top-[38%] text-[var(--app-accent)]">
-                <ArrowRight size={14} />
+          <div className={`mt-10 grid gap-3.5 ${onOpenSettings ? 'lg:grid-cols-[0.7fr_1fr_1fr]' : 'md:grid-cols-2'}`}>
+            {onOpenSettings && (
+              <button onClick={onOpenSettings} className="app-card-soft p-7 text-left flex flex-col gap-4 group relative overflow-hidden">
+                <span className="absolute -bottom-[55%] -right-[25%] w-4/5 aspect-square rounded-full border border-dashed border-[var(--line)] pointer-events-none transition-transform duration-700 group-hover:[transform:rotate(-10deg)_scale(1.05)]" />
+                <span className="w-12 h-12 rounded-full border-[1.5px] border-[var(--ink)] inline-flex items-center justify-center text-[var(--ink)] transition-transform duration-500 group-hover:rotate-[18deg]">
+                  <Settings size={18} />
+                </span>
+                <div>
+                  <div className="app-kicker no-rule mb-2">System Setup</div>
+                  <h2 className="app-section-title text-2xl">设置</h2>
+                  <p className="text-[var(--ink-mid)] mt-2 text-sm leading-relaxed">
+                    配置模型源、默认 Provider 与 AI 编辑能力。
+                  </p>
+                </div>
+              </button>
+            )}
+
+            <button onClick={onSelectFlow} className="app-card-soft p-7 text-left flex flex-col gap-4 group relative overflow-hidden">
+              <span className="absolute -bottom-[55%] -right-[25%] w-4/5 aspect-square rounded-full border border-dashed border-[var(--line)] pointer-events-none transition-transform duration-700 group-hover:[transform:rotate(-10deg)_scale(1.05)]" />
+              <div className="flex items-center justify-between">
+                <span className="w-12 h-12 rounded-full border-[1.5px] border-[var(--ink)] inline-flex items-center justify-center text-[var(--ink)] transition-transform duration-500 group-hover:rotate-[18deg]">
+                  <Workflow size={20} />
+                </span>
+                <span className="app-kicker no-rule font-mono">Deterministic</span>
               </div>
-              <div className="absolute left-[52%] top-[38%] text-[var(--app-accent)]">
-                <ArrowRight size={14} />
+              <div>
+                <h2 className="app-section-title text-3xl">进入 Flow</h2>
+                <p className="text-[var(--ink-mid)] mt-3 text-sm leading-relaxed">
+                  开始可视化流程编排，组织结构、执行路径与复用方式。
+                </p>
               </div>
-              <div className="absolute left-[29%] top-[38%] text-[var(--app-accent)]">
-                <ArrowRight size={14} />
+            </button>
+
+            <button onClick={onSelectAgent} className="app-card-soft p-7 text-left flex flex-col gap-4 group relative overflow-hidden">
+              <span className="absolute -bottom-[55%] -right-[25%] w-4/5 aspect-square rounded-full border border-dashed border-[var(--line)] pointer-events-none transition-transform duration-700 group-hover:[transform:rotate(-10deg)_scale(1.05)]" />
+              <div className="flex items-center justify-between">
+                <span className="w-12 h-12 rounded-full border-[1.5px] border-[var(--rust)] inline-flex items-center justify-center text-[var(--rust)] transition-transform duration-500 group-hover:rotate-[18deg]">
+                  <Sparkles size={20} />
+                </span>
+                <span className="app-kicker no-rule font-mono">Dynamic</span>
               </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-4 lg:items-start">
-              {loopSteps.map((step, index) => {
-                const Icon = step.icon
-
-                return (
-                  <div key={step.title} className="relative">
-                    <div className="app-card-soft relative h-full p-5 md:p-6">
-                      <div className="mb-5 flex items-center justify-between">
-                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-3 text-[var(--app-accent)]">
-                          <Icon size={20} />
-                        </div>
-                        <span className="app-kicker">{step.code}</span>
-                      </div>
-                      <h3 className="app-section-title text-xl">{step.title}</h3>
-                      <p className="app-muted mt-3 text-sm leading-7">{step.description}</p>
-                    </div>
-                    {index < loopSteps.length - 1 && (
-                      <div className="mt-3 flex items-center justify-center gap-2 text-[var(--app-text-soft)] lg:hidden">
-                        <span className="text-xs">{index === 2 ? '进入调用' : '进入下一阶段'}</span>
-                        <ArrowRight size={14} />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-          </div>
-
-          <div className="mt-10 border-t border-[var(--app-border)] pt-8 text-center md:mt-12 md:pt-10">
-            <div className="mx-auto max-w-2xl">
-              <div className="app-kicker mb-3">Enter workbench</div>
-              <h3 className="app-section-title text-3xl leading-tight md:text-4xl md:leading-[1.2]">尝试建立你的 Flow / Agent</h3>
-              <p className="app-muted mt-4 text-sm leading-8 md:text-base">
-                再复杂的任务，变成 Flow 之后也能一眼看清、随手调整。
-                <br />
-                自己跑或交给 Agent 都行，上手比你想的快。
-              </p>
-            </div>
-
-            <button
-              onClick={onShowEntry}
-              className="group mt-8 inline-flex flex-col items-center gap-3 rounded-full border border-[var(--app-border-strong)] bg-[rgba(255,255,255,0.03)] px-8 py-6 transition hover:-translate-y-1 hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
-            >
-              <span className="app-kicker">Start trial</span>
-              <span className="app-section-title text-2xl">开始使用</span>
-              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--app-border)] bg-[rgba(109,204,255,0.1)] text-[var(--app-accent)] transition group-hover:translate-y-1">
-                <ArrowDown size={18} />
-              </span>
+              <div>
+                <h2 className="app-section-title text-3xl flex items-center gap-2">
+                  进入 Agent
+                  <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>BETA</span>
+                </h2>
+                <p className="text-[var(--ink-mid)] mt-3 text-sm leading-relaxed">
+                  开始对话式能力调用，组合 Skills 与 Flows 执行任务。
+                </p>
+              </div>
             </button>
           </div>
         </section>

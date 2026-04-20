@@ -363,7 +363,8 @@ export function ConnectionLines({ containerRef }: Props) {
         const isHovered = hoveredLineId === line.id
         const path = getPath(line)
 
-        const strokeColor = isHovered ? '#ef4444' : isHighlighted ? '#38bdf8' : '#7dd3fc'
+        // 纸墨配色：悬停（将删）= bruise red；高亮 = rust；常态 = soft ink
+        const strokeColor = isHovered ? '#8b3a3a' : isHighlighted ? '#b0603e' : '#7c6f5d'
 
         return (
           <g key={line.id}>
@@ -379,15 +380,15 @@ export function ConnectionLines({ containerRef }: Props) {
               onMouseEnter={() => handleLineMouseEnter(line.id)}
               onMouseLeave={handleLineMouseLeave}
             />
-            {/* 底层光晕 */}
+            {/* 底层光晕 — 纸色墨晕 */}
             {(isHighlighted || isHovered) && (
               <path
                 d={path}
                 fill="none"
-                stroke={isHovered ? '#fecaca' : '#bae6fd'}
+                stroke={isHovered ? '#ebc8c8' : '#e8cdb9'}
                 strokeWidth={6}
                 strokeLinecap="round"
-                opacity={0.5}
+                opacity={0.55}
               />
             )}
             {/* 主线 — 与板块重叠时变虚线 */}
@@ -416,24 +417,28 @@ export function ConnectionLines({ containerRef }: Props) {
               fill={strokeColor}
               style={{ transition: 'r 0.2s, fill 0.2s' }}
             />
-            {/* 删除提示 */}
+            {/* 删除印记 — 印章风 */}
             {isHovered && !connectingFrom && (
               <g>
-                <circle
-                  cx={(line.fromX + line.toX) / 2}
-                  cy={(line.fromY + line.toY) / 2}
-                  r={8}
-                  fill="#ef4444"
+                <rect
+                  x={(line.fromX + line.toX) / 2 - 8}
+                  y={(line.fromY + line.toY) / 2 - 8}
+                  width={16}
+                  height={16}
+                  rx={1.5}
+                  fill="#8b3a3a"
+                  transform={`rotate(-3 ${(line.fromX + line.toX) / 2} ${(line.fromY + line.toY) / 2})`}
                   style={{ pointerEvents: 'none' }}
                 />
                 <text
                   x={(line.fromX + line.toX) / 2}
-                  y={(line.fromY + line.toY) / 2}
+                  y={(line.fromY + line.toY) / 2 + 1}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fill="white"
+                  fill="#f7f3ed"
                   fontSize={11}
                   fontWeight="bold"
+                  transform={`rotate(-3 ${(line.fromX + line.toX) / 2} ${(line.fromY + line.toY) / 2})`}
                   style={{ pointerEvents: 'none' }}
                 >
                   ×
@@ -444,19 +449,19 @@ export function ConnectionLines({ containerRef }: Props) {
         )
       })}
 
-      {/* 连接模式: 临时虚线 */}
+      {/* 连接模式: 临时织线（rust 色虚线跟手） */}
       {connectingFrom && sourcePortPos && mousePos && (
         <g>
           <path
             d={`M ${sourcePortPos.x},${sourcePortPos.y} C ${sourcePortPos.x + 40},${sourcePortPos.y} ${mousePos.x - 40},${mousePos.y} ${mousePos.x},${mousePos.y}`}
             fill="none"
-            stroke="#f59e0b"
-            strokeWidth={2}
+            stroke="#b0603e"
+            strokeWidth={1.8}
             strokeDasharray="6 4"
             strokeLinecap="round"
-            opacity={0.8}
+            opacity={0.85}
           />
-          <circle cx={sourcePortPos.x} cy={sourcePortPos.y} r={4} fill="#f59e0b" />
+          <circle cx={sourcePortPos.x} cy={sourcePortPos.y} r={4} fill="#b0603e" />
         </g>
       )}
     </svg>

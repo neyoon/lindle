@@ -16,7 +16,6 @@ import { AgentTestChat } from './AgentTestChat'
 import { SkillEditor } from './SkillEditor'
 import type { Agent, AgentSkill, ChatMessage } from '@/types/agent'
 import type { PluginInfo, WorkflowSummary } from '@/types/workflow'
-import { ThemeToggle } from './ui/ThemeToggle'
 
 interface Provider {
   id: string
@@ -38,7 +37,7 @@ function renderChatMessage(msg: ChatMessage, key: number) {
   if (msg.role === 'user') {
     return (
       <div key={key} className="flex justify-end">
-        <div className="max-w-[70%] rounded-2xl bg-[var(--app-accent-strong)] px-4 py-3 text-white">
+        <div className="max-w-[70%] rounded-sm bg-[var(--ink)] px-4 py-3 text-[var(--paper)]">
           <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
         </div>
       </div>
@@ -48,7 +47,7 @@ function renderChatMessage(msg: ChatMessage, key: number) {
   if (msg.role === 'assistant') {
     return (
       <div key={key} className="flex justify-start">
-        <div className="max-w-[70%] rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3 text-[var(--app-text)]">
+        <div className="max-w-[70%] rounded-sm border border-[var(--line)] bg-[var(--card)] px-4 py-3 text-[var(--app-text)]">
           <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
         </div>
       </div>
@@ -58,14 +57,14 @@ function renderChatMessage(msg: ChatMessage, key: number) {
   if (msg.role === 'tool_call') {
     return (
       <div key={key} className="flex justify-start">
-        <div className="max-w-[80%] rounded-2xl border border-[rgba(255,180,77,0.22)] bg-[rgba(255,180,77,0.08)] p-4 text-sm text-[var(--app-text)]">
+        <div className="max-w-[80%] rounded-sm border border-[var(--rust-soft)] bg-[var(--rust-soft)] p-4 text-sm text-[var(--app-text)]">
           <div className="mb-2 flex items-center gap-2 text-[var(--app-warning)]">
             <Wrench size={14} />
             工具调用
           </div>
           <div className="space-y-2 text-xs text-[var(--app-text-soft)]">
             {msg.tool_calls?.map((tc, i) => (
-              <div key={i} className="rounded-xl bg-[rgba(255,255,255,0.05)] px-3 py-2">
+              <div key={i} className="rounded-sm bg-[var(--card)] border border-[var(--line)] px-3 py-2">
                 <div className="font-medium text-[var(--app-text)]">{tc.name}</div>
                 <div className="mt-1 break-all font-mono">{tc.arguments}</div>
               </div>
@@ -116,7 +115,7 @@ function ToolResultBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-2xl border border-[rgba(62,207,142,0.22)] bg-[rgba(62,207,142,0.08)] p-4 text-sm text-[var(--app-text)]">
+      <div className="max-w-[85%] rounded-sm border border-[var(--moss-soft)] bg-[var(--moss-soft)] p-4 text-sm text-[var(--app-text)]">
         <div className="mb-1 flex items-center gap-2 text-[var(--app-success)]">
           <CheckCircle size={14} />
           工具结果: {message.tool_name}
@@ -125,7 +124,7 @@ function ToolResultBubble({ message }: { message: ChatMessage }) {
           <div className="mb-2 text-xs text-[var(--app-text-soft)]">{metaLine}</div>
         )}
         <div
-          className={`whitespace-pre-wrap rounded-xl bg-[rgba(255,255,255,0.05)] px-3 py-3 ${typeof displayData === 'string' ? 'text-sm leading-7' : 'font-mono text-xs leading-6 text-[var(--app-text-soft)]'} ${bodyClass}`}
+          className={`whitespace-pre-wrap rounded-sm bg-[var(--card)] border border-[var(--line)] px-3 py-3 ${typeof displayData === 'string' ? 'text-sm leading-7' : 'font-mono text-xs leading-6 text-[var(--app-text-soft)]'} ${bodyClass}`}
         >
           {displayStr}
         </div>
@@ -708,14 +707,13 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
             className="border-none bg-transparent text-lg font-semibold text-[var(--app-text)] outline-none"
             placeholder="Agent 名称"
           />
-          <span className="app-pill border-0 bg-[rgba(244,107,122,0.12)] text-[var(--app-danger)]">Beta</span>
+          <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>Beta</span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <ThemeToggle />
           {!agentId && (
             <button
               onClick={handleQuickCreate}
-              className="app-button border border-[rgba(255,180,77,0.22)] bg-[rgba(255,180,77,0.1)] text-[var(--app-warning)]"
+              className="app-button border border-[var(--app-warm)] bg-[var(--rust-soft)] text-[var(--app-warning)]"
               title="快速创建一个预配置的 Agent"
             >
               <Zap size={14} />
@@ -763,10 +761,10 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
             </div>
 
             {/* 高级选项（可折叠） */}
-            <div className="rounded-2xl border border-[var(--app-border)]">
+            <div className="rounded-sm border border-[var(--app-border)]">
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-[var(--app-text)] transition hover:bg-[rgba(255,255,255,0.04)]"
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-[var(--app-text)] transition hover:bg-[var(--paper-warm)]"
               >
                 <span>高级设置</span>
                 {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -831,7 +829,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
               <div
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                className="min-h-[150px] space-y-1.5 rounded-2xl border-2 border-dashed border-[var(--app-border-strong)] p-2"
+                className="min-h-[150px] space-y-1.5 rounded-sm border-[1.5px] border-dashed border-[var(--app-border-strong)] p-2 bg-[var(--paper-warm)]"
               >
                 {agent.skills.length === 0 ? (
                   <div className="py-6 text-center text-xs text-[var(--app-text-muted)]">
@@ -846,7 +844,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
 
                     return (
                       <div key={skill.skill_id} className="space-y-1">
-                        <div className="group flex items-center gap-2 rounded-2xl border border-[var(--app-border)] bg-[rgba(109,204,255,0.08)] p-2 text-xs">
+                        <div className="group flex items-center gap-2 rounded-sm border border-[var(--app-border)] bg-[var(--card)] p-2 text-xs">
                           <GripVertical size={12} className="cursor-move text-[var(--app-text-muted)]" />
                           <span className="font-medium">{index + 1}</span>
                           <span className="text-lg">{skillInfo?.meta.icon}</span>
@@ -876,7 +874,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                             {availableFlows.map(flow => (
                               <label
                                 key={flow.id}
-                                className="Claude Code-pointer flex items-center gap-2 rounded p-2 text-xs hover:bg-[rgba(255,255,255,0.04)]"
+                                className="cursor-pointer flex items-center gap-2 rounded-sm p-2 text-xs hover:bg-[var(--paper-warm)]"
                               >
                                 <input
                                   type="checkbox"
@@ -926,7 +924,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                 {messages.map((msg, i) => renderChatMessage(msg, i))}
                 {chatLoading && (
                   <div className="flex justify-start">
-                    <div className="max-w-[80%] rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3">
+                    <div className="max-w-[80%] rounded-sm border border-[var(--line)] bg-[var(--card)] px-4 py-3">
                       <div className="mb-2 flex items-center justify-between gap-3 text-sm text-[var(--app-text-soft)]">
                         <div className="animate-pulse">
                           {liveStatus || (streamPhase === 'responding' ? '正在生成回复...' : '处理中...')}
@@ -952,7 +950,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
             )}
           </div>
 
-          <div className="border-t border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] p-4">
+          <div className="border-t border-[var(--app-border)] bg-[var(--paper-warm)] p-4">
             {generating && (
               <div className="mx-auto mb-2 flex max-w-3xl items-center gap-2 text-xs text-[var(--app-accent)]">
                 <Sparkles size={12} className="animate-pulse" />
@@ -972,7 +970,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
               <button
                 onClick={handleSendMessage}
                 disabled={!input.trim() || chatLoading || generating}
-                className="app-button app-button-primary px-6 py-3 disabled:opacity-50 disabled:Claude Code-not-allowed"
+                className="app-button app-button-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={18} />
                 发送
@@ -1006,16 +1004,16 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                     onDragStart={() => handleDragStart(skill.meta.id)}
                     onClick={() => !isActive && handleAddSkill(skill.meta.id)}
                     className={`
-                      relative cursor-pointer rounded-2xl border p-3 text-sm transition
+                      relative cursor-pointer rounded-sm border p-3 text-sm transition
                       ${isActive
-                        ? 'cursor-not-allowed border-[var(--app-border-strong)] bg-[rgba(109,204,255,0.08)] opacity-50'
-                        : 'border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] hover:border-[var(--app-border-strong)] hover:shadow-sm'
+                        ? 'cursor-not-allowed border-[var(--app-border-strong)] bg-[var(--paper-warm)] opacity-60'
+                        : 'border-[var(--app-border)] bg-[var(--card)] hover:border-[var(--app-border-strong)] hover:shadow-sm'
                       }
                     `}
                   >
                     {isRecommended && !isActive && (
                       <div className="absolute top-2 right-2">
-                        <span className="rounded-full bg-[rgba(255,180,77,0.16)] px-1.5 py-0.5 text-xs font-medium text-[var(--app-warning)]">
+                        <span className="rounded-sm border border-[var(--app-warm)] bg-[var(--rust-soft)] px-1.5 py-0.5 text-xs font-medium text-[var(--app-warning)]">
                           推荐
                         </span>
                       </div>
@@ -1026,7 +1024,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                         <div className="flex items-center gap-1.5 font-medium text-[var(--app-text)]">
                           <span className="truncate">{skill.meta.name}</span>
                           {isActive && (
-                            <span className="shrink-0 rounded-full bg-[var(--app-accent-strong)] px-1.5 py-0.5 text-xs text-white">
+                            <span className="shrink-0 rounded-sm bg-[var(--ink)] px-1.5 py-0.5 text-xs text-[var(--paper)]">
                               已激活
                             </span>
                           )}

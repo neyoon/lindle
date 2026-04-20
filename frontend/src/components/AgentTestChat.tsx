@@ -197,8 +197,9 @@ export function AgentTestChat({ agentId, agentName }: Props) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-purple-500 text-white rounded-full shadow-lg hover:bg-purple-600 transition flex items-center justify-center"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-[var(--ink)] text-[var(--paper)] rounded-full shadow-[var(--app-shadow)] hover:bg-[var(--rust-ink)] transition flex items-center justify-center"
         title="测试对话"
+        style={{ animation: 'stamp-land 0.5s var(--ease-ink)' }}
       >
         <MessageCircle size={24} />
       </button>
@@ -207,19 +208,19 @@ export function AgentTestChat({ agentId, agentName }: Props) {
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 bg-white rounded-lg shadow-xl border border-gray-200">
+      <div className="fixed bottom-6 right-6 rounded-sm bg-[var(--card)] shadow-[var(--app-shadow)] border border-[var(--line)]">
         <div className="flex items-center gap-2 px-4 py-3">
-          <MessageCircle size={16} className="text-purple-500" />
-          <span className="text-sm font-medium">测试对话</span>
+          <MessageCircle size={16} className="text-[var(--rust)]" />
+          <span className="text-sm font-medium" style={{ fontFamily: '"Noto Serif SC", serif' }}>测试对话</span>
           <button
             onClick={() => setIsMinimized(false)}
-            className="ml-2 text-gray-400 hover:text-gray-600"
+            className="ml-2 text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
           >
             <Maximize2 size={14} />
           </button>
           <button
             onClick={() => setIsOpen(false)}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
           >
             <X size={14} />
           </button>
@@ -229,26 +230,27 @@ export function AgentTestChat({ agentId, agentName }: Props) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col">
+    <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-[var(--card)] rounded-sm shadow-[var(--app-shadow)] border border-[var(--line)] flex flex-col"
+         style={{ animation: 'panel-slide-in 0.4s var(--ease-ink)' }}>
       {/* 标题栏 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-purple-50">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--line)] bg-[var(--paper-warm)]">
         <div className="flex items-center gap-2">
-          <MessageCircle size={16} className="text-purple-500" />
+          <MessageCircle size={16} className="text-[var(--rust)]" />
           <div>
-            <div className="text-sm font-medium">测试对话</div>
-            <div className="text-xs text-gray-500">{agentName}</div>
+            <div className="text-sm font-medium" style={{ fontFamily: '"Noto Serif SC", serif' }}>测试对话</div>
+            <div className="text-xs text-[var(--app-text-muted)]">{agentName}</div>
           </div>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsMinimized(true)}
-            className="text-gray-400 hover:text-gray-600 p-1"
+            className="text-[var(--app-text-muted)] hover:text-[var(--app-text)] p-1"
           >
             <Minimize2 size={14} />
           </button>
           <button
             onClick={() => setIsOpen(false)}
-            className="text-gray-400 hover:text-gray-600 p-1"
+            className="text-[var(--app-text-muted)] hover:text-[var(--app-text)] p-1"
           >
             <X size={14} />
           </button>
@@ -256,14 +258,14 @@ export function AgentTestChat({ agentId, agentName }: Props) {
       </div>
 
       {/* 提示 */}
-      <div className="px-4 py-2 bg-yellow-50 border-b border-yellow-100 text-xs text-yellow-700">
+      <div className="px-4 py-2 bg-[var(--rust-soft)] border-b border-[var(--line)] text-xs text-[var(--app-warning)]">
         这是测试环境，用于验证 Agent 配置
       </div>
 
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-400 text-sm py-8">
+          <div className="text-center text-[var(--app-text-muted)] text-sm py-8" style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic' }}>
             开始对话测试你的 Agent
           </div>
         ) : (
@@ -273,21 +275,21 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         )}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-700 max-w-[80%]">
+            <div className="bg-[var(--paper-warm)] border border-[var(--line)] px-3 py-2 rounded-sm text-sm text-[var(--app-text)] max-w-[80%]">
               <div className="flex items-center gap-2 mb-2">
                 <span className="inline-block animate-pulse">
                   {liveStatus || (streamPhase === 'responding' ? '正在生成回复...' : '处理中...')}
                 </span>
                 <button
                   onClick={handleStop}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-[var(--app-danger)] hover:opacity-80"
                   title="停止"
                 >
                   <StopCircle size={14} />
                 </button>
               </div>
               {liveReasoning && (
-                <div className="text-xs text-gray-600 whitespace-pre-wrap border-t border-gray-200 pt-2 mt-2">
+                <div className="text-xs text-[var(--app-text-soft)] whitespace-pre-wrap border-t border-[var(--line)] pt-2 mt-2">
                   {liveReasoning}
                 </div>
               )}
@@ -298,7 +300,7 @@ export function AgentTestChat({ agentId, agentName }: Props) {
       </div>
 
       {/* 输入框 */}
-      <div className="border-t p-3">
+      <div className="border-t border-[var(--line)] p-3">
         <div className="flex gap-2">
           <input
             type="text"
@@ -306,13 +308,13 @@ export function AgentTestChat({ agentId, agentName }: Props) {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="输入消息..."
-            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="app-input flex-1 text-sm"
             disabled={loading}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
-            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="app-button app-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send size={16} />
           </button>
@@ -328,7 +330,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] px-3 py-2 rounded-lg text-sm bg-purple-500 text-white">
+        <div className="max-w-[80%] px-3 py-2 rounded-sm text-sm bg-[var(--ink)] text-[var(--paper)]">
           {message.content}
         </div>
       </div>
@@ -338,7 +340,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
   if (message.role === 'assistant') {
     return (
       <div className="flex justify-start">
-        <div className="max-w-[80%] px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-800 whitespace-pre-wrap">
+        <div className="max-w-[80%] px-3 py-2 rounded-sm text-sm border border-[var(--line)] bg-[var(--paper-warm)] text-[var(--app-text)] whitespace-pre-wrap">
           {message.content}
         </div>
       </div>
@@ -348,16 +350,16 @@ function MessageItem({ message }: { message: ChatMessage }) {
   if (message.role === 'tool_call') {
     return (
       <div className="flex justify-start">
-        <div className="max-w-[80%] border border-amber-200 bg-amber-50 rounded-lg p-3 text-sm">
-          <div className="flex items-center gap-2 text-amber-700 font-medium mb-2">
+        <div className="max-w-[80%] border border-[var(--line)] bg-[var(--rust-soft)] rounded-sm p-3 text-sm">
+          <div className="flex items-center gap-2 text-[var(--app-warning)] font-medium mb-2">
             <Wrench size={14} />
             工具调用
           </div>
           {message.tool_calls?.map((tc, i) => (
-            <div key={i} className="text-xs text-gray-700 space-y-1">
+            <div key={i} className="text-xs text-[var(--app-text)] space-y-1">
               <div className="font-medium">{tc.name}</div>
-              <div className="text-gray-500">
-                参数: <code className="bg-white px-1 rounded">{tc.arguments?.slice(0, 50)}...</code>
+              <div className="text-[var(--app-text-soft)]">
+                参数: <code className="bg-[var(--card)] border border-[var(--line)] px-1 rounded-sm font-mono">{tc.arguments?.slice(0, 50)}...</code>
               </div>
             </div>
           ))}
@@ -398,24 +400,24 @@ function MessageItem({ message }: { message: ChatMessage }) {
 
     return (
       <div className="flex justify-start">
-        <div className="max-w-[80%] border border-green-200 bg-green-50 rounded-lg p-3 text-sm">
-          <div className="flex items-center gap-2 text-green-700 font-medium mb-1">
+        <div className="max-w-[80%] border border-[var(--line)] bg-[var(--moss-soft)] rounded-sm p-3 text-sm">
+          <div className="flex items-center gap-2 text-[var(--app-success)] font-medium mb-1">
             <CheckCircle size={14} />
             工具结果: {message.tool_name}
           </div>
           {metaLine && (
-            <div className="text-xs text-gray-500 mb-2">{metaLine}</div>
+            <div className="text-xs text-[var(--app-text-soft)] mb-2">{metaLine}</div>
           )}
           <div className="text-xs">
             <div
-              className={`bg-white p-2 rounded whitespace-pre-wrap ${typeof displayData === 'string' ? 'text-gray-700' : 'font-mono text-gray-700'} ${bodyClass}`}
+              className={`bg-[var(--card)] border border-[var(--line)] p-2 rounded-sm whitespace-pre-wrap ${typeof displayData === 'string' ? 'text-[var(--app-text)]' : 'font-mono text-[var(--app-text)]'} ${bodyClass}`}
             >
               {displayStr}
             </div>
             {isLong && (
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="mt-2 text-green-600 hover:text-green-800 flex items-center gap-1"
+                className="mt-2 text-[var(--app-success)] hover:opacity-80 flex items-center gap-1"
               >
                 {expanded ? (
                   <>

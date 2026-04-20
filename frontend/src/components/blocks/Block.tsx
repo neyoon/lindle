@@ -12,10 +12,10 @@ import type { Block } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
 
 const TYPE_STYLES: Record<string, { tag: string; tagColor: string }> = {
-  input:  { tag: 'IN', tagColor: 'bg-[rgba(109,204,255,0.12)] text-[var(--app-accent)]' },
-  ai:     { tag: 'AI', tagColor: 'bg-[rgba(109,204,255,0.18)] text-[var(--app-accent)]' },
-  output: { tag: 'OUT', tagColor: 'bg-[rgba(109,204,255,0.12)] text-[var(--app-accent)]' },
-  plugin: { tag: 'PLUGIN', tagColor: 'bg-[rgba(45,135,219,0.18)] text-[var(--app-accent)]' },
+  input:  { tag: 'IN',     tagColor: 'block-tag is-in' },
+  ai:     { tag: 'AI',     tagColor: 'block-tag is-ai' },
+  output: { tag: 'OUT',    tagColor: 'block-tag is-out' },
+  plugin: { tag: 'PLUGIN', tagColor: 'block-tag is-plugin' },
 }
 
 interface Props {
@@ -63,20 +63,20 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
       data-block-id={block.id}
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData('application/miniflow-block', JSON.stringify({ blockId: block.id, columnId }))
+        e.dataTransfer.setData('application/lindle-block', JSON.stringify({ blockId: block.id, columnId }))
         e.dataTransfer.effectAllowed = 'move'
       }}
       onClick={() => selectBlock(block.id)}
       className={`
-        editor-block group relative flex h-[140px] w-[140px] cursor-grab flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-3 transition active:cursor-grabbing
+        editor-block group relative flex h-[140px] w-[140px] cursor-grab flex-col items-center justify-center gap-1.5 rounded-sm border p-3 active:cursor-grabbing
         ${block.type === 'plugin' ? 'is-plugin' : ''}
-        ${isSelected ? 'is-selected scale-[1.03]' : 'hover:scale-[1.01] hover:shadow-md'}
-        ${isConnectingSource ? 'ring-2 ring-[var(--app-warning)]' : ''}
-        ${diffStatus === 'added' ? 'ring-2 ring-[var(--app-success)] shadow-lg' : ''}
-        ${diffStatus === 'modified' ? 'ring-2 ring-[var(--app-warning)] shadow-lg' : ''}
-        ${runStatus === 'running' ? 'border-[var(--app-accent)] shadow-[0_0_0_3px_rgba(109,204,255,0.18)] animate-pulse' : ''}
-        ${runStatus === 'done' ? 'border-[var(--app-success)] shadow-[0_0_0_2px_rgba(90,198,143,0.16)]' : ''}
-        ${runStatus === 'error' ? 'border-[var(--app-danger)] shadow-[0_0_0_2px_rgba(244,107,122,0.16)]' : ''}
+        ${isSelected ? 'is-selected' : ''}
+        ${isConnectingSource ? 'ring-2 ring-[var(--app-warning)] ring-offset-2 ring-offset-[var(--paper)]' : ''}
+        ${diffStatus === 'added' ? 'is-done' : ''}
+        ${diffStatus === 'modified' ? 'is-selected' : ''}
+        ${runStatus === 'running' ? 'is-running' : ''}
+        ${runStatus === 'done' ? 'is-done' : ''}
+        ${runStatus === 'error' ? 'is-error' : ''}
       `}
     >
       {/* ===== 左侧输入端口 ===== */}
@@ -88,15 +88,13 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
               finishConnecting(block.id)
             }
           }}
-          className={`
-            absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 z-10 transition-all
-            ${connectingFrom && isValidTarget
-              ? 'cursor-pointer scale-125 animate-pulse border-[var(--app-warning)] bg-[rgba(255,180,77,0.2)] hover:bg-[var(--app-warning)]'
+          className={`editor-port in ${
+            connectingFrom && isValidTarget
+              ? 'is-target-ok'
               : connectingFrom
-                ? 'cursor-not-allowed border-[var(--app-border)] bg-[rgba(255,255,255,0.05)] opacity-40'
-                : 'cursor-pointer border-[var(--app-border-strong)] bg-[var(--app-panel-solid)] hover:border-[var(--app-accent)] hover:bg-[var(--app-accent)]'
-            }
-          `}
+                ? 'is-target-disabled'
+                : ''
+          }`}
           title="输入端口"
         />
       )}
@@ -108,13 +106,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
             e.stopPropagation()
             startConnecting(block.id, columnOrder)
           }}
-          className={`
-            absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 z-10 transition-all
-            ${isConnectingSource
-              ? 'scale-125 border-[var(--app-warning)] bg-[var(--app-warning)]'
-              : 'cursor-pointer border-[var(--app-border-strong)] bg-[var(--app-panel-solid)] hover:border-[var(--app-accent)] hover:bg-[var(--app-accent)]'
-            }
-          `}
+          className={`editor-port out ${isConnectingSource ? 'is-source-active' : ''}`}
           title="输出端口 - 点击开始连接"
         />
       )}
@@ -122,7 +114,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
       {/* 顶部工具 */}
       <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
         {block.output_schema && (
-          <span className="rounded px-1 font-mono text-[9px] text-[var(--app-accent)] bg-[rgba(109,204,255,0.12)]" title="JSON 输出">
+          <span className="rounded-sm px-1 font-mono text-[9px] tracking-[0.1em] text-[var(--gold)] border border-[var(--line)] bg-[var(--paper-warm)]" title="JSON 输出">
             JSON
           </span>
         )}
@@ -134,7 +126,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
               updateBlock(block.id, { name: newName.trim() })
             }
           }}
-          className="rounded p-0.5 text-[var(--app-text-muted)] opacity-0 transition group-hover:opacity-100 hover:text-[var(--app-accent)]"
+          className="rounded-sm p-0.5 text-[var(--app-text-muted)] opacity-0 transition group-hover:opacity-100 hover:text-[var(--app-accent)]"
           title="重命名"
         >
           <Pencil size={11} />
@@ -144,7 +136,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
             e.stopPropagation()
             removeBlock(columnId, block.id)
           }}
-          className="rounded p-0.5 text-[var(--app-text-muted)] opacity-0 transition group-hover:opacity-100 hover:text-[var(--app-danger)]"
+          className="rounded-sm p-0.5 text-[var(--app-text-muted)] opacity-0 transition group-hover:opacity-100 hover:text-[var(--app-danger)]"
         >
           <Trash2 size={11} />
         </button>
@@ -153,33 +145,23 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
       {/* 连接数量提示 */}
       {block.connections.length > 0 && (
         <div className="absolute top-1.5 left-1.5">
-          <span className="rounded border border-[var(--app-border)] bg-[rgba(109,204,255,0.12)] px-1 text-[9px] text-[var(--app-accent)]">
+          <span className="font-mono rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] px-1 text-[9px] tracking-[0.1em] text-[var(--app-accent-strong)]">
             ←{block.connections.length}
           </span>
         </div>
       )}
 
-      {/* AI diff 标签 */}
+      {/* AI diff 印章 */}
       {diffStatus && (
-        <span
-          className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold rounded-full px-2 py-0.5 shadow-sm z-20 ${
-            diffStatus === 'added'
-              ? 'bg-[var(--app-success)] text-white'
-              : 'bg-[var(--app-warning)] text-white'
-          }`}
-        >
+        <span className={`block-stamp ${diffStatus === 'added' ? 'is-added' : 'is-modified'}`}>
           {diffStatus === 'added' ? '新增' : '修改'}
         </span>
       )}
 
       {runStatus && (
         <span
-          className={`absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm z-20 ${
-            runStatus === 'running'
-              ? 'bg-[var(--app-accent)] text-[#082f49]'
-              : runStatus === 'done'
-                ? 'bg-[var(--app-success)] text-white'
-                : 'bg-[var(--app-danger)] text-white'
+          className={`block-stamp ${
+            runStatus === 'running' ? 'is-running' : runStatus === 'done' ? 'is-done' : 'is-error'
           }`}
         >
           {runStatus === 'running' ? '运行中' : runStatus === 'done' ? '已完成' : '失败'}
@@ -187,18 +169,16 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
       )}
 
       {/* 类型标签 */}
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${style.tagColor}`}>
-        {style.tag}
-      </span>
+      <span className={style.tagColor}>{style.tag}</span>
 
       {/* 名称 */}
-      <span className="w-full truncate text-center text-xs font-semibold leading-tight text-[var(--app-text)]">
+      <span className="w-full truncate text-center text-[0.85rem] font-medium leading-tight text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         {block.name}
       </span>
 
       {/* 预览 */}
       {preview && (
-        <p className="w-full truncate text-center text-[10px] leading-tight text-[var(--app-text-soft)]">{preview}</p>
+        <p className="w-full truncate text-center font-mono text-[10px] leading-tight text-[var(--app-text-soft)]">{preview}</p>
       )}
     </div>
   )

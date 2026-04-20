@@ -1,5 +1,5 @@
 /**
- * 分栏画布 - Tweak 的核心 UI
+ * 分栏画布 - Lindle 的核心 UI
  *
  * 布局：水平排列的全屏高度栏（Column），每栏内垂直排列块（Block）。
  * 连接线通过 SVG 覆盖层绘制在块的端口之间。
@@ -49,7 +49,7 @@ export function Canvas() {
           {i > 0 && (
             <button
               onClick={() => addColumn(columns[i - 1].order)}
-              className="group/insert flex h-full w-5 shrink-0 items-center justify-center text-[var(--app-text-muted)] transition hover:bg-[rgba(109,204,255,0.08)] hover:text-[var(--app-accent)]"
+              className="group/insert flex h-full w-5 shrink-0 items-center justify-center text-[var(--app-text-muted)] transition hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent-strong)]"
               title="在此插入栏"
             >
               <Plus size={14} className="opacity-0 group-hover/insert:opacity-100 transition" />
@@ -66,7 +66,7 @@ export function Canvas() {
       {/* 添加新栏按钮 */}
       <button
         onClick={() => addColumn()}
-        className="flex h-full min-w-[56px] cursor-pointer flex-col items-center justify-center gap-2 border-l border-dashed border-[var(--app-border-strong)] text-[var(--app-text-muted)] transition hover:border-[var(--app-accent)] hover:bg-[rgba(109,204,255,0.06)] hover:text-[var(--app-accent)]"
+        className="flex h-full min-w-[56px] cursor-pointer flex-col items-center justify-center gap-2 border-l border-dashed border-[var(--app-border-strong)] text-[var(--app-text-muted)] transition hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent-strong)]"
       >
         <Plus size={20} />
         <span className="text-xs [writing-mode:vertical-lr]">添加栏</span>

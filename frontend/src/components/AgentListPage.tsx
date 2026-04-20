@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Plus, Settings, Sparkles, Trash2, Wrench } from 'lucide-react'
 import { listAgents, deleteAgent } from '@/api/client'
-import { ThemeToggle } from './ui/ThemeToggle'
 
 interface AgentSummary {
   id: string
@@ -64,12 +63,11 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
               <div className="app-kicker">Agent center / dynamic execution</div>
               <h1 className="app-section-title flex items-center gap-3 text-2xl">
                 我的 Agent
-                <span className="app-pill border-0 bg-[rgba(244,107,122,0.12)] text-[var(--app-danger)]">Beta</span>
+                <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>Beta</span>
               </h1>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <ThemeToggle />
             {onOpenSettings && (
               <button onClick={onOpenSettings} className="app-button app-button-ghost">
                 <Settings size={16} />
@@ -137,18 +135,19 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
                 <article
                   key={agent.id}
                   onClick={() => onOpen(agent.id)}
-                  className="app-card-soft group cursor-pointer p-5 transition hover:-translate-y-1"
+                  className="app-card-soft group cursor-pointer p-5"
+                  style={{ animation: `loom-land 0.6s var(--ease-ink) ${Math.min(0.08 * (agents.indexOf(agent) || 0), 0.6)}s backwards` }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="mb-3 inline-flex rounded-2xl border border-[var(--app-border)] bg-[var(--app-accent-soft)] p-3 text-[var(--app-accent)]">
+                      <div className="mb-3 w-11 h-11 rounded-full border-[1.5px] border-[var(--rust)] inline-flex items-center justify-center text-[var(--rust)] transition-transform duration-500 group-hover:rotate-[18deg]">
                         <Sparkles size={18} />
                       </div>
-                      <h3 className="truncate text-lg font-semibold text-[var(--app-text)]">{agent.name}</h3>
+                      <h3 className="truncate text-lg font-medium text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>{agent.name}</h3>
                     </div>
                     <button
                       onClick={(e) => handleDelete(e, agent.id, agent.name)}
-                      className="rounded-full p-2 text-[var(--app-text-muted)] transition hover:bg-[rgba(244,107,122,0.08)] hover:text-[var(--app-danger)]"
+                      className="rounded-sm p-2 text-[var(--app-text-muted)] transition hover:bg-[var(--bruise-soft)] hover:text-[var(--app-danger)]"
                       title="删除"
                     >
                       <Trash2 size={14} />
