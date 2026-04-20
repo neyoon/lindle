@@ -1,10 +1,10 @@
 /**
- * 块配置面板 - 右侧边栏
+ * 步骤配置面板 - 右侧边栏
  *
- * 根据块类型显示不同配置项:
- * - Input: 输入字段定义
- * - AI: 提示词 + 模型选择 + JSON输出key（高级选项）
- * - Output: 无需配置
+ * 根据步骤类型显示不同配置项:
+ * - Collect: 输入字段定义
+ * - Process: 提示词 + 模型选择 + JSON输出key（高级选项）
+ * - Result: 无需配置
  * - 连接通过端口管理，此处仅只读展示
  */
 import { X, ChevronDown, ChevronUp, Link, Variable, Save } from 'lucide-react'
@@ -14,7 +14,7 @@ import { listProviders, type ProviderResponse, createTemplate } from '@/api/clie
 import type { Block, Column, InputField, OutputSchema, PluginInputBinding } from '@/types/workflow'
 
 export function BlockConfigPanel() {
-  const { workflow, selectedBlockId, selectBlock, updateBlock, removeConnection } = useWorkflowStore()
+  const { workflow, selectedBlockId, selectBlock, updateBlock, removeConnection, renameBlockReference } = useWorkflowStore()
   const [saving, setSaving] = useState(false)
   const [showTemplateForm, setShowTemplateForm] = useState(false)
   const [templateName, setTemplateName] = useState('')
@@ -35,8 +35,8 @@ export function BlockConfigPanel() {
 
   if (!block || !blockColumn) return null
 
-  // 只有 input、ai、output 类型的块可以保存为模板
-  const canSaveAsTemplate = block.type !== 'plugin'
+  // 只有 collect、process、result 类型的步骤可以保存为模板
+  const canSaveAsTemplate = block.type !== 'tool'
 
   const handleSaveAsTemplate = async () => {
     if (!block) return
@@ -48,6 +48,7 @@ export function BlockConfigPanel() {
     try {
       await createTemplate({
         id: `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        ref: block.ref,
         type: block.type,
         name,
         description,
@@ -73,7 +74,7 @@ export function BlockConfigPanel() {
       {/* 头部 */}
       <div className="flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--paper-warm)] px-4 py-3">
         <div>
-          <div className="app-kicker no-rule text-[0.62rem] mb-0.5">Block Config</div>
+          <div className="app-kicker no-rule text-[0.62rem] mb-0.5">Step Config</div>
           <h3 className="text-sm font-medium text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>
             {block.name}
           </h3>
@@ -102,16 +103,29 @@ export function BlockConfigPanel() {
 
       {/* 配置内容 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* 块名称 */}
+        {/* 步骤名称 */}
         <Field label="名称">
           <input
-            className={`input-field ${block.name.includes('.') ? 'border-[var(--bruise)] focus:ring-[var(--bruise-soft)]' : ''}`}
+            className="input-field"
             value={block.name}
             onChange={(e) => updateBlock(block!.id, { name: e.target.value })}
           />
-          {block.name.includes('.') && (
-            <p className="text-[10px] text-[var(--app-danger)] mt-0.5">名称不能包含「.」，请修改</p>
-          )}
+        </Field>
+
+        <Field label="稳定步骤引用">
+          <input
+            className="input-field font-mono text-xs"
+            value={block.ref}
+            onChange={(e) => renameBlockReference(block.id, e.target.value)}
+            placeholder="draft_summary"
+          />
+          <p className="mt-1 text-[10px] text-[var(--app-text-muted)]">
+            使用
+            <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{`{{steps.${block.ref}}}`}</code>
+            和
+            <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{`{{steps.${block.ref}.key}}`}</code>
+            引用当前步骤输出。
+          </p>
         </Field>
 
         {canSaveAsTemplate && showTemplateForm && (
@@ -167,12 +181,12 @@ export function BlockConfigPanel() {
         )}
 
         {/* 按类型渲染不同配置 */}
-        {block.type === 'ai' && <AIConfig block={block} />}
-        {block.type === 'input' && <InputConfig block={block} />}
-        {block.type === 'plugin' && <PluginBlockConfig block={block} />}
-        {block.type === 'output' && (
+        {block.type === 'process' && <AIConfig block={block} />}
+        {block.type === 'collect' && <InputConfig block={block} />}
+        {block.type === 'tool' && <PluginBlockConfig block={block} />}
+        {block.type === 'result' && (
           <div className="rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-3 text-sm text-[var(--app-text-soft)]">
-            输出块默认透传上游的结构化结果，不再隐式把结果改写成文本。
+            结果步骤默认透传上游的结构化结果，不再隐式把结果改写成文本。
             如果后续需要展示文案或格式化文本，应在上游显式增加对应处理步骤。
           </div>
         )}
@@ -209,7 +223,7 @@ function ConnectionDisplay({
       <label className="mb-1.5 block text-xs font-medium text-[var(--app-text-soft)]">
         <span className="flex items-center gap-1">
           <Link size={12} />
-          已连接的上游块
+          已连接的上游步骤
         </span>
       </label>
       <div className="space-y-2">
@@ -270,7 +284,7 @@ function ConnectionDisplay({
         })}
       </div>
       <p className="mt-1.5 text-[10px] text-[var(--app-text-muted)]">
-        通过端口连接：点击源块右侧圆点 → 目标块左侧圆点
+        通过端口连接：点击源步骤右侧圆点 → 目标步骤左侧圆点
       </p>
     </div>
   )
@@ -279,12 +293,12 @@ function ConnectionDisplay({
 // ===== 动态变量计算 =====
 
 interface AvailableVar {
-  /** 插入到 prompt 中的模板文本，如 {{块名}} 或 {{input.url}} */
+  /** 插入到 prompt 中的模板文本，如 {{steps.summary}} 或 {{inputs.topic}} */
   template: string
   /** 显示给用户的标签 */
   label: string
-  /** 分组: input / block */
-  group: 'input' | 'block'
+  /** 分组: input / step */
+  group: 'input' | 'step'
 }
 
 /**
@@ -313,32 +327,32 @@ function useAvailableVars(block: Block): AvailableVar[] {
       if (col.order >= currentColOrder) break
 
       for (const b of col.blocks) {
-        // Input 块: 列出每个字段
-        if (b.type === 'input' && b.config.fields) {
+        // Collect 步骤: 列出每个字段
+        if (b.type === 'collect' && b.config.fields) {
           for (const f of b.config.fields) {
             vars.push({
-              template: `{{input.${f.name}}}`,
+              template: `{{inputs.${f.name}}}`,
               label: `${f.label || f.name}`,
               group: 'input',
             })
           }
         }
 
-        // 所有非 input 块: 块整体输出
-        if (b.type !== 'input') {
+        // 所有非 collect 步骤: 步骤整体输出
+        if (b.type !== 'collect') {
           vars.push({
-            template: `{{${b.name}}}`,
-            label: b.name,
-            group: 'block',
+            template: `{{steps.${b.ref}}}`,
+            label: `${b.name} (${b.ref})`,
+            group: 'step',
           })
 
-          // 如果块定义了 output_schema，额外列出每个 key
+          // 如果步骤定义了 output_schema，额外列出每个 key
           if (b.output_schema?.keys) {
             for (const key of b.output_schema.keys) {
               vars.push({
-                template: `{{${b.name}.${key}}}`,
-                label: `${b.name} → ${key}`,
-                group: 'block',
+                template: `{{steps.${b.ref}.${key}}}`,
+                label: `${b.name} (${b.ref}) → ${key}`,
+                group: 'step',
               })
             }
           }
@@ -387,7 +401,7 @@ function AIConfig({ block }: { block: Block }) {
   }
 
   const inputVars = availableVars.filter((v) => v.group === 'input')
-  const blockVars = availableVars.filter((v) => v.group === 'block')
+  const blockVars = availableVars.filter((v) => v.group === 'step')
 
   return (
     <>
@@ -410,7 +424,7 @@ function AIConfig({ block }: { block: Block }) {
                 {availableVars.length === 0 ? (
                   <p className="p-3 text-xs text-[var(--app-text-muted)] text-center">
                     暂无可用变量<br />
-                    <span className="text-[10px]">请先在前面的栏中添加块</span>
+                    <span className="text-[10px]">请先在前面的阶段中添加步骤</span>
                   </p>
                 ) : (
                   <>
@@ -433,7 +447,7 @@ function AIConfig({ block }: { block: Block }) {
                     )}
                     {blockVars.length > 0 && (
                       <div className="px-2 pt-2 pb-1 border-t border-[var(--app-border)]">
-                        <p className="app-kicker no-rule text-[10px] mb-1">上游块输出</p>
+                        <p className="app-kicker no-rule text-[10px] mb-1">上游步骤输出</p>
                         {blockVars.map((v) => (
                           <button
                             key={v.template}
@@ -461,7 +475,7 @@ function AIConfig({ block }: { block: Block }) {
           onChange={(e) =>
             updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })
           }
-          placeholder="告诉 AI 你想让它做什么...&#10;&#10;使用 {{变量}} 引用上游数据，例如:&#10;{{input.url}} — 引用用户输入&#10;{{块名称}} — 引用上游块输出"
+          placeholder="描述这个处理步骤要完成什么...&#10;&#10;使用 {{变量}} 引用上游数据，例如:&#10;{{inputs.topic}} — 引用用户输入&#10;{{steps.research}} — 引用上游步骤输出"
         />
         {availableVars.length > 0 && (
           <p className="text-[10px] text-[var(--app-text-muted)] mt-1">
@@ -507,7 +521,7 @@ function AIConfig({ block }: { block: Block }) {
         {showAdvanced && (
           <div className="mt-2 p-3 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm space-y-2">
             <p className="text-xs text-[var(--app-text-soft)]">
-              定义输出的 JSON key，让下游块可以精确引用。
+              定义输出的 JSON key，让下游步骤可以精确引用。
             </p>
             <OutputSchemaEditor
               schema={block.output_schema || null}
@@ -580,7 +594,7 @@ function OutputSchemaEditor({
   )
 }
 
-// ===== Plugin 块配置 =====
+// ===== Tool 步骤配置 =====
 
 function PluginBlockConfig({ block }: { block: Block }) {
   const { updateBlock, workflow } = useWorkflowStore()
@@ -624,18 +638,18 @@ function PluginBlockConfig({ block }: { block: Block }) {
     for (const col of columns) {
       if (col.order >= currentColumnOrder) break
       for (const b of col.blocks) {
-        if (b.type === 'input' && b.config.fields) {
+        if (b.type === 'collect' && b.config.fields) {
           for (const field of b.config.fields) {
             vars.push({
-              ref: `{{input.${field.name}}}`,
+              ref: `{{inputs.${field.name}}}`,
               desc: `用户输入「${field.label || field.name}」`,
             })
           }
         } else {
-          vars.push({ ref: `{{${b.name}}}`, desc: `块「${b.name}」的完整输出` })
+          vars.push({ ref: `{{steps.${b.ref}}}`, desc: `步骤「${b.name}」(${b.ref}) 的完整输出` })
           if (b.output_schema?.keys) {
             for (const key of b.output_schema.keys) {
-              vars.push({ ref: `{{${b.name}.${key}}}`, desc: `块「${b.name}」的 ${key}` })
+              vars.push({ ref: `{{steps.${b.ref}.${key}}}`, desc: `步骤「${b.name}」(${b.ref}) 的 ${key}` })
             }
           }
         }
@@ -667,12 +681,12 @@ function PluginBlockConfig({ block }: { block: Block }) {
   return (
     <>
       <div className="p-3 bg-[var(--moss-soft)] border border-[var(--line)] rounded-sm">
-        <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--moss)' }}>Plugin Block</p>
+        <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--moss)' }}>Tool Step</p>
         <p className="text-xs text-[var(--app-text)]">
-          插件 ID: <span className="font-mono">{block.config.plugin_id || '未配置'}</span>
+          工具 ID: <span className="font-mono">{block.config.plugin_id || '未配置'}</span>
         </p>
         <p className="text-xs text-[var(--app-text-soft)] mt-2">
-          插件的参数（如 Token）在「插件管理」页面中配置。
+          工具的参数（如 Token）在「插件管理」页面中配置。
         </p>
       </div>
 
@@ -741,7 +755,7 @@ function PluginBlockConfig({ block }: { block: Block }) {
               )
             })}
             <p className="text-[10px] text-[var(--app-text-muted)]">
-              优先使用字段映射完成插件输入配置；只有需要复杂结构重组时再使用模板。
+              优先使用字段映射完成工具输入配置；只有需要复杂结构重组时再使用模板。
             </p>
           </div>
         </Field>
@@ -764,7 +778,7 @@ function PluginBlockConfig({ block }: { block: Block }) {
                 rows={6}
                 value={prompt}
                 onChange={(e) => updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })}
-                placeholder="仅在字段映射不足以表达复杂输入时使用，例如：&#10;{&#10;  &quot;query&quot;: &quot;{{input.keyword}}&quot;&#10;}"
+                placeholder="仅在字段映射不足以表达复杂输入时使用，例如：&#10;{&#10;  &quot;query&quot;: &quot;{{inputs.keyword}}&quot;&#10;}"
               />
               <button
                 onClick={() => setShowVariables(!showVariables)}
@@ -787,7 +801,7 @@ function PluginBlockConfig({ block }: { block: Block }) {
           )}
           {showAdvancedTemplate && showVariables && availableVariables.length === 0 && (
             <p className="text-xs text-[var(--app-text-muted)] p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm">
-              当前没有可用的上游变量（需要在前面的栏中添加输入块或其他块）
+              当前没有可用的上游变量（需要在前面的阶段中添加收集步骤或其他步骤）
             </p>
           )}
         </div>
@@ -797,23 +811,23 @@ function PluginBlockConfig({ block }: { block: Block }) {
         <p className="font-medium mb-1">说明：</p>
         <ul className="list-disc list-inside space-y-0.5">
           <li>优先：使用字段映射选择变量来源或常量值</li>
-          <li>留空：插件自动接收上游数据（JSON 或文本格式）</li>
+          <li>留空：工具自动接收上游数据（JSON 或文本格式）</li>
           <li>高级模板：只有在需要复杂 JSON 重组时才使用</li>
         </ul>
       </div>
 
-      {/* 插件输入/输出格式参考 */}
+      {/* 工具输入/输出格式参考 */}
       {pluginSchema && (pluginSchema.input_schema || pluginSchema.output_schema) && (
         <div className="space-y-3">
           {pluginSchema.input_schema && (
             <div className="p-3 bg-[var(--rust-soft)] rounded-sm border border-[var(--line)]">
-              <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--rust-ink)' }}>插件期望的输入格式</p>
+              <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--rust-ink)' }}>工具期望的输入格式</p>
               <PluginSchemaDisplay schema={pluginSchema.input_schema} />
             </div>
           )}
           {pluginSchema.output_schema && (
             <div className="p-3 bg-[var(--moss-soft)] rounded-sm border border-[var(--line)]">
-              <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--moss)' }}>插件输出格式</p>
+              <p className="app-kicker no-rule text-[0.6rem] mb-1.5" style={{ color: 'var(--moss)' }}>工具输出格式</p>
               <PluginSchemaDisplay schema={pluginSchema.output_schema} />
             </div>
           )}
@@ -861,7 +875,7 @@ function PluginSchemaDisplay({ schema }: { schema: Record<string, unknown> }) {
   )
 }
 
-// ===== Input 块配置 =====
+// ===== Collect 步骤配置 =====
 
 const FIELD_TYPE_OPTIONS: { value: InputField['field_type']; label: string }[] = [
   { value: 'text', label: '单行文本' },
@@ -879,7 +893,7 @@ function InputConfig({ block }: { block: Block }) {
     const names = new Set<string>()
     for (const col of workflow.columns) {
       for (const b of col.blocks) {
-        if (b.type === 'input' && b.id !== block.id && b.config.fields) {
+        if (b.type === 'collect' && b.id !== block.id && b.config.fields) {
           for (const f of b.config.fields) names.add(f.name)
         }
       }
@@ -913,7 +927,7 @@ function InputConfig({ block }: { block: Block }) {
     <>
       <p className="text-xs text-[var(--app-text-soft)]">
         定义运行时用户需要填写的输入字段。
-        AI 块和插件模板中可以用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{input.稳定引用名}}'}</code> 引用。
+        处理步骤和工具模板中可以用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{inputs.稳定引用名}}'}</code> 引用。
       </p>
 
       {fields.length === 0 ? (
@@ -978,16 +992,16 @@ function InputConfig({ block }: { block: Block }) {
 
               {/* 变量名提示 */}
               <p className="text-[10px] text-[var(--app-text-muted)] font-mono">
-                变量名: {'{{'}<span className="text-[var(--app-accent-strong)]">input.{field.name}</span>{'}}'}
+                变量名: {'{{'}<span className="text-[var(--app-accent-strong)]">inputs.{field.name}</span>{'}}'}
               </p>
               {otherFieldNames.has(field.name) && (
                 <p className="text-[10px] text-[var(--app-warning)] font-medium mt-0.5">
-                  稳定引用名「{field.name}」与其他 Input 块中的字段重复，运行时会互相覆盖
+                  稳定引用名「{field.name}」与其他收集步骤中的字段重复，运行时会互相覆盖
                 </p>
               )}
               {fields.filter((f) => f.name === field.name).length > 1 && (
                 <p className="text-[10px] text-[var(--app-danger)] font-medium mt-0.5">
-                  当前块内存在同名字段，请修改
+                  当前步骤内存在同名字段，请修改
                 </p>
               )}
             </div>

@@ -13,9 +13,9 @@ import { getEnabledPlugins, listTemplates } from '@/api/client'
 import { BlockView } from '../blocks/Block'
 
 const CORE_BLOCK_OPTIONS: { type: BlockType; label: string }[] = [
-  { type: 'input', label: '输入' },
-  { type: 'ai', label: 'AI' },
-  { type: 'output', label: '输出' },
+  { type: 'collect', label: '收集' },
+  { type: 'process', label: '处理' },
+  { type: 'result', label: '结果' },
 ]
 
 interface Props {
@@ -46,7 +46,7 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   }, [column.repeat])
 
   const handleAddBlock = (type: BlockType, label: string, pluginId?: string) => {
-    addBlock(column.id, type, `${label}块`, pluginId)
+    addBlock(column.id, type, `${label}步骤`, pluginId)
     setShowAddMenu(false)
   }
 
@@ -182,12 +182,12 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
           className="flex w-full items-center justify-center gap-1 rounded-sm border border-dashed border-[var(--app-border-strong)] py-2 text-xs text-[var(--app-text-soft)] transition hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent-strong)]"
         >
           <Plus size={14} />
-          添加块
+          添加步骤
         </button>
 
         {showAddMenu && (
           <div className="absolute bottom-full left-3 right-3 z-10 mb-1 max-h-80 overflow-y-auto overflow-hidden rounded-sm border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]" style={{ animation: 'panel-slide-in 0.35s var(--ease-ink)' }}>
-            {/* 核心块 */}
+          {/* 核心步骤 */}
             {CORE_BLOCK_OPTIONS.map((opt) => (
               <button
                 key={opt.type}
@@ -221,16 +221,16 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
               </>
             )}
 
-            {/* 已启用的插件 */}
+            {/* 已启用的工具 */}
             {enabledPlugins.length > 0 && (
               <>
                 <div className="border-t border-[var(--app-border)] px-3 py-1.5">
-                  <span className="text-[10px] uppercase tracking-wider text-[var(--app-text-muted)]">插件</span>
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--app-text-muted)]">工具</span>
                 </div>
                 {enabledPlugins.map((plugin) => (
                   <button
                     key={plugin.id}
-                    onClick={() => handleAddBlock('plugin', plugin.name, plugin.id)}
+                    onClick={() => handleAddBlock('tool', plugin.name, plugin.id)}
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
                   >
                     <span className="font-medium text-[var(--app-text)]">{plugin.name}</span>

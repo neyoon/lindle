@@ -94,7 +94,8 @@ def test_canonicalize_workflow_builds_stable_refs():
                 "blocks": [
                     {
                         "id": "blk_input",
-                        "type": "input",
+                        "ref": "blk_input",
+                        "type": "collect",
                         "name": "输入",
                         "config": {
                             "fields": [
@@ -117,8 +118,8 @@ def test_canonicalize_workflow_builds_stable_refs():
     canonical = canonicalize_workflow(workflow)
 
     assert canonical.workflow_id == "wf_test"
-    assert canonical.columns[0].blocks[0].block_ref == "block_blk_input"
-    assert canonical.inputs[0].field_ref == "input_blk_input_topic"
+    assert canonical.columns[0].blocks[0].block_ref == "blk_input"
+    assert canonical.inputs[0].field_ref == "topic"
 
 
 def test_workflow_to_flowspec_preserves_step_dependencies():
@@ -134,7 +135,8 @@ def test_workflow_to_flowspec_preserves_step_dependencies():
                 "blocks": [
                     {
                         "id": "blk_input",
-                        "type": "input",
+                        "ref": "blk_input",
+                        "type": "collect",
                         "name": "输入",
                         "config": {"fields": [{"name": "topic", "label": "主题", "field_type": "text", "required": True, "default": None}]},
                         "connections": [],
@@ -148,14 +150,16 @@ def test_workflow_to_flowspec_preserves_step_dependencies():
                 "blocks": [
                     {
                         "id": "blk_ai_1",
-                        "type": "ai",
+                        "ref": "blk_ai_1",
+                        "type": "process",
                         "name": "分析",
                         "config": {"prompt": "分析"},
                         "connections": [],
                     },
                     {
                         "id": "blk_ai_2",
-                        "type": "ai",
+                        "ref": "blk_ai_2",
+                        "type": "process",
                         "name": "总结",
                         "config": {"prompt": "总结"},
                         "connections": [],
@@ -169,7 +173,8 @@ def test_workflow_to_flowspec_preserves_step_dependencies():
                 "blocks": [
                     {
                         "id": "blk_output",
-                        "type": "output",
+                        "ref": "blk_output",
+                        "type": "result",
                         "name": "输出",
                         "config": {},
                         "connections": [{"from_block_id": "blk_ai_1", "from_key": None}],
@@ -182,9 +187,9 @@ def test_workflow_to_flowspec_preserves_step_dependencies():
     spec = workflow_to_flowspec(workflow)
 
     step_map = {step.source_block_id: step for step in spec.steps}
-    assert step_map["blk_ai_1"].depends_on == ["step_blk_input"]
-    assert step_map["blk_ai_2"].depends_on == ["step_blk_input"]
-    assert step_map["blk_output"].depends_on == ["step_blk_ai_1"]
+    assert step_map["blk_ai_1"].depends_on == ["blk_input"]
+    assert step_map["blk_ai_2"].depends_on == ["blk_input"]
+    assert step_map["blk_output"].depends_on == ["blk_ai_1"]
 
 
 def test_compile_execution_plan_preserves_columns_and_connections():
@@ -200,7 +205,8 @@ def test_compile_execution_plan_preserves_columns_and_connections():
                 "blocks": [
                     {
                         "id": "blk_input",
-                        "type": "input",
+                        "ref": "blk_input",
+                        "type": "collect",
                         "name": "输入",
                         "config": {"fields": []},
                         "connections": [],
@@ -214,7 +220,8 @@ def test_compile_execution_plan_preserves_columns_and_connections():
                 "blocks": [
                     {
                         "id": "blk_ai",
-                        "type": "ai",
+                        "ref": "blk_ai",
+                        "type": "process",
                         "name": "总结",
                         "config": {"prompt": "总结"},
                         "connections": [{"from_block_id": "blk_input", "from_key": None}],
@@ -251,7 +258,8 @@ def test_materialize_flowspec_preserves_workflow_shape():
                 "blocks": [
                     {
                         "id": "blk_input",
-                        "type": "input",
+                        "ref": "blk_input",
+                        "type": "collect",
                         "name": "输入",
                         "config": {
                             "fields": [{"name": "topic", "label": "主题", "field_type": "text", "required": True, "default": None}]
@@ -267,9 +275,10 @@ def test_materialize_flowspec_preserves_workflow_shape():
                 "blocks": [
                     {
                         "id": "blk_ai",
-                        "type": "ai",
+                        "ref": "blk_ai",
+                        "type": "process",
                         "name": "写作",
-                        "config": {"prompt": "围绕 {{input.topic}} 写一段文字"},
+                        "config": {"prompt": "围绕 {{inputs.topic}} 写一段文字"},
                         "connections": [{"from_block_id": "blk_input", "from_key": None}],
                     }
                 ],
@@ -298,7 +307,7 @@ def test_parse_generated_workflow_accepts_flowspec_payload():
       "goal": "输入主题后生成摘要",
       "inputs": [
         {
-          "input_ref": "input_blk_input_topic",
+          "input_ref": "topic",
           "name": "topic",
           "label": "主题",
           "field_type": "text",
@@ -310,32 +319,32 @@ def test_parse_generated_workflow_accepts_flowspec_payload():
         {
           "output_ref": "output_blk_output",
           "name": "输出",
-          "source_step_refs": ["step_blk_output"]
+          "source_step_refs": ["blk_output"]
         }
       ],
       "steps": [
         {
-          "step_ref": "step_blk_input",
+          "step_ref": "blk_input",
           "title": "输入",
-          "type": "input",
+          "type": "collect",
           "purpose": "接收用户输入",
           "depends_on": [],
           "output_contract": {},
           "prompt": null,
-          "input_refs": ["input_blk_input_topic"],
+          "input_refs": ["topic"],
           "source_block_id": "blk_input",
           "source_column_id": "col_input",
           "repeat": 1,
           "order_hint": 0
         },
         {
-          "step_ref": "step_blk_ai",
+          "step_ref": "blk_ai",
           "title": "总结",
-          "type": "ai",
+          "type": "process",
           "purpose": "总结输入主题",
-          "depends_on": ["step_blk_input"],
+          "depends_on": ["blk_input"],
           "output_contract": {},
-          "prompt": "请总结 {{input.topic}}",
+          "prompt": "请总结 {{inputs.topic}}",
           "input_refs": [],
           "source_block_id": "blk_ai",
           "source_column_id": "col_ai",
@@ -343,11 +352,11 @@ def test_parse_generated_workflow_accepts_flowspec_payload():
           "order_hint": 1
         },
         {
-          "step_ref": "step_blk_output",
+          "step_ref": "blk_output",
           "title": "输出",
-          "type": "output",
+          "type": "result",
           "purpose": "输出最终结果",
-          "depends_on": ["step_blk_ai"],
+          "depends_on": ["blk_ai"],
           "output_contract": {},
           "prompt": null,
           "input_refs": [],
@@ -383,7 +392,8 @@ def test_validate_workflow_reports_duplicate_inputs_and_invalid_connections():
                 "blocks": [
                     {
                         "id": "blk_input",
-                        "type": "input",
+                        "ref": "blk_input",
+                        "type": "collect",
                         "name": "输入",
                         "config": {
                             "fields": [
@@ -402,7 +412,8 @@ def test_validate_workflow_reports_duplicate_inputs_and_invalid_connections():
                 "blocks": [
                     {
                         "id": "blk_ai",
-                        "type": "ai",
+                        "ref": "blk_ai",
+                        "type": "process",
                         "name": "坏.名字",
                         "config": {"prompt": ""},
                         "connections": [{"from_block_id": "missing_block", "from_key": None}],
@@ -417,8 +428,7 @@ def test_validate_workflow_reports_duplicate_inputs_and_invalid_connections():
 
     assert "duplicate_input_name" in codes
     assert "invalid_repeat" in codes
-    assert "invalid_block_name" in codes
-    assert "missing_ai_prompt" in codes
+    assert "missing_process_prompt" in codes
     assert "invalid_connection_source" in codes
 
 
@@ -435,7 +445,8 @@ def test_validate_workflow_reports_invalid_variable_references():
                 "blocks": [
                     {
                         "id": "blk_input",
-                        "type": "input",
+                        "ref": "blk_input",
+                        "type": "collect",
                         "name": "输入",
                         "config": {
                             "fields": [
@@ -453,9 +464,10 @@ def test_validate_workflow_reports_invalid_variable_references():
                 "blocks": [
                     {
                         "id": "blk_ai",
-                        "type": "ai",
+                        "ref": "blk_ai",
+                        "type": "process",
                         "name": "总结",
-                        "config": {"prompt": "请处理 {{input.missing}} 和 {{不存在的块.score}}"},
+                        "config": {"prompt": "请处理 {{inputs.missing}} 和 {{steps.missing.score}}"},
                         "connections": [],
                     }
                 ],
@@ -482,7 +494,8 @@ async def test_output_block_keeps_structured_upstream_value():
                 "blocks": [
                     {
                         "id": "blk_output",
-                        "type": "output",
+                        "ref": "blk_output",
+                        "type": "result",
                         "name": "输出",
                         "config": {},
                         "connections": [],
@@ -494,7 +507,7 @@ async def test_output_block_keeps_structured_upstream_value():
 
     context = Context()
     context.add_column_results("col_ai", [
-        BlockResult(block_id="blk_ai", block_name="分析", data={"summary": "ok", "score": 8})
+        BlockResult(block_id="blk_ai", block_ref="blk_ai", block_name="分析", data={"summary": "ok", "score": 8})
     ])
 
     result = await BlockExecutor.execute(block, context)
@@ -515,12 +528,13 @@ async def test_plugin_block_supports_input_bindings(monkeypatch):
                 "blocks": [
                     {
                         "id": "blk_plugin",
-                        "type": "plugin",
+                        "ref": "blk_plugin",
+                        "type": "tool",
                         "name": "搜索插件",
                         "config": {
                             "plugin_id": "mock_tool",
                             "plugin_input_bindings": {
-                                "query": {"kind": "variable", "value": "input.keyword"},
+                                "query": {"kind": "variable", "value": "inputs.keyword"},
                                 "limit": {"kind": "literal", "value": 5}
                             }
                         },

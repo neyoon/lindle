@@ -21,6 +21,7 @@ class BlockResult:
     """单个块的执行结果"""
 
     block_id: str
+    block_ref: str
     block_name: str
     data: Any
     output_keys: list[str] | None = None  # 如果定义了 OutputSchema
@@ -158,7 +159,7 @@ class Context:
                 continue
 
             value = result.get_key(from_key) if from_key else result.data
-            label = f"{result.block_name}.{from_key}" if from_key else result.block_name
+            label = f"{result.block_ref}.{from_key}" if from_key else result.block_ref
             collected.append((label, value))
 
         if not collected:
@@ -180,7 +181,7 @@ class Context:
         if len(results) == 1:
             return results[0].data
 
-        return {result.block_name: result.data for result in results}
+        return {result.block_ref: result.data for result in results}
 
     def _format_user_inputs(self) -> str:
         """格式化用户输入"""
@@ -189,10 +190,10 @@ class Context:
         parts = [f"{k}: {v}" for k, v in self.user_inputs.items()]
         return "\n".join(parts)
 
-    def get_block_result_by_name(self, name: str) -> BlockResult | None:
-        """按块名称查找结果（用于模板变量渲染）"""
+    def get_block_result_by_ref(self, ref: str) -> BlockResult | None:
+        """按稳定步骤引用查找结果（用于模板变量渲染）"""
         for result in self._block_results.values():
-            if result.block_name == name:
+            if result.block_ref == ref:
                 return result
         return None
 
@@ -207,7 +208,7 @@ class Context:
         if len(results) == 1:
             return {"result": results[0].data}
 
-        return {r.block_name: r.data for r in results}
+        return {r.block_ref: r.data for r in results}
 
 
 def _resolve_nested(data: Any, key_path: list[str]) -> Any:
@@ -238,34 +239,33 @@ def resolve_context_expression(expr: str, context: Context) -> Any | None:
     if not expr:
         return None
 
-    if expr.startswith("input."):
-        field_name = expr[6:]
+    if expr.startswith("inputs."):
+        field_name = expr[7:]
         return context.user_inputs.get(field_name)
 
-    if "." in expr:
-        block_name, _, key_str = expr.partition(".")
-        block_name = block_name.strip()
-        result = context.get_block_result_by_name(block_name)
+    if expr.startswith("steps."):
+        ref_expr = expr[6:]
+        step_ref, _, key_str = ref_expr.partition(".")
+        step_ref = step_ref.strip()
+        result = context.get_block_result_by_ref(step_ref)
         if result is None:
             return None
+        if not key_str:
+            return result.data
         key_path = [p.strip() for p in key_str.split(".")]
         return _resolve_nested(result.data, key_path)
 
-    result = context.get_block_result_by_name(expr)
-    if result is not None:
-        return result.data
-
-    return context.user_inputs.get(expr)
+    return None
 
 
 def render_prompt_template(prompt: str, context: Context) -> tuple[str, bool]:
     """渲染 prompt 中的 {{变量}} 模板
 
     支持的变量格式:
-    - {{input.字段名}}       → 用户输入的某个字段
-    - {{块名称}}             → 某个上游块的完整输出
-    - {{块名称.key}}         → 某个上游块输出中的特定 JSON key
-    - {{块名称.key1.key2}}   → 嵌套 key 访问（如 {{分析.report.score}}）
+    - {{inputs.字段名}}          → 用户输入的某个字段
+    - {{steps.step_ref}}         → 某个上游步骤的完整输出
+    - {{steps.step_ref.key}}     → 某个上游步骤输出中的特定 JSON key
+    - {{steps.step_ref.k1.k2}}   → 嵌套 key 访问
 
     Args:
         prompt: 包含 {{变量}} 的原始 prompt
@@ -285,14 +285,15 @@ def render_prompt_template(prompt: str, context: Context) -> tuple[str, bool]:
         value = resolve_context_expression(var, context)
         if value is not None:
             return _format_value(value)
-        if var.startswith("input."):
-            return f"[未找到输入字段: {var[6:]}]"
-        if "." in var:
-            block_name, _, key_str = var.partition(".")
-            result = context.get_block_result_by_name(block_name.strip())
+        if var.startswith("inputs."):
+            return f"[未找到输入字段: {var[7:]}]"
+        if var.startswith("steps."):
+            ref_expr = var[6:]
+            step_ref, _, key_str = ref_expr.partition(".")
+            result = context.get_block_result_by_ref(step_ref.strip())
             if result is None:
-                return f"[未找到块: {block_name.strip()}]"
-            return f"[块 {block_name.strip()} 无 key: {key_str}]"
+                return f"[未找到步骤: {step_ref.strip()}]"
+            return f"[步骤 {step_ref.strip()} 无 key: {key_str}]"
         return f"[未找到变量: {var}]"
 
     rendered = re.sub(pattern, _replace, prompt)

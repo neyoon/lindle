@@ -2,7 +2,7 @@
  * 运行面板 - 底部常驻
  *
  * 两个区域:
- * 1. 输入表单: 根据工作流中 Input 块的字段定义，让用户填写值（始终可见，方便反复测试）
+ * 1. 输入表单: 根据工作流中 Collect 步骤的字段定义，让用户填写值（始终可见，方便反复测试）
  * 2. 结果展示: 步骤详情 + 最终输出
  */
 import { useState, useMemo } from 'react'
@@ -25,13 +25,13 @@ export function RunPanel() {
   const { workflow, runResult, runEvents, liveOutput, isRunning, userInputs, setUserInput } = useWorkflowStore()
   const [showResult, setShowResult] = useState(true)
 
-  // 收集所有 Input 块定义的字段
+  // 收集所有 Collect 步骤定义的字段
   const inputFields = useMemo(() => {
     const fields: InputField[] = []
     const sorted = [...workflow.columns].sort((a, b) => a.order - b.order)
     for (const col of sorted) {
       for (const block of col.blocks) {
-        if (block.type === 'input' && block.config.fields) {
+        if (block.type === 'collect' && block.config.fields) {
           fields.push(...block.config.fields)
         }
       }

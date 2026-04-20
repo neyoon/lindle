@@ -21,8 +21,8 @@ Flow 的创建、编辑和执行不应共用同一份结构。
 
 ### 三层职责
 
-- FlowSpec：表达任务意图
-- CanonicalFlow：表达稳定编辑结构
+- FlowSpec：表达用户真正操作的任务结构
+- CanonicalFlow：表达系统内部的稳定编辑结构
 - ExecutionPlan：表达运行时执行结构
 
 ### 主链路
@@ -32,31 +32,32 @@ Flow 的创建、编辑和执行不应共用同一份结构。
 - 用户需求
 - AI 生成或修改 FlowSpec
 - 系统把 FlowSpec 收敛成 CanonicalFlow
-- 前端编辑器展示和编辑 CanonicalFlow
+- 前端编辑器展示和编辑 FlowSpec 语义
 - 系统在保存前或运行前校验 CanonicalFlow
 - 系统把 CanonicalFlow 编译成 ExecutionPlan
 - 引擎执行 ExecutionPlan
 
 ### 用户可见性
 
-- 用户不直接接触 FlowSpec
+- 用户应直接接触 FlowSpec 表达的主步骤结构
+- 用户不需要直接编辑 CanonicalFlow 细节
 - 用户不直接接触 ExecutionPlan
-- 用户只接触编辑器中的 Flow
 
-编辑器中的 Flow 在系统内部对应 CanonicalFlow。
+编辑器中的 Flow 应首先表达 FlowSpec，而不是暴露 CanonicalFlow 的内部组织方式。
 
 ## FlowSpec
 
 ### 定位
 
-FlowSpec 是高层创建结构。
+FlowSpec 是用户主操作层，也是 AI 的主创建层。
 
-它只负责表达用户想做什么，不负责表达系统最终怎么执行。
+它负责表达用户想做什么，不负责表达系统最终怎么执行。
 
 ### 适用场景
 
 - AI 根据需求创建新 Flow
 - AI 根据指令修改已有 Flow 的主结构
+- 用户在编辑器中查看、调整和重排主步骤
 - 系统先把自然语言需求整理成主步骤结构
 
 ### 应包含的信息
@@ -82,10 +83,10 @@ FlowSpec 至少应包含：
 
 - `step_ref`：稳定步骤引用
 - `title`：显示标题
-- `type`：`input | ai | plugin | output`
+- `type`：`collect | process | tool | result`
 - `purpose`：该步骤的主目标
 - `depends_on`
-- `plugin_id`：仅插件步骤需要
+- `tool_id`：仅工具步骤需要
 - `output_contract`
 
 ### 不应包含的信息
@@ -102,18 +103,26 @@ FlowSpec 不应直接承担这些细节：
 
 这些内容属于收敛层或执行层，不应成为 AI 和用户在创建阶段的默认负担。
 
+### FlowSpec 的引用语义
+
+FlowSpec 默认只允许使用稳定引用，不允许按显示名引用。
+
+- 输入引用使用 `{{inputs.<input_ref>}}`
+- 步骤完整输出使用 `{{steps.<step_ref>}}`
+- 步骤字段输出使用 `{{steps.<step_ref>.<key>}}`
+
+这条规则必须贯穿 AI 生成、前端编辑和运行时解析。
+
 ## CanonicalFlow
 
 ### 定位
 
-CanonicalFlow 是标准编辑结构。
+CanonicalFlow 是系统内部标准编辑结构。
 
-它既要适合前端继续编辑，也要适合保存、校验、对比、导出和继续编译。
+它不再承担“用户默认直接编辑”的职责，而是承接保存、校验、对比、导出和继续编译。
 
 ### 适用场景
 
-- 前端画布展示
-- 前端手动调整
 - 持久化保存
 - 保存前和运行前校验
 - AI 修改后的差异比较
@@ -253,10 +262,10 @@ ExecutionPlan 应包含：
 
 ### 与 CanonicalFlow 的区别
 
-- CanonicalFlow 面向编辑器
+- CanonicalFlow 面向系统内部编辑结构
 - ExecutionPlan 面向引擎
 
-CanonicalFlow 中允许保留“用户显式配置”和“用户可理解的结构”。
+CanonicalFlow 中允许保留系统整理后的稳定列结构、块结构和连接细节，但这些不是用户主操作语义。
 
 ExecutionPlan 中则应只保留引擎需要的确定性运行信息。
 

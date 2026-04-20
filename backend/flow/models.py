@@ -19,12 +19,12 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class BlockType(str, Enum):
-    """块类型 - 3 种核心 + 插件"""
+    """步骤类型 - FlowSpec 用户层语义"""
 
-    INPUT = "input"
-    AI = "ai"
-    OUTPUT = "output"
-    PLUGIN = "plugin"
+    COLLECT = "collect"
+    PROCESS = "process"
+    RESULT = "result"
+    TOOL = "tool"
 
 
 class OutputSchema(BaseModel):
@@ -82,9 +82,10 @@ BlockConfig.model_rebuild()
 
 
 class Block(BaseModel):
-    """块 - 工作流的最小单元"""
+    """步骤块 - 编辑器中的最小单元"""
 
     id: str = Field(description="块唯一 ID")
+    ref: str = Field(description="稳定步骤引用")
     type: BlockType = Field(description="块类型")
     name: str = Field(description="块名称（用户可读）")
     config: BlockConfig = Field(default_factory=BlockConfig, description="块配置")
@@ -170,6 +171,7 @@ class BlockTemplate(BaseModel):
     """
 
     id: str = Field(description="模板唯一 ID")
+    ref: str = Field(description="模板默认步骤引用")
     type: BlockType = Field(description="块类型")
     name: str = Field(description="模板名称")
     description: str = Field(default="", description="描述")

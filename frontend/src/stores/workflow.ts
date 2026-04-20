@@ -22,6 +22,15 @@ import type {
 let blockCounter = 0
 let columnCounter = 0
 
+function sanitizeRef(value: string): string {
+  const sanitized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return sanitized || 'step'
+}
+
 function genBlockId(): string {
   return `blk_${++blockCounter}_${Date.now()}`
 }
@@ -34,30 +43,30 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function replaceBlockReferenceInText(text: string | null | undefined, oldName: string, newName: string): string | null | undefined {
-  if (!text || !oldName || oldName === newName) return text
-  const pattern = new RegExp(`\\{\\{\\s*${escapeRegExp(oldName)}((?:\\.[^}]+)?)\\s*\\}\\}`, 'g')
-  return text.replace(pattern, (_match, suffix) => `{{${newName}${suffix || ''}}}`)
+function replaceStepReferenceInText(text: string | null | undefined, oldRef: string, newRef: string): string | null | undefined {
+  if (!text || !oldRef || oldRef === newRef) return text
+  const pattern = new RegExp(`\\{\\{\\s*steps\\.${escapeRegExp(oldRef)}((?:\\.[^}]+)?)\\s*\\}\\}`, 'g')
+  return text.replace(pattern, (_match, suffix) => `{{steps.${newRef}${suffix || ''}}}`)
 }
 
 function replaceInputReferenceInText(text: string | null | undefined, oldName: string, newName: string): string | null | undefined {
   if (!text || !oldName || oldName === newName) return text
-  const pattern = new RegExp(`\\{\\{\\s*input\\.${escapeRegExp(oldName)}\\s*\\}\\}`, 'g')
-  return text.replace(pattern, `{{input.${newName}}}`)
+  const pattern = new RegExp(`\\{\\{\\s*inputs\\.${escapeRegExp(oldName)}\\s*\\}\\}`, 'g')
+  return text.replace(pattern, `{{inputs.${newName}}}`)
 }
 
-function migrateBlockReferences(block: Block, oldName: string, newName: string): Block {
+function migrateStepReferences(block: Block, oldRef: string, newRef: string): Block {
   return {
     ...block,
     config: {
       ...block.config,
-      prompt: replaceBlockReferenceInText(block.config.prompt, oldName, newName) ?? block.config.prompt,
+      prompt: replaceStepReferenceInText(block.config.prompt, oldRef, newRef) ?? block.config.prompt,
       plugin_input_bindings: block.config.plugin_input_bindings
         ? Object.fromEntries(
             Object.entries(block.config.plugin_input_bindings).map(([key, binding]) => [
               key,
               binding.kind === 'variable'
-                ? { ...binding, value: replaceBlockReferenceInText(String(binding.value || ''), oldName, newName)?.replace(/^\{\{|\}\}$/g, '') ?? binding.value }
+                ? { ...binding, value: replaceStepReferenceInText(String(binding.value || ''), oldRef, newRef)?.replace(/^\{\{|\}\}$/g, '') ?? binding.value }
                 : binding,
             ]),
           )
@@ -125,6 +134,7 @@ interface WorkflowState {
   moveBlock: (blockId: string, fromColumnId: string, toColumnId: string, insertIndex: number) => void
   removeBlock: (columnId: string, blockId: string) => void
   updateBlock: (blockId: string, updates: Partial<Block>) => void
+  renameBlockReference: (blockId: string, newRef: string) => void
   renameInputReference: (oldName: string, newName: string) => void
   selectBlock: (blockId: string | null) => void
 
@@ -221,19 +231,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     })),
 
   addBlock: (columnId, type, name, pluginId) => {
+    const blockName = name.trim() || '新步骤'
     const newBlock: Block = {
       id: genBlockId(),
+      ref: `${type}_${sanitizeRef(blockName)}_${blockCounter}`,
       type,
-      name,
+      name: blockName,
       config: {},
       connections: [],
     }
-    if (type === 'input') {
+    if (type === 'collect') {
       newBlock.config.fields = []
-    } else if (type === 'ai') {
+    } else if (type === 'process') {
       newBlock.config.prompt = ''
       newBlock.config.model = null
-    } else if (type === 'plugin' && pluginId) {
+    } else if (type === 'tool' && pluginId) {
       newBlock.config.plugin_id = pluginId
     }
 
@@ -251,6 +263,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   addBlockFromTemplate: (columnId, template) => {
     const newBlock: Block = {
       id: genBlockId(),
+      ref: `${sanitizeRef(template.ref || template.name)}_${blockCounter}`,
       type: template.type,
       name: template.name,
       config: JSON.parse(JSON.stringify(template.config)),
@@ -324,27 +337,44 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   updateBlock: (blockId, updates) =>
     set((state) => {
-      let oldName: string | null = null
-      for (const column of state.workflow.columns) {
-        const block = column.blocks.find((item) => item.id === blockId)
-        if (block) {
-          oldName = block.name
-          break
-        }
-      }
-
       let columns = state.workflow.columns.map((c) => ({
         ...c,
         blocks: c.blocks.map((b) => (b.id === blockId ? { ...b, ...updates } : b)),
       }))
 
-      const nextName = typeof updates.name === 'string' ? updates.name : null
-      if (oldName && nextName && oldName !== nextName) {
-        columns = columns.map((column) => ({
-          ...column,
-          blocks: column.blocks.map((block) => migrateBlockReferences(block, oldName as string, nextName)),
-        }))
+      return {
+        workflow: {
+          ...state.workflow,
+          columns,
+        },
+        blockDiffMap: null,
       }
+    }),
+
+  renameBlockReference: (blockId, newRef) =>
+    set((state) => {
+      const normalizedRef = sanitizeRef(newRef)
+      let oldRef: string | null = null
+      for (const column of state.workflow.columns) {
+        const block = column.blocks.find((item) => item.id === blockId)
+        if (block) {
+          oldRef = block.ref
+          break
+        }
+      }
+      if (!oldRef || oldRef === normalizedRef) {
+        return state
+      }
+
+      const columns = state.workflow.columns.map((column) => ({
+        ...column,
+        blocks: column.blocks.map((block) => {
+          if (block.id === blockId) {
+            return { ...block, ref: normalizedRef }
+          }
+          return migrateStepReferences(block, oldRef as string, normalizedRef)
+        }),
+      }))
 
       return {
         workflow: {

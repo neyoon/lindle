@@ -84,14 +84,14 @@ class CodeGenerator:
 
         for col in columns:
             for block in col.blocks:
-                if block.type == BlockType.INPUT:
+                if block.type == BlockType.COLLECT:
                     fields = block.config.fields or []
                     field_list = ", ".join(f'"{f.name}"' for f in fields)
                     step_defs.append(
-                        f'    {{"type": "input", "name": "{block.name}", "fields": [{field_list}]}}'
+                        f'    {{"type": "collect", "name": "{block.name}", "fields": [{field_list}]}}'
                     )
 
-                elif block.type == BlockType.AI:
+                elif block.type == BlockType.PROCESS:
                     step_index += 1
                     func_name = f"step_{step_index:02d}"
                     imports.append(f"from steps.{func_name} import run as {func_name}")
@@ -102,12 +102,12 @@ class CodeGenerator:
                         schema_arg = f', "output_keys": [{keys_str}]'
 
                     step_defs.append(
-                        f'    {{"type": "ai", "name": "{block.name}", "run": {func_name}{schema_arg}}}'
+                        f'    {{"type": "process", "name": "{block.name}", "run": {func_name}{schema_arg}}}'
                     )
 
-                elif block.type == BlockType.OUTPUT:
+                elif block.type == BlockType.RESULT:
                     step_defs.append(
-                        f'    {{"type": "output", "name": "{block.name}"}}'
+                        f'    {{"type": "result", "name": "{block.name}"}}'
                     )
 
         imports_str = "\n".join(imports)
@@ -161,7 +161,7 @@ async def main():
     # 2. 收集用户输入
     user_inputs = {{}}
     for step in STEPS:
-        if step["type"] == "input":
+        if step["type"] == "collect":
             print(f"\\n[输入] {{step['name']}}")
             for field_name in step.get("fields", []):
                 value = input(f"  请输入 {{field_name}}: ")
@@ -199,7 +199,7 @@ if __name__ == "__main__":
         models: set[str] = set()
         for col in workflow.columns:
             for block in col.blocks:
-                if block.type == BlockType.AI and block.config.model:
+                if block.type == BlockType.PROCESS and block.config.model:
                     models.add(block.config.model)
 
         default_model = next(iter(models)) if models else "gpt-4o-mini"
@@ -242,7 +242,7 @@ llm:
         step_index = 0
         for col in workflow.get_sorted_columns():
             for block in col.blocks:
-                if block.type != BlockType.AI:
+                if block.type != BlockType.PROCESS:
                     continue
 
                 step_index += 1
@@ -307,7 +307,7 @@ async def run(upstream_data: str) -> str | dict:
         step_index = 0
         for col in workflow.get_sorted_columns():
             for block in col.blocks:
-                if block.type != BlockType.AI:
+                if block.type != BlockType.PROCESS:
                     continue
 
                 step_index += 1
@@ -554,12 +554,12 @@ class Engine:
             for step in self.steps:
                 step_type = step["type"]
 
-                if step_type == "input":
+                if step_type == "collect":
                     # 输入步骤：数据已在 user_inputs 中
                     ctx.add_result(step["name"], user_inputs)
                     print(f"  [{step['name']}] 输入已接收")
 
-                elif step_type == "ai":
+                elif step_type == "process":
                     # AI 步骤：调用 run 函数
                     upstream = ctx.get_upstream_text()
                     run_fn = step["run"]
@@ -568,7 +568,7 @@ class Engine:
                     elapsed = time.time() - start
                     print(f"  [{step['name']}] 完成 ({elapsed:.1f}s)")
 
-                elif step_type == "output":
+                elif step_type == "result":
                     # 输出步骤：透传上游数据
                     upstream_text = ctx.get_upstream_text()
                     ctx.add_result(step["name"], upstream_text)

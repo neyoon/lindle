@@ -21,6 +21,7 @@ def materialize_canonical_workflow(workflow: CanonicalWorkflow) -> Workflow:
             blocks.append(
                 Block.model_validate({
                     "id": block.block_id,
+                    "ref": block.block_ref,
                     "type": block.type,
                     "name": block.name,
                     "config": block.config.model_dump(),

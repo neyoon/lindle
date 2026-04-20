@@ -11,9 +11,9 @@ interface Props {
 }
 
 const TYPE_OPTIONS: { value: BlockType; label: string }[] = [
-  { value: 'ai', label: 'AI' },
-  { value: 'input', label: '输入' },
-  { value: 'output', label: '输出' },
+  { value: 'process', label: '处理' },
+  { value: 'collect', label: '收集' },
+  { value: 'result', label: '结果' },
 ]
 
 function generateTemplateId(): string {
@@ -96,8 +96,8 @@ export function ManufacturePage({ onBack, headerActions }: Props) {
         <section className="app-card p-6 md:p-8">
           <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
             <div>
-              <div className="app-kicker mb-3">Block manufacture</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">把临时块变成可复用结构件</h2>
+              <div className="app-kicker mb-3">Step manufacture</div>
+              <h2 className="app-section-title text-3xl md:text-4xl">把临时步骤变成可复用结构件</h2>
               <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
                 这一步决定 Flow 为什么不是一次性拖拽。模板制造完成后，会重新进入编辑器添加菜单，变成稳定的生产材料。
               </p>
@@ -106,7 +106,7 @@ export function ManufacturePage({ onBack, headerActions }: Props) {
               <div className="app-stat">
                 <div className="app-kicker mb-2">Templates</div>
                 <div className="text-3xl font-semibold text-[var(--app-text)]">{templates.length}</div>
-                <p className="app-muted mt-2 text-sm">可复用块模板</p>
+                <p className="app-muted mt-2 text-sm">可复用步骤模板</p>
               </div>
               <div className="app-stat">
                 <div className="app-kicker mb-2">Role</div>
@@ -137,7 +137,7 @@ export function ManufacturePage({ onBack, headerActions }: Props) {
             <div className="app-card p-12 text-center">
               <div className="app-kicker mb-3">No templates yet</div>
               <h3 className="app-section-title text-3xl">暂无模板</h3>
-              <p className="app-muted mt-4 text-sm leading-8">从常用的输入、AI、输出块开始，把它们制造成可反复调用的结构件。</p>
+              <p className="app-muted mt-4 text-sm leading-8">从常用的收集、处理、结果步骤开始，把它们制造成可反复调用的结构件。</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -203,7 +203,7 @@ function TemplateForm({
   const [name, setName] = useState(initial?.name || '')
   const [description, setDescription] = useState(initial?.description || '')
   const [icon, setIcon] = useState(initial?.icon || '')
-  const [type, setType] = useState<BlockType>(initial?.type || 'ai')
+  const [type, setType] = useState<BlockType>(initial?.type || 'process')
   const [prompt, setPrompt] = useState(initial?.config.prompt || '')
   const [model, setModel] = useState(initial?.config.model || '')
   const [providers, setProviders] = useState<ProviderResponse[]>([])
@@ -219,15 +219,16 @@ function TemplateForm({
     }
 
     const config: BlockConfig = {}
-    if (type === 'ai') {
+    if (type === 'process') {
       config.prompt = prompt || null
       config.model = model || null
-    } else if (type === 'input') {
-      config.fields = [{ name: 'input', label: '输入', field_type: 'text', required: true }]
+    } else if (type === 'collect') {
+      config.fields = [{ name: 'field_1', label: '输入', field_type: 'text', required: true }]
     }
 
     onSave({
       id: initial?.id || generateTemplateId(),
+      ref: initial?.ref || `${type}_${name.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_')}`,
       type,
       name: name.trim(),
       description: description.trim(),
@@ -253,7 +254,7 @@ function TemplateForm({
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">名称 *</label>
-          <input className="app-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="例如: 翻译 AI" />
+          <input className="app-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="例如: 生成摘要" />
         </div>
 
         <div>
@@ -275,11 +276,11 @@ function TemplateForm({
           <input className="app-input" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="可选，输入图标文本" />
         </div>
 
-        {type === 'ai' && (
+        {type === 'process' && (
           <>
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">预设提示词</label>
-              <textarea className="app-input min-h-[140px] resize-y" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="告诉 AI 这个模板默认怎么工作" />
+              <textarea className="app-input min-h-[140px] resize-y" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="描述这个处理步骤默认怎么工作" />
             </div>
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">LLM Provider</label>

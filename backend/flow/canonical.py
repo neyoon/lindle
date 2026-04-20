@@ -124,8 +124,8 @@ def canonicalize_flowspec(spec: FlowSpec) -> CanonicalWorkflow:
             plugin_id=step.plugin_id,
         )
         output_schema = _output_contract_to_schema(step.output_contract)
-        block_id = step.source_block_id or step.step_ref
-        block_ref = f"block_{sanitize_ref(block_id)}"
+        block_id = step.source_block_id or f"blk_{sanitize_ref(step.step_ref)}"
+        block_ref = step.step_ref
 
         column.blocks.append(
             CanonicalBlock(

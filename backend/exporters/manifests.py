@@ -23,7 +23,7 @@ def _resolve_workflow_inputs(workflow: Workflow) -> list[dict[str, Any]]:
     inputs: list[dict[str, Any]] = []
     for column in workflow.get_sorted_columns():
         for block in column.blocks:
-            if block.type != BlockType.INPUT or not block.config.fields:
+            if block.type != BlockType.COLLECT or not block.config.fields:
                 continue
             for field in block.config.fields:
                 inputs.append({
@@ -50,13 +50,13 @@ def _resolve_workflow_outputs(workflow: Workflow) -> list[dict[str, Any]]:
             "block_name": block.name,
             "type": block.type.value,
         }
-        if block.type == BlockType.OUTPUT:
+        if block.type == BlockType.RESULT:
             item["output_mode"] = "passthrough_structured"
-        elif block.type == BlockType.AI:
+        elif block.type == BlockType.PROCESS:
             item["output_mode"] = "json" if block.output_schema and block.output_schema.keys else "text"
             if block.output_schema and block.output_schema.keys:
                 item["keys"] = list(block.output_schema.keys)
-        elif block.type == BlockType.PLUGIN:
+        elif block.type == BlockType.TOOL:
             item["output_mode"] = "plugin_result"
             item["plugin_id"] = block.config.plugin_id
         outputs.append(item)
@@ -84,19 +84,19 @@ def build_workflow_description(workflow: Workflow) -> str:
 
         for block in col.blocks:
             type_label = {
-                BlockType.INPUT: "输入",
-                BlockType.AI: "AI",
-                BlockType.OUTPUT: "输出",
-                BlockType.PLUGIN: "插件",
+                BlockType.COLLECT: "收集",
+                BlockType.PROCESS: "处理",
+                BlockType.RESULT: "结果",
+                BlockType.TOOL: "工具",
             }.get(block.type, str(block.type))
             lines.append(f"**[{type_label}] {block.name}**")
 
-            if block.type == BlockType.INPUT and block.config.fields:
+            if block.type == BlockType.COLLECT and block.config.fields:
                 for field in block.config.fields:
                     required = "必填" if field.required else "选填"
                     lines.append(f"  - 字段: `{field.name}` ({field.field_type}, {required})")
 
-            if block.type == BlockType.AI:
+            if block.type == BlockType.PROCESS:
                 if block.config.prompt:
                     lines.append(f"  - 提示词: {block.config.prompt}")
                 lines.append(f"  - 模型: `{block.config.model or '默认'}`")
@@ -105,7 +105,7 @@ def build_workflow_description(workflow: Workflow) -> str:
                     lines.append(f"  - JSON 输出 key: {keys}")
                 lines.append("  - 默认输入语义: 文本化上游结果")
 
-            if block.type == BlockType.PLUGIN:
+            if block.type == BlockType.TOOL:
                 lines.append(f"  - 插件 ID: `{block.config.plugin_id or '未配置'}`")
                 lines.append("  - 默认输入语义: 结构化上游结果")
                 if block.config.plugin_input_bindings:
@@ -130,10 +130,10 @@ def build_workflow_description(workflow: Workflow) -> str:
     lines.append("")
     lines.append("**数据流规则：**")
     lines.append("- 默认：每步自动接收上一步所有块的全部输出")
-    lines.append("- AI 块默认接收适合模型理解的文本格式")
-    lines.append("- Plugin 块默认接收适合程序执行的结构化格式，优先使用字段映射配置")
-    lines.append("- 手动连线：仅接收指定来源块的输出（可精确到某个 JSON key）")
-    lines.append("- 同一步内的多个块并行执行")
+    lines.append("- 处理步骤默认接收适合模型理解的文本格式")
+    lines.append("- 工具步骤默认接收适合程序执行的结构化格式，优先使用字段映射配置")
+    lines.append("- 手动连线：仅接收指定来源步骤的输出（可精确到某个 JSON key）")
+    lines.append("- 同一步内的多个步骤并行执行")
     return "\n".join(lines)
 
 
@@ -164,7 +164,7 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
             elif index > 1:
                 item["receives"] = ["previous_step_all_outputs"]
 
-            if block.type == BlockType.INPUT:
+            if block.type == BlockType.COLLECT:
                 item["fields"] = [
                     {
                         "name": field.name,
@@ -175,12 +175,12 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
                     }
                     for field in (block.config.fields or [])
                 ]
-            elif block.type == BlockType.AI:
+            elif block.type == BlockType.PROCESS:
                 item["default_input_mode"] = "formatted_text"
                 item["model_provider_id"] = block.config.model
                 item["prompt"] = block.config.prompt
                 item["output_schema"] = block.output_schema.model_dump() if block.output_schema else None
-            elif block.type == BlockType.PLUGIN:
+            elif block.type == BlockType.TOOL:
                 plugin = get_plugin(block.config.plugin_id or "")
                 item["default_input_mode"] = "structured_upstream_value"
                 item["plugin_id"] = block.config.plugin_id
@@ -202,7 +202,7 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
                     if plugin
                     else None
                 )
-            elif block.type == BlockType.OUTPUT:
+            elif block.type == BlockType.RESULT:
                 item["default_input_mode"] = "structured_passthrough"
 
             blocks.append(item)
@@ -218,7 +218,7 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
 
     return {
         "manifest_type": "lindle_flow",
-        "manifest_version": "1.2",
+        "manifest_version": "1.3",
         "exported_at": _exported_at(),
         "summary": {
             "id": workflow.id,
@@ -231,9 +231,9 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
         "execution_semantics": {
             "columns": "sequential",
             "blocks_within_column": "parallel",
-            "default_ai_input": "formatted_text",
-            "default_plugin_input": "structured_upstream_value",
-            "default_output_behavior": "structured_passthrough",
+            "default_process_input": "formatted_text",
+            "default_tool_input": "structured_upstream_value",
+            "default_result_behavior": "structured_passthrough",
         },
         "inputs": _resolve_workflow_inputs(workflow),
         "outputs": _resolve_workflow_outputs(workflow),
@@ -287,7 +287,7 @@ def build_agent_export(agent: Agent) -> dict[str, Any]:
 
     return {
         "manifest_type": "lindle_agent",
-        "manifest_version": "1.2",
+        "manifest_version": "1.3",
         "exported_at": _exported_at(),
         "summary": {
             "id": agent.id,

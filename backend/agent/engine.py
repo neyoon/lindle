@@ -575,7 +575,7 @@ class AgentEngine:
             input_fields = []
             for col in workflow.columns:
                 for block in col.blocks:
-                    if block.type == BlockType.INPUT and block.config.fields:
+                    if block.type == BlockType.COLLECT and block.config.fields:
                         for field in block.config.fields:
                             label = field.label or field.name
                             required = "必填" if field.required else "可选"
@@ -590,9 +590,9 @@ class AgentEngine:
             if sorted_cols:
                 last_col = sorted_cols[-1]
                 for block in last_col.blocks:
-                    if block.type == BlockType.OUTPUT:
+                    if block.type == BlockType.RESULT:
                         output_info.append(f"  - [{block.name}]: 透传上游结构化结果")
-                    elif block.type == BlockType.AI:
+                    elif block.type == BlockType.PROCESS:
                         if block.output_schema and block.output_schema.keys:
                             keys_str = ", ".join(block.output_schema.keys)
                             output_info.append(

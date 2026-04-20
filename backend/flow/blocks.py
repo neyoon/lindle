@@ -1,11 +1,11 @@
 """
 块实现
 
-核心块类型:
-- InputBlock:   接收用户输入
-- AIBlock:      调用大模型处理
-- OutputBlock:  输出最终结果
-- PluginBlock:  调用已启用的插件
+核心步骤类型:
+- CollectStep:  接收用户输入
+- ProcessStep:  调用大模型处理
+- ResultStep:   输出最终结果
+- ToolStep:     调用已启用的工具
 
 设计原则:
 - 每个块只有一个入口和一个出口
@@ -34,10 +34,10 @@ class BlockExecutor:
     async def execute(block: Block, context: Context) -> BlockResult:
         """执行一个块"""
         executors = {
-            BlockType.INPUT: _execute_input,
-            BlockType.AI: _execute_ai,
-            BlockType.OUTPUT: _execute_output,
-            BlockType.PLUGIN: _execute_plugin,
+            BlockType.COLLECT: _execute_input,
+            BlockType.PROCESS: _execute_ai,
+            BlockType.RESULT: _execute_output,
+            BlockType.TOOL: _execute_plugin,
         }
 
         executor = executors.get(block.type)
@@ -56,6 +56,7 @@ async def _execute_input(block: Block, context: Context) -> BlockResult:
     data = context.user_inputs
     return BlockResult(
         block_id=block.id,
+        block_ref=block.ref,
         block_name=block.name,
         data=data,
     )
@@ -164,6 +165,7 @@ async def _execute_ai(block: Block, context: Context) -> BlockResult:
 
     return BlockResult(
         block_id=block.id,
+        block_ref=block.ref,
         block_name=block.name,
         data=result,
         output_keys=output_keys,
@@ -205,6 +207,7 @@ async def _execute_plugin(block: Block, context: Context) -> BlockResult:
 
     return BlockResult(
         block_id=block.id,
+        block_ref=block.ref,
         block_name=block.name,
         data=result,
     )
@@ -231,6 +234,7 @@ async def _execute_output(block: Block, context: Context) -> BlockResult:
 
     return BlockResult(
         block_id=block.id,
+        block_ref=block.ref,
         block_name=block.name,
         data=upstream_data,
     )

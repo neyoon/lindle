@@ -30,9 +30,14 @@ FlowSpec 的目标是：
 
 ### 可见性
 
-FlowSpec 是系统内部结构。
+FlowSpec 不是只在内部存在的中间物。
 
-用户不应直接看到或编辑 FlowSpec。
+用户不一定要直接编辑 FlowSpec JSON，但用户应直接操作 FlowSpec 所表达的内容：
+
+- 输入
+- 主步骤
+- 步骤依赖
+- 输出意图
 
 ### 适用场景
 
@@ -66,10 +71,10 @@ FlowSpec 中的每个步骤只表达一个用户可理解的主职责。
 
 步骤类型当前应限制在少数高层类型内，例如：
 
-- input
-- ai
-- plugin
-- output
+- collect
+- process
+- tool
+- result
 
 后续如果确实需要，再扩展 decision 或 merge 等类型。
 
@@ -90,7 +95,7 @@ FlowSpec 不应直接承担以下执行细节：
 
 ### 定位
 
-CanonicalFlow 是系统内部和前端编辑器共同使用的标准结构。
+CanonicalFlow 是系统内部使用的标准结构。
 
 它是 Flow 的稳定版本，既要便于继续编辑，也要便于后续编译成执行结构。
 
@@ -102,11 +107,11 @@ CanonicalFlow 的目标是：
 
 ### 可见性
 
-CanonicalFlow 也是系统内部结构。
+CanonicalFlow 是系统内部结构。
 
-用户接触到的是编辑器中的 Flow，而不是 CanonicalFlow 这个概念本身。
+用户不需要理解或操作 CanonicalFlow 这个概念。
 
-前端展示、编辑和保存的 Flow，在系统内部对应 CanonicalFlow。
+前端展示和编辑的 Flow 应表达 FlowSpec 主步骤；系统在内部把它整理成 CanonicalFlow。
 
 ### 适用场景
 
@@ -215,9 +220,9 @@ ExecutionPlan 负责表达执行结构。
 
 - 用户需求
 - AI 生成或修改 FlowSpec
+- 前端显示和编辑 FlowSpec 语义
 - 系统将 FlowSpec 整理成 CanonicalFlow
-- 前端显示编辑器中的 Flow
-- 用户继续手动调整编辑器中的 Flow
+- 用户继续手动调整 FlowSpec 语义
 - 系统将 CanonicalFlow 编译成 ExecutionPlan
 - 引擎执行 ExecutionPlan
 
@@ -247,7 +252,7 @@ ExecutionPlan 负责表达执行结构。
 
 ### 用户和 AI 的职责
 
-用户负责表达业务需求。
+用户负责表达业务需求，并直接调整 FlowSpec 主步骤结构。
 
 AI 负责把业务需求转成主步骤结构，也就是 FlowSpec。
 
@@ -287,7 +292,7 @@ Flow 创建时，AI 的主要产物应该是结构，而不是对话回复。
 ## 设计原则
 
 - 创建阶段优先表达主步骤，而不是执行细节
-- 用户默认只接触编辑器中的 Flow，不接触内部结构名词
+- 用户默认操作 FlowSpec 语义，而不是 CanonicalFlow 细节
 - 稳定引用不依赖显示名称
 - 用户手动调整后，结构仍应可持续维护
 - AI 负责提主结构，系统负责收敛成稳定结构和执行结构

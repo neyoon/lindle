@@ -41,6 +41,7 @@ def validate_workflow(workflow: Workflow | CanonicalWorkflow) -> list[Validation
     }
 
     field_names_seen: set[str] = set()
+    block_refs_seen: set[str] = set()
 
     for field in canonical.inputs:
         if field.name in field_names_seen:
@@ -75,29 +76,39 @@ def validate_workflow(workflow: Workflow | CanonicalWorkflow) -> list[Validation
                     )
                 )
 
-            if "." in block.name:
+            if block.block_ref in block_refs_seen:
                 issues.append(
                     ValidationIssue(
-                        code="invalid_block_name",
-                        message=f"块名称不能包含英文句号：{block.name}",
-                        path=f"{path}.name",
+                        code="duplicate_block_ref",
+                        message=f"步骤稳定引用重复：{block.block_ref}",
+                        path=f"{path}.ref",
+                    )
+                )
+            block_refs_seen.add(block.block_ref)
+
+            if "." in block.block_ref:
+                issues.append(
+                    ValidationIssue(
+                        code="invalid_block_ref",
+                        message=f"步骤稳定引用不能包含英文句号：{block.block_ref}",
+                        path=f"{path}.ref",
                     )
                 )
 
-            if block.type == BlockType.AI and not (block.config.prompt or "").strip():
+            if block.type == BlockType.PROCESS and not (block.config.prompt or "").strip():
                 issues.append(
                     ValidationIssue(
-                        code="missing_ai_prompt",
-                        message=f"AI 块缺少提示词：{block.name}",
+                        code="missing_process_prompt",
+                        message=f"处理步骤缺少提示词：{block.name}",
                         path=f"{path}.config.prompt",
                     )
                 )
 
-            if block.type == BlockType.PLUGIN and not (block.config.plugin_id or "").strip():
+            if block.type == BlockType.TOOL and not (block.config.plugin_id or "").strip():
                 issues.append(
                     ValidationIssue(
-                        code="missing_plugin_id",
-                        message=f"插件块缺少 plugin_id：{block.name}",
+                        code="missing_tool_id",
+                        message=f"工具步骤缺少 plugin_id：{block.name}",
                         path=f"{path}.config.plugin_id",
                     )
                 )
@@ -121,7 +132,8 @@ def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
     block_ids = {block.id for column in sorted_columns for block in column.blocks}
     field_names_seen: set[str] = set()
     available_input_names: set[str] = set()
-    available_blocks: dict[str, set[str] | None] = {}
+    available_steps: dict[str, set[str] | None] = {}
+    block_refs_seen: set[str] = set()
 
     for column_index, column in enumerate(sorted_columns):
         if column.repeat < 1:
@@ -145,34 +157,44 @@ def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
                     )
                 )
 
-            if "." in block.name:
+            if block.ref in block_refs_seen:
                 issues.append(
                     ValidationIssue(
-                        code="invalid_block_name",
-                        message=f"块名称不能包含英文句号：{block.name}",
-                        path=f"{path}.name",
+                        code="duplicate_block_ref",
+                        message=f"步骤稳定引用重复：{block.ref}",
+                        path=f"{path}.ref",
+                    )
+                )
+            block_refs_seen.add(block.ref)
+
+            if "." in block.ref:
+                issues.append(
+                    ValidationIssue(
+                        code="invalid_block_ref",
+                        message=f"步骤稳定引用不能包含英文句号：{block.ref}",
+                        path=f"{path}.ref",
                     )
                 )
 
-            if block.type == BlockType.AI and not (block.config.prompt or "").strip():
+            if block.type == BlockType.PROCESS and not (block.config.prompt or "").strip():
                 issues.append(
                     ValidationIssue(
-                        code="missing_ai_prompt",
-                        message=f"AI 块缺少提示词：{block.name}",
+                        code="missing_process_prompt",
+                        message=f"处理步骤缺少提示词：{block.name}",
                         path=f"{path}.config.prompt",
                     )
                 )
 
-            if block.type == BlockType.PLUGIN and not (block.config.plugin_id or "").strip():
+            if block.type == BlockType.TOOL and not (block.config.plugin_id or "").strip():
                 issues.append(
                     ValidationIssue(
-                        code="missing_plugin_id",
-                        message=f"插件块缺少 plugin_id：{block.name}",
+                        code="missing_tool_id",
+                        message=f"工具步骤缺少 plugin_id：{block.name}",
                         path=f"{path}.config.plugin_id",
                     )
                 )
 
-            if block.type == BlockType.INPUT and block.config.fields:
+            if block.type == BlockType.COLLECT and block.config.fields:
                 for field in block.config.fields:
                     if field.name in field_names_seen:
                         issues.append(
@@ -185,18 +207,18 @@ def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
                     field_names_seen.add(field.name)
                     available_input_names.add(field.name)
 
-            prompt_to_validate = block.config.prompt if block.type in {BlockType.AI, BlockType.PLUGIN} else None
+            prompt_to_validate = block.config.prompt if block.type in {BlockType.PROCESS, BlockType.TOOL} else None
             if prompt_to_validate:
                 issues.extend(
                     _validate_template_variables(
                         prompt_to_validate,
                         path=f"{path}.config.prompt",
                         available_input_names=available_input_names,
-                        available_blocks=available_blocks,
+                        available_steps=available_steps,
                     )
                 )
 
-            if block.type == BlockType.PLUGIN and block.config.plugin_input_bindings:
+            if block.type == BlockType.TOOL and block.config.plugin_input_bindings:
                 for binding_key, binding in block.config.plugin_input_bindings.items():
                     if binding.kind != "variable":
                         continue
@@ -205,7 +227,7 @@ def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
                             str(binding.value),
                             path=f"{path}.config.plugin_input_bindings.{binding_key}",
                             available_input_names=available_input_names,
-                            available_blocks=available_blocks,
+                            available_steps=available_steps,
                         )
                     )
 
@@ -219,7 +241,7 @@ def _validate_raw_workflow(workflow: Workflow) -> list[ValidationIssue]:
                         )
                     )
 
-            available_blocks[block.name] = set(block.output_schema.keys) if block.output_schema else None
+            available_steps[block.ref] = set(block.output_schema.keys) if block.output_schema else None
 
     return issues
 
@@ -229,7 +251,7 @@ def _validate_template_variables(
     *,
     path: str,
     available_input_names: set[str],
-    available_blocks: dict[str, set[str] | None],
+    available_steps: dict[str, set[str] | None],
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     for variable in extract_template_variables(prompt):
@@ -238,7 +260,7 @@ def _validate_template_variables(
                 variable,
                 path=path,
                 available_input_names=available_input_names,
-                available_blocks=available_blocks,
+                available_steps=available_steps,
             )
         )
     return issues
@@ -249,14 +271,14 @@ def _validate_expression(
     *,
     path: str,
     available_input_names: set[str],
-    available_blocks: dict[str, set[str] | None],
+    available_steps: dict[str, set[str] | None],
 ) -> list[ValidationIssue]:
     expr = expr.strip()
     if not expr:
         return []
 
-    if expr.startswith("input."):
-        field_name = expr[6:]
+    if expr.startswith("inputs."):
+        field_name = expr[7:]
         if field_name in available_input_names:
             return []
         return [
@@ -267,24 +289,25 @@ def _validate_expression(
             )
         ]
 
-    if "." in expr:
-        block_name, _, key_path = expr.partition(".")
-        if block_name not in available_blocks:
+    if expr.startswith("steps."):
+        ref_expr = expr[6:]
+        step_ref, _, key_path = ref_expr.partition(".")
+        if step_ref not in available_steps:
             return [
                 ValidationIssue(
                     code="invalid_variable_reference",
-                    message=f"引用了不存在的上游块：{block_name}",
+                    message=f"引用了不存在的上游步骤：{step_ref}",
                     path=path,
                 )
             ]
-        allowed_keys = available_blocks[block_name]
+        allowed_keys = available_steps[step_ref]
         if not key_path:
             return []
         if allowed_keys is None:
             return [
                 ValidationIssue(
                     code="invalid_variable_reference",
-                    message=f"块 {block_name} 未定义可引用的输出字段：{key_path}",
+                    message=f"步骤 {step_ref} 未定义可引用的输出字段：{key_path}",
                     path=path,
                 )
             ]
@@ -293,16 +316,12 @@ def _validate_expression(
             return [
                 ValidationIssue(
                     code="invalid_variable_reference",
-                    message=f"块 {block_name} 不存在输出字段：{first_key}",
+                    message=f"步骤 {step_ref} 不存在输出字段：{first_key}",
                     path=path,
                 )
             ]
         return []
 
-    if expr in available_blocks:
-        return []
-    if expr in available_input_names:
-        return []
     return [
         ValidationIssue(
             code="invalid_variable_reference",

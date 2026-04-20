@@ -2,8 +2,8 @@
 FlowSpec
 
 Flow 的高层创建结构。
-当前阶段先作为后端内部结构承接主步骤与依赖关系，
-并为后续 AI 直接产出 FlowSpec 预留稳定入口。
+当前阶段先作为用户主操作层和后端内部收敛入口，
+承接主步骤与依赖关系。
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def workflow_to_flowspec(workflow: Workflow) -> FlowSpec:
     for column in workflow.get_sorted_columns():
         current_column_step_refs: list[str] = []
         for block in column.blocks:
-            step_ref = f"step_{sanitize_ref(block.id)}"
+            step_ref = block.ref
             block_to_step_ref[block.id] = step_ref
             current_column_step_refs.append(step_ref)
 
@@ -94,10 +94,7 @@ def workflow_to_flowspec(workflow: Workflow) -> FlowSpec:
                 plugin_id=block.config.plugin_id,
                 output_contract=_build_output_contract(block),
                 prompt=block.config.prompt,
-                input_refs=[
-                    f"input_{sanitize_ref(block.id)}_{sanitize_ref(field.name)}"
-                    for field in (block.config.fields or [])
-                ],
+                input_refs=[field.name for field in (block.config.fields or [])],
                 source_block_id=block.id,
                 source_column_id=column.id,
                 repeat=column.repeat,
@@ -105,11 +102,11 @@ def workflow_to_flowspec(workflow: Workflow) -> FlowSpec:
             )
             steps.append(step)
 
-            if block.type == BlockType.INPUT and block.config.fields:
+            if block.type == BlockType.COLLECT and block.config.fields:
                 for field in block.config.fields:
                     inputs.append(
                         FlowSpecInput(
-                            input_ref=f"input_{sanitize_ref(block.id)}_{sanitize_ref(field.name)}",
+                            input_ref=field.name,
                             name=field.name,
                             label=field.label,
                             field_type=field.field_type,
@@ -156,13 +153,13 @@ def _resolve_dependencies(
 
 
 def _infer_step_purpose(block) -> str:
-    if block.type == BlockType.INPUT:
+    if block.type == BlockType.COLLECT:
         return "接收用户输入"
-    if block.type == BlockType.AI:
-        return block.config.prompt or "执行 AI 处理"
-    if block.type == BlockType.PLUGIN:
-        return f"执行插件 {block.config.plugin_id or ''}".strip()
-    return "输出最终结果"
+    if block.type == BlockType.PROCESS:
+        return block.config.prompt or "执行处理步骤"
+    if block.type == BlockType.TOOL:
+        return f"执行工具 {block.config.plugin_id or ''}".strip()
+    return "收口最终结果"
 
 
 def _build_output_contract(block) -> dict[str, Any]:
@@ -187,8 +184,8 @@ def _build_flowspec_outputs(
         source_step_ref = block_to_step_ref.get(block.id)
         outputs.append(
             FlowSpecOutput(
-                output_ref=f"output_{sanitize_ref(block.id)}",
-                name=block.name,
+                output_ref=f"output_{sanitize_ref(block.ref)}",
+                name=block.ref,
                 source_step_refs=[source_step_ref] if source_step_ref else [],
             )
         )

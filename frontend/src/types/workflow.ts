@@ -4,12 +4,12 @@
  * 核心概念:
  * - Workflow: 工作流，由有序的 Column 组成
  * - Column: 栏（竖条），代表一个执行步骤，内含并行执行的 Block
- * - Block: 块，最小执行单元（输入/AI/输出/插件）
+ * - Block: 步骤块，最小执行单元（收集/处理/工具/结果）
  * - Connection: 连接，可选的精确数据流指定
  * - BlockTemplate: 可复用块模板，制造工坊的产物
  */
 
-export type BlockType = 'input' | 'ai' | 'output' | 'plugin'
+export type BlockType = 'collect' | 'process' | 'result' | 'tool'
 
 export interface OutputSchema {
   keys: string[]
@@ -44,6 +44,7 @@ export interface PluginInputBinding {
 
 export interface Block {
   id: string
+  ref: string
   type: BlockType
   name: string
   config: BlockConfig
@@ -77,6 +78,7 @@ export interface WorkflowSummary {
 
 export interface BlockTemplate {
   id: string
+  ref: string
   type: BlockType
   name: string
   description: string

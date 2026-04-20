@@ -12,10 +12,10 @@ import type { Block } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
 
 const TYPE_STYLES: Record<string, { tag: string; tagColor: string }> = {
-  input:  { tag: 'IN',     tagColor: 'block-tag is-in' },
-  ai:     { tag: 'AI',     tagColor: 'block-tag is-ai' },
-  output: { tag: 'OUT',    tagColor: 'block-tag is-out' },
-  plugin: { tag: 'PLUGIN', tagColor: 'block-tag is-plugin' },
+  collect: { tag: 'COL', tagColor: 'block-tag is-in' },
+  process: { tag: 'PROC', tagColor: 'block-tag is-ai' },
+  result: { tag: 'RES', tagColor: 'block-tag is-out' },
+  tool: { tag: 'TOOL', tagColor: 'block-tag is-plugin' },
 }
 
 interface Props {
@@ -38,7 +38,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
   const blockDiffMap = useWorkflowStore((s) => s.blockDiffMap)
   const runStatus = useWorkflowStore((s) => s.blockRunState[block.id] ?? null)
 
-  const style = TYPE_STYLES[block.type] || TYPE_STYLES.input
+  const style = TYPE_STYLES[block.type] || TYPE_STYLES.collect
   const isSelected = selectedBlockId === block.id
   const isConnectingSource = connectingFrom?.blockId === block.id
   const diffStatus = blockDiffMap?.[block.id] ?? null
@@ -50,15 +50,15 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
 
   // 配置预览
   let preview = ''
-  if (block.type === 'ai' && block.config.prompt) {
+  if (block.type === 'process' && block.config.prompt) {
     preview = block.config.prompt.slice(0, 40) + (block.config.prompt.length > 40 ? '...' : '')
-  } else if (block.type === 'input' && block.config.fields) {
+  } else if (block.type === 'collect' && block.config.fields) {
     preview = block.config.fields.map((f) => f.label || f.name).join(', ')
-  } else if (block.type === 'plugin' && block.config.plugin_id) {
+  } else if (block.type === 'tool' && block.config.plugin_id) {
     preview = block.config.plugin_input_bindings
       ? `${block.config.plugin_id} · ${Object.keys(block.config.plugin_input_bindings).length} 项映射`
       : block.config.plugin_id
-  } else if (block.type === 'output') {
+  } else if (block.type === 'result') {
     preview = '透传结构化结果'
   }
 
@@ -73,7 +73,7 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
       onClick={() => selectBlock(block.id)}
       className={`
         editor-block group relative flex h-[140px] w-[140px] cursor-grab flex-col items-center justify-center gap-1.5 rounded-sm border p-3 active:cursor-grabbing
-        ${block.type === 'plugin' ? 'is-plugin' : ''}
+        ${block.type === 'tool' ? 'is-plugin' : ''}
         ${isSelected ? 'is-selected' : ''}
         ${isConnectingSource ? 'ring-2 ring-[var(--app-warning)] ring-offset-2 ring-offset-[var(--paper)]' : ''}
         ${diffStatus === 'added' ? 'is-done' : ''}
@@ -175,6 +175,10 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
       {/* 名称 */}
       <span className="w-full truncate text-center text-[0.85rem] font-medium leading-tight text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         {block.name}
+      </span>
+
+      <span className="w-full truncate text-center font-mono text-[9px] leading-tight text-[var(--app-text-muted)]">
+        {block.ref}
       </span>
 
       {/* 预览 */}

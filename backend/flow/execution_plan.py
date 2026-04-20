@@ -53,6 +53,7 @@ def compile_execution_plan(workflow: CanonicalWorkflow) -> ExecutionPlan:
                 ExecutableBlock(
                     block=Block.model_validate({
                         "id": block.block_id,
+                        "ref": block.block_ref,
                         "type": block.type,
                         "name": block.name,
                         "config": block.config.model_dump(),

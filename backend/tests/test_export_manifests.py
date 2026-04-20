@@ -21,7 +21,8 @@ def test_build_workflow_export_keeps_default_input_semantics():
                 "blocks": [
                     {
                         "id": "blk_input",
-                        "type": "input",
+                        "ref": "collect_topic",
+                        "type": "collect",
                         "name": "输入块",
                         "config": {
                             "fields": [
@@ -45,7 +46,8 @@ def test_build_workflow_export_keeps_default_input_semantics():
                 "blocks": [
                     {
                         "id": "blk_ai",
-                        "type": "ai",
+                        "ref": "summarize_topic",
+                        "type": "process",
                         "name": "总结",
                         "config": {"prompt": "请总结输入内容", "model": None},
                         "output_schema": {"keys": ["summary"], "descriptions": {}},
@@ -53,7 +55,8 @@ def test_build_workflow_export_keeps_default_input_semantics():
                     },
                     {
                         "id": "blk_plugin",
-                        "type": "plugin",
+                        "ref": "run_flow",
+                        "type": "tool",
                         "name": "执行器",
                         "config": {
                             "plugin_id": "workflow_executor",
@@ -73,14 +76,14 @@ def test_build_workflow_export_keeps_default_input_semantics():
     exported = build_workflow_export(workflow)
 
     assert exported["manifest_type"] == "lindle_flow"
-    assert exported["execution_semantics"]["default_ai_input"] == "formatted_text"
-    assert exported["execution_semantics"]["default_plugin_input"] == "structured_upstream_value"
+    assert exported["execution_semantics"]["default_process_input"] == "formatted_text"
+    assert exported["execution_semantics"]["default_tool_input"] == "structured_upstream_value"
     assert exported["inputs"][0]["name"] == "topic"
     assert exported["steps"][1]["execution_mode"] == "parallel"
     assert exported["steps"][1]["blocks"][0]["default_input_mode"] == "formatted_text"
     assert exported["steps"][1]["blocks"][1]["default_input_mode"] == "structured_upstream_value"
     assert exported["steps"][1]["blocks"][1]["plugin_input_bindings"]["workflow_id"]["kind"] == "literal"
-    assert exported["execution_semantics"]["default_output_behavior"] == "structured_passthrough"
+    assert exported["execution_semantics"]["default_result_behavior"] == "structured_passthrough"
     assert exported["llm_description"]
 
 

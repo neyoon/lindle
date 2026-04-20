@@ -259,7 +259,7 @@ async def delete_provider(provider_id: str) -> dict[str, str]:
         if workflow:
             for column in workflow.columns:
                 for block in column.blocks:
-                    if block.type == "ai" and block.config.model == provider_id:
+                    if block.type == "process" and block.config.model == provider_id:
                         workflows_using_provider.append(workflow.name)
                         break
 

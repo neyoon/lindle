@@ -178,7 +178,7 @@ class Engine:
     def _collect_downstream_plugin_hints(
         columns: list[ExecutableColumn], current_idx: int
     ) -> list[dict]:
-        """检查下一栏是否包含插件块，收集其 input_schema 作为格式提示"""
+        """检查下一栏是否包含工具步骤，收集其 input_schema 作为格式提示"""
         from plugins.registry import get_plugin
 
         next_idx = current_idx + 1
@@ -189,9 +189,9 @@ class Engine:
         next_column = columns[next_idx]
         for executable in next_column.blocks:
             block = executable.block
-            if block.type != BlockType.PLUGIN or not block.config.plugin_id:
+            if block.type != BlockType.TOOL or not block.config.plugin_id:
                 continue
-            # 如果插件块已经配置了 prompt 模板，说明用户手动处理了格式转换
+            # 如果工具步骤已经配置了 prompt 模板，说明用户手动处理了格式转换
             if block.config.prompt:
                 continue
             plugin = get_plugin(block.config.plugin_id)
@@ -228,6 +228,7 @@ class Engine:
                 final_results.append(
                     BlockResult(
                         block_id=column.blocks[i].block.id,
+                        block_ref=column.blocks[i].block.ref,
                         block_name=column.blocks[i].block.name,
                         data=f"错误: {result}",
                     )
