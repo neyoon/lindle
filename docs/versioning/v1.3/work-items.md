@@ -7,6 +7,7 @@
 - 处理 Flow 编辑器中对非技术用户不友好的交互
 - 明确块职责边界，避免一个块承担过多隐含责任
 - 收口 Flow 创建结构，明确 FlowSpec 与 CanonicalFlow 的内部职责
+- 明确 ExecutionPlan 作为执行层结构的职责
 - 更新架构文档与产品命名
 
 ## 本次原则
@@ -56,6 +57,12 @@
 - 明确哪些职责应该拆开，哪些职责应该保留在同一个块内
 - 建立“默认简洁结构”和“必要时展开结构”的规则
 
+补充要求：
+
+- 建立 `must_split / may_hide / must_surface` 三种系统裁决结果
+- 建立 `semantic_work / deterministic_mapping / aggregation / presentation / transport` 这类内部语义分类
+- 明确“只有不会改变用户理解语义且系统能确定性完成的工作，才能隐藏”
+
 ## 重点设计问题
 
 ### 块是否应该更细粒度
@@ -90,5 +97,6 @@
 
 - 明确 FlowSpec 只用于内部高层创建结构
 - 明确 CanonicalFlow 只用于系统内部标准编辑结构
+- 明确 ExecutionPlan 只用于系统内部运行时执行结构
 - 明确用户只接触编辑器中的 Flow，而不接触内部结构概念
 - 明确 AI 创建和系统收敛的职责边界
