@@ -27,6 +27,8 @@ interface Props {
 export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   const { removeColumn, addBlock, addBlockFromTemplate, moveBlock, setColumnRepeat } = useWorkflowStore()
   const [showAddMenu, setShowAddMenu] = useState(false)
+  const [editingRepeat, setEditingRepeat] = useState(false)
+  const [repeatDraft, setRepeatDraft] = useState(String(column.repeat))
   const [enabledPlugins, setEnabledPlugins] = useState<EnabledPlugin[]>([])
   const [templates, setTemplates] = useState<BlockTemplate[]>([])
   const [dropIndex, setDropIndex] = useState<number | null>(null)
@@ -38,6 +40,10 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
       listTemplates().then(setTemplates).catch(() => {})
     }
   }, [showAddMenu])
+
+  useEffect(() => {
+    setRepeatDraft(String(column.repeat))
+  }, [column.repeat])
 
   const handleAddBlock = (type: BlockType, label: string, pluginId?: string) => {
     addBlock(column.id, type, `${label}块`, pluginId)
@@ -93,16 +99,46 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
               x{column.repeat}
             </span>
           )}
-          <button
-            onClick={() => {
-              const n = prompt('重复次数:', String(column.repeat))
-              if (n) setColumnRepeat(column.id, parseInt(n))
-            }}
-            className="rounded-sm p-1 text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
-            title="设置重复次数"
-          >
-            <Repeat size={13} />
-          </button>
+          {editingRepeat ? (
+            <div className="flex items-center gap-1 rounded-sm border border-[var(--line)] bg-[var(--card)] px-1 py-0.5">
+              <input
+                type="number"
+                min={1}
+                value={repeatDraft}
+                onChange={(e) => setRepeatDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setColumnRepeat(column.id, Math.max(1, parseInt(repeatDraft || '1', 10) || 1))
+                    setEditingRepeat(false)
+                  }
+                  if (e.key === 'Escape') {
+                    setRepeatDraft(String(column.repeat))
+                    setEditingRepeat(false)
+                  }
+                }}
+                className="w-12 border-0 bg-transparent text-center text-[11px] text-[var(--app-text)] outline-none"
+                autoFocus
+              />
+              <button
+                onClick={() => {
+                  setColumnRepeat(column.id, Math.max(1, parseInt(repeatDraft || '1', 10) || 1))
+                  setEditingRepeat(false)
+                }}
+                className="text-[10px] text-[var(--app-accent-strong)]"
+                title="确认"
+              >
+                保存
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingRepeat(true)}
+              className="rounded-sm p-1 text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
+              title="设置重复次数"
+            >
+              <Repeat size={13} />
+            </button>
+          )}
           <button
             onClick={() => removeColumn(column.id)}
             className="rounded-sm p-1 text-[var(--app-text-muted)] hover:text-[var(--app-danger)]"

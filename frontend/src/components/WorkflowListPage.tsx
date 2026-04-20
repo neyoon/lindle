@@ -26,6 +26,8 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isExporting, setIsExporting] = useState(false)
   const [isDeletingBatch, setIsDeletingBatch] = useState(false)
+  const [showExportForm, setShowExportForm] = useState(false)
+  const [skillNameDraft, setSkillNameDraft] = useState('')
 
   const loadWorkflows = async () => {
     try {
@@ -69,14 +71,13 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
   }
 
   const handleExportToSkill = async () => {
-    const skillName = prompt('请输入 Skill 名称（留空使用默认名称）:')
-    if (skillName === null) return
-
     setIsExporting(true)
     try {
-      await exportFlowsToSkill(Array.from(selectedIds), skillName || undefined)
+      await exportFlowsToSkill(Array.from(selectedIds), skillNameDraft.trim() || undefined)
       alert('Skill 创建成功！可在 Agent 编辑页中使用。')
       setSelectedIds(new Set())
+      setSkillNameDraft('')
+      setShowExportForm(false)
     } catch (error) {
       alert(`创建失败: ${error}`)
     } finally {
@@ -220,11 +221,51 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
                 <Trash2 size={16} />
                 {isDeletingBatch ? '删除中...' : '批量删除'}
               </button>
-              <button onClick={handleExportToSkill} disabled={isExporting || isDeletingBatch} className="app-button app-button-primary disabled:opacity-50">
+              <button
+                onClick={() => {
+                  setSkillNameDraft('')
+                  setShowExportForm((v) => !v)
+                }}
+                disabled={isExporting || isDeletingBatch}
+                className="app-button app-button-primary disabled:opacity-50"
+              >
                 <FileCode size={16} />
-                {isExporting ? '导出中...' : '导出为 Skill'}
+                {showExportForm ? '收起导出' : '导出为 Skill'}
               </button>
             </div>
+            {showExportForm && (
+              <div className="w-full rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-4">
+                <div className="app-kicker no-rule mb-2">Export To Skill</div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">Skill 名称</label>
+                    <input
+                      className="app-input"
+                      value={skillNameDraft}
+                      onChange={(e) => setSkillNameDraft(e.target.value)}
+                      placeholder="留空使用默认名称"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowExportForm(false)}
+                      className="app-button app-button-ghost"
+                      type="button"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleExportToSkill}
+                      disabled={isExporting}
+                      className="app-button app-button-primary disabled:opacity-50"
+                      type="button"
+                    >
+                      {isExporting ? '导出中...' : '确认导出'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

@@ -11,11 +11,15 @@ import { X, ChevronDown, ChevronUp, Link, Variable, Save } from 'lucide-react'
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { listProviders, type ProviderResponse, createTemplate } from '@/api/client'
-import type { Block, Column, InputField, OutputSchema } from '@/types/workflow'
+import type { Block, Column, InputField, OutputSchema, PluginInputBinding } from '@/types/workflow'
 
 export function BlockConfigPanel() {
   const { workflow, selectedBlockId, selectBlock, updateBlock, removeConnection } = useWorkflowStore()
   const [saving, setSaving] = useState(false)
+  const [showTemplateForm, setShowTemplateForm] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [templateDescription, setTemplateDescription] = useState('')
+  const [templateIcon, setTemplateIcon] = useState('')
 
   // 找到选中的块及其所在栏
   let block: Block | null = null
@@ -36,12 +40,9 @@ export function BlockConfigPanel() {
 
   const handleSaveAsTemplate = async () => {
     if (!block) return
-
-    const name = prompt('模板名称:', block.name)
-    if (!name) return
-
-    const description = prompt('模板描述（可选）:', '') || ''
-    const icon = prompt('图标（可选）:', '') || ''
+    const name = templateName.trim() || block.name
+    const description = templateDescription.trim()
+    const icon = templateIcon.trim()
 
     setSaving(true)
     try {
@@ -56,6 +57,10 @@ export function BlockConfigPanel() {
         created_at: new Date().toISOString(),
       })
       alert('模板保存成功！可在制造工坊中查看。')
+      setShowTemplateForm(false)
+      setTemplateName('')
+      setTemplateDescription('')
+      setTemplateIcon('')
     } catch (e) {
       alert(`保存失败: ${e}`)
     } finally {
@@ -76,7 +81,12 @@ export function BlockConfigPanel() {
         <div className="flex items-center gap-2">
           {canSaveAsTemplate && (
             <button
-              onClick={handleSaveAsTemplate}
+              onClick={() => {
+                setTemplateName(block.name)
+                setTemplateDescription('')
+                setTemplateIcon('')
+                setShowTemplateForm((v) => !v)
+              }}
               disabled={saving}
               className="rounded-sm p-1.5 text-[var(--app-accent-strong)] transition hover:bg-[var(--app-accent-soft)] disabled:opacity-50"
               title="保存为模板"
@@ -103,6 +113,53 @@ export function BlockConfigPanel() {
             <p className="text-[10px] text-[var(--app-danger)] mt-0.5">名称不能包含「.」，请修改</p>
           )}
         </Field>
+
+        {canSaveAsTemplate && showTemplateForm && (
+          <div className="rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-3 space-y-3">
+            <div className="app-kicker no-rule text-[0.62rem]">Save As Template</div>
+            <Field label="模板名称">
+              <input
+                className="input-field"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder={block.name}
+              />
+            </Field>
+            <Field label="模板描述">
+              <input
+                className="input-field"
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+                placeholder="可选"
+              />
+            </Field>
+            <Field label="图标">
+              <input
+                className="input-field"
+                value={templateIcon}
+                onChange={(e) => setTemplateIcon(e.target.value)}
+                placeholder="可选"
+              />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowTemplateForm(false)}
+                className="app-button app-button-ghost"
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveAsTemplate}
+                disabled={saving}
+                className="app-button app-button-primary disabled:opacity-50"
+                type="button"
+              >
+                保存模板
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 连接信息（只读展示 + 可删除） */}
         {block.connections.length > 0 && (
@@ -470,14 +527,16 @@ function OutputSchemaEditor({
   onChange: (schema: OutputSchema | null) => void
 }) {
   const keys = schema?.keys || []
+  const [draftKey, setDraftKey] = useState('')
 
   const addKey = () => {
-    const key = prompt('输入 JSON key 名称:')
-    if (key) {
+    const key = draftKey.trim()
+    if (key && !keys.includes(key)) {
       onChange({
         keys: [...keys, key],
         descriptions: schema?.descriptions || {},
       })
+      setDraftKey('')
     }
   }
 
@@ -500,9 +559,20 @@ function OutputSchemaEditor({
           </button>
         </div>
       ))}
-      <button onClick={addKey} className="text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)]">
-        + 添加 Key
-      </button>
+      <div className="flex items-center gap-2 pt-1">
+        <input
+          className="input-field flex-1 py-1 text-xs font-mono"
+          value={draftKey}
+          onChange={(e) => setDraftKey(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') addKey()
+          }}
+          placeholder="新增输出 key"
+        />
+        <button onClick={addKey} className="text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)]">
+          添加
+        </button>
+      </div>
     </div>
   )
 }
@@ -512,6 +582,7 @@ function OutputSchemaEditor({
 function PluginBlockConfig({ block }: { block: Block }) {
   const { updateBlock, workflow } = useWorkflowStore()
   const [showVariables, setShowVariables] = useState(false)
+  const [showAdvancedTemplate, setShowAdvancedTemplate] = useState(false)
   const [pluginSchema, setPluginSchema] = useState<{
     input_schema?: Record<string, unknown> | null
     output_schema?: Record<string, unknown> | null
@@ -571,6 +642,24 @@ function PluginBlockConfig({ block }: { block: Block }) {
   }, [workflow, block.id])
 
   const prompt = block.config.prompt || ''
+  const inputProperties = (pluginSchema?.input_schema?.properties as Record<string, Record<string, unknown>> | undefined) || {}
+  const inputPropertyKeys = Object.keys(inputProperties)
+  const bindings = block.config.plugin_input_bindings || {}
+
+  const setPluginBinding = (key: string, binding: PluginInputBinding | null) => {
+    const next = { ...(block.config.plugin_input_bindings || {}) }
+    if (!binding) {
+      delete next[key]
+    } else {
+      next[key] = binding
+    }
+    updateBlock(block.id, {
+      config: {
+        ...block.config,
+        plugin_input_bindings: Object.keys(next).length ? next : null,
+      },
+    })
+  }
 
   return (
     <>
@@ -584,24 +673,106 @@ function PluginBlockConfig({ block }: { block: Block }) {
         </p>
       </div>
 
+      {inputPropertyKeys.length > 0 && (
+        <Field label="字段映射">
+          <div className="space-y-2">
+            {inputPropertyKeys.map((key) => {
+              const schema = inputProperties[key] || {}
+              const binding = bindings[key] || { kind: 'variable', value: '' as const }
+              return (
+                <div key={key} className="rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-xs text-[var(--app-text)]">{key}</div>
+                      {typeof schema.description === 'string' && schema.description && (
+                        <div className="text-[10px] text-[var(--app-text-muted)]">{schema.description}</div>
+                      )}
+                    </div>
+                    <select
+                      className="input-field w-24 py-1 text-xs"
+                      value={binding.kind}
+                      onChange={(e) =>
+                        setPluginBinding(key, {
+                          kind: e.target.value as PluginInputBinding['kind'],
+                          value: e.target.value === 'literal' ? '' : String(binding.value || ''),
+                        })
+                      }
+                    >
+                      <option value="variable">变量</option>
+                      <option value="literal">常量</option>
+                    </select>
+                  </div>
+
+                  {binding.kind === 'variable' ? (
+                    <select
+                      className="input-field py-1 text-xs"
+                      value={String(binding.value || '')}
+                      onChange={(e) =>
+                        setPluginBinding(key, {
+                          kind: 'variable',
+                          value: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">选择来源变量</option>
+                      {availableVariables.map((v) => (
+                        <option key={v.ref} value={v.ref.replace(/^\{\{|\}\}$/g, '')}>
+                          {v.ref} ← {v.desc}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="input-field py-1 text-xs"
+                      value={binding.value == null ? '' : String(binding.value)}
+                      onChange={(e) =>
+                        setPluginBinding(key, {
+                          kind: 'literal',
+                          value: e.target.value,
+                        })
+                      }
+                      placeholder="输入固定值"
+                    />
+                  )}
+                </div>
+              )
+            })}
+            <p className="text-[10px] text-[var(--app-text-muted)]">
+              优先使用字段映射完成插件输入配置；只有需要复杂结构重组时再使用模板。
+            </p>
+          </div>
+        </Field>
+      )}
+
       {/* 输入模板配置 */}
-      <Field label="输入模板（可选）">
+      <Field label="高级模板（可选）">
         <div className="space-y-2">
-          <textarea
-            className="input-field font-mono text-xs"
-            rows={6}
-            value={prompt}
-            onChange={(e) => updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })}
-            placeholder="留空则自动传递上游数据。可使用 {{变量}} 语法自定义输入格式，如：&#10;{&#10;  &quot;query&quot;: &quot;{{input.keyword}}&quot;&#10;}"
-          />
           <button
-            onClick={() => setShowVariables(!showVariables)}
-            className="text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)] flex items-center gap-1"
+            onClick={() => setShowAdvancedTemplate(!showAdvancedTemplate)}
+            className="flex items-center gap-1 text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)]"
           >
-            <Variable size={12} />
-            {showVariables ? '隐藏' : '显示'}可用变量
+            {showAdvancedTemplate ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {showAdvancedTemplate ? '收起高级模板' : '展开高级模板'}
           </button>
-          {showVariables && availableVariables.length > 0 && (
+          {showAdvancedTemplate && (
+            <>
+              <textarea
+                className="input-field font-mono text-xs"
+                rows={6}
+                value={prompt}
+                onChange={(e) => updateBlock(block.id, { config: { ...block.config, prompt: e.target.value } })}
+                placeholder="仅在字段映射不足以表达复杂输入时使用，例如：&#10;{&#10;  &quot;query&quot;: &quot;{{input.keyword}}&quot;&#10;}"
+              />
+              <button
+                onClick={() => setShowVariables(!showVariables)}
+                className="text-xs text-[var(--app-accent-strong)] hover:text-[var(--rust-ink)] flex items-center gap-1"
+              >
+                <Variable size={12} />
+                {showVariables ? '隐藏' : '显示'}可用变量
+              </button>
+            </>
+          )}
+          {showAdvancedTemplate && showVariables && availableVariables.length > 0 && (
             <div className="p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm text-xs space-y-1 max-h-40 overflow-y-auto">
               {availableVariables.map((v, i) => (
                 <div key={i} className="flex items-start gap-2">
@@ -611,7 +782,7 @@ function PluginBlockConfig({ block }: { block: Block }) {
               ))}
             </div>
           )}
-          {showVariables && availableVariables.length === 0 && (
+          {showAdvancedTemplate && showVariables && availableVariables.length === 0 && (
             <p className="text-xs text-[var(--app-text-muted)] p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm">
               当前没有可用的上游变量（需要在前面的栏中添加输入块或其他块）
             </p>
@@ -622,9 +793,9 @@ function PluginBlockConfig({ block }: { block: Block }) {
       <div className="text-xs text-[var(--app-text-soft)] p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm">
         <p className="font-medium mb-1">说明：</p>
         <ul className="list-disc list-inside space-y-0.5">
+          <li>优先：使用字段映射选择变量来源或常量值</li>
           <li>留空：插件自动接收上游数据（JSON 或文本格式）</li>
-          <li>填写模板：使用 {`{{变量}}`} 语法自定义输入格式</li>
-          <li>支持 JSON 格式：可精确控制传递给插件的数据结构</li>
+          <li>高级模板：只有在需要复杂 JSON 重组时才使用</li>
         </ul>
       </div>
 
@@ -724,10 +895,6 @@ function InputConfig({ block }: { block: Block }) {
 
   const updateField = (index: number, updates: Partial<InputField>) => {
     const newFields = fields.map((f, i) => (i === index ? { ...f, ...updates } : f))
-    // name 跟 label 同步（保持简洁，用户改 label 自动同步 name）
-    if (updates.label !== undefined) {
-      newFields[index].name = updates.label.replace(/\s+/g, '_').toLowerCase() || `field_${index + 1}`
-    }
     setFields(newFields)
   }
 
@@ -767,7 +934,18 @@ function InputConfig({ block }: { block: Block }) {
                 </button>
               </div>
 
-              {/* 第二行: 类型 + 必填 */}
+              {/* 第二行: 引用名 */}
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--app-text-muted)]">稳定引用名</label>
+                <input
+                  className="input-field py-1 text-xs font-mono"
+                  value={field.name}
+                  onChange={(e) => updateField(i, { name: e.target.value.replace(/\s+/g, '_') })}
+                  placeholder="topic"
+                />
+              </div>
+
+              {/* 第三行: 类型 + 必填 */}
               <div className="flex items-center gap-2">
                 <select
                   className="input-field flex-1 py-1 text-xs"

@@ -121,13 +121,10 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         <button
           onClick={(e) => {
             e.stopPropagation()
-            const newName = prompt('重命名:', block.name)
-            if (newName?.trim()) {
-              updateBlock(block.id, { name: newName.trim() })
-            }
+            selectBlock(block.id)
           }}
           className="rounded-sm p-0.5 text-[var(--app-text-muted)] opacity-0 transition group-hover:opacity-100 hover:text-[var(--app-accent)]"
-          title="重命名"
+          title="在右侧面板中重命名"
         >
           <Pencil size={11} />
         </button>

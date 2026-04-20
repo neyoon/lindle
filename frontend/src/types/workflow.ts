@@ -34,6 +34,12 @@ export interface BlockConfig {
   model?: string | null
   fields?: InputField[] | null
   plugin_id?: string | null
+  plugin_input_bindings?: Record<string, PluginInputBinding> | null
+}
+
+export interface PluginInputBinding {
+  kind: 'variable' | 'literal'
+  value: string | number | null
 }
 
 export interface Block {
