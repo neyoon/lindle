@@ -171,7 +171,10 @@ export function BlockConfigPanel() {
         {block.type === 'input' && <InputConfig block={block} />}
         {block.type === 'plugin' && <PluginBlockConfig block={block} />}
         {block.type === 'output' && (
-          <p className="text-sm text-[var(--app-text-soft)]">输出块自动展示上一栏的结果，无需额外配置。</p>
+          <div className="rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-3 text-sm text-[var(--app-text-soft)]">
+            输出块默认透传上游的结构化结果，不再隐式把结果改写成文本。
+            如果后续需要展示文案或格式化文本，应在上游显式增加对应处理步骤。
+          </div>
         )}
       </div>
     </div>
@@ -868,7 +871,7 @@ const FIELD_TYPE_OPTIONS: { value: InputField['field_type']; label: string }[] =
 ]
 
 function InputConfig({ block }: { block: Block }) {
-  const { updateBlock } = useWorkflowStore()
+  const { updateBlock, renameInputReference } = useWorkflowStore()
   const workflow = useWorkflowStore((s) => s.workflow)
   const fields: InputField[] = block.config.fields || []
 
@@ -894,8 +897,12 @@ function InputConfig({ block }: { block: Block }) {
   }
 
   const updateField = (index: number, updates: Partial<InputField>) => {
+    const oldField = fields[index]
     const newFields = fields.map((f, i) => (i === index ? { ...f, ...updates } : f))
     setFields(newFields)
+    if (updates.name && oldField && oldField.name !== updates.name) {
+      renameInputReference(oldField.name, updates.name)
+    }
   }
 
   const removeField = (index: number) => {
@@ -906,7 +913,7 @@ function InputConfig({ block }: { block: Block }) {
     <>
       <p className="text-xs text-[var(--app-text-soft)]">
         定义运行时用户需要填写的输入字段。
-        AI 块的提示词中可以用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{input.字段名}}'}</code> 引用。
+        AI 块和插件模板中可以用 <code className="bg-[var(--paper-warm)] px-1 rounded-sm font-mono">{'{{input.稳定引用名}}'}</code> 引用。
       </p>
 
       {fields.length === 0 ? (
@@ -975,7 +982,7 @@ function InputConfig({ block }: { block: Block }) {
               </p>
               {otherFieldNames.has(field.name) && (
                 <p className="text-[10px] text-[var(--app-warning)] font-medium mt-0.5">
-                  字段名「{field.name}」与其他 Input 块中的字段重复，运行时会互相覆盖
+                  稳定引用名「{field.name}」与其他 Input 块中的字段重复，运行时会互相覆盖
                 </p>
               )}
               {fields.filter((f) => f.name === field.name).length > 1 && (

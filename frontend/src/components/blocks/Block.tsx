@@ -55,7 +55,11 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
   } else if (block.type === 'input' && block.config.fields) {
     preview = block.config.fields.map((f) => f.label || f.name).join(', ')
   } else if (block.type === 'plugin' && block.config.plugin_id) {
-    preview = block.config.plugin_id
+    preview = block.config.plugin_input_bindings
+      ? `${block.config.plugin_id} · ${Object.keys(block.config.plugin_input_bindings).length} 项映射`
+      : block.config.plugin_id
+  } else if (block.type === 'output') {
+    preview = '透传结构化结果'
   }
 
   return (

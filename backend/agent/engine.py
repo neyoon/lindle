@@ -591,7 +591,7 @@ class AgentEngine:
                 last_col = sorted_cols[-1]
                 for block in last_col.blocks:
                     if block.type == BlockType.OUTPUT:
-                        output_info.append(f"  - [{block.name}]: 透传上游结果")
+                        output_info.append(f"  - [{block.name}]: 透传上游结构化结果")
                     elif block.type == BlockType.AI:
                         if block.output_schema and block.output_schema.keys:
                             keys_str = ", ".join(block.output_schema.keys)

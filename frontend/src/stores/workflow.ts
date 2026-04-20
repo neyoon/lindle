@@ -30,6 +30,62 @@ function genColumnId(): string {
   return `col_${++columnCounter}_${Date.now()}`
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function replaceBlockReferenceInText(text: string | null | undefined, oldName: string, newName: string): string | null | undefined {
+  if (!text || !oldName || oldName === newName) return text
+  const pattern = new RegExp(`\\{\\{\\s*${escapeRegExp(oldName)}((?:\\.[^}]+)?)\\s*\\}\\}`, 'g')
+  return text.replace(pattern, (_match, suffix) => `{{${newName}${suffix || ''}}}`)
+}
+
+function replaceInputReferenceInText(text: string | null | undefined, oldName: string, newName: string): string | null | undefined {
+  if (!text || !oldName || oldName === newName) return text
+  const pattern = new RegExp(`\\{\\{\\s*input\\.${escapeRegExp(oldName)}\\s*\\}\\}`, 'g')
+  return text.replace(pattern, `{{input.${newName}}}`)
+}
+
+function migrateBlockReferences(block: Block, oldName: string, newName: string): Block {
+  return {
+    ...block,
+    config: {
+      ...block.config,
+      prompt: replaceBlockReferenceInText(block.config.prompt, oldName, newName) ?? block.config.prompt,
+      plugin_input_bindings: block.config.plugin_input_bindings
+        ? Object.fromEntries(
+            Object.entries(block.config.plugin_input_bindings).map(([key, binding]) => [
+              key,
+              binding.kind === 'variable'
+                ? { ...binding, value: replaceBlockReferenceInText(String(binding.value || ''), oldName, newName)?.replace(/^\{\{|\}\}$/g, '') ?? binding.value }
+                : binding,
+            ]),
+          )
+        : block.config.plugin_input_bindings,
+    },
+  }
+}
+
+function migrateInputReferences(block: Block, oldName: string, newName: string): Block {
+  return {
+    ...block,
+    config: {
+      ...block.config,
+      prompt: replaceInputReferenceInText(block.config.prompt, oldName, newName) ?? block.config.prompt,
+      plugin_input_bindings: block.config.plugin_input_bindings
+        ? Object.fromEntries(
+            Object.entries(block.config.plugin_input_bindings).map(([key, binding]) => [
+              key,
+              binding.kind === 'variable'
+                ? { ...binding, value: replaceInputReferenceInText(String(binding.value || ''), oldName, newName)?.replace(/^\{\{|\}\}$/g, '') ?? binding.value }
+                : binding,
+            ]),
+          )
+        : block.config.plugin_input_bindings,
+    },
+  }
+}
+
 interface ConnectingState {
   blockId: string
   columnOrder: number
@@ -69,6 +125,7 @@ interface WorkflowState {
   moveBlock: (blockId: string, fromColumnId: string, toColumnId: string, insertIndex: number) => void
   removeBlock: (columnId: string, blockId: string) => void
   updateBlock: (blockId: string, updates: Partial<Block>) => void
+  renameInputReference: (oldName: string, newName: string) => void
   selectBlock: (blockId: string | null) => void
 
   // 连接操作
@@ -266,12 +323,45 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   updateBlock: (blockId, updates) =>
+    set((state) => {
+      let oldName: string | null = null
+      for (const column of state.workflow.columns) {
+        const block = column.blocks.find((item) => item.id === blockId)
+        if (block) {
+          oldName = block.name
+          break
+        }
+      }
+
+      let columns = state.workflow.columns.map((c) => ({
+        ...c,
+        blocks: c.blocks.map((b) => (b.id === blockId ? { ...b, ...updates } : b)),
+      }))
+
+      const nextName = typeof updates.name === 'string' ? updates.name : null
+      if (oldName && nextName && oldName !== nextName) {
+        columns = columns.map((column) => ({
+          ...column,
+          blocks: column.blocks.map((block) => migrateBlockReferences(block, oldName as string, nextName)),
+        }))
+      }
+
+      return {
+        workflow: {
+          ...state.workflow,
+          columns,
+        },
+        blockDiffMap: null,
+      }
+    }),
+
+  renameInputReference: (oldName, newName) =>
     set((state) => ({
       workflow: {
         ...state.workflow,
-        columns: state.workflow.columns.map((c) => ({
-          ...c,
-          blocks: c.blocks.map((b) => (b.id === blockId ? { ...b, ...updates } : b)),
+        columns: state.workflow.columns.map((column) => ({
+          ...column,
+          blocks: column.blocks.map((block) => migrateInputReferences(block, oldName, newName)),
         })),
       },
       blockDiffMap: null,

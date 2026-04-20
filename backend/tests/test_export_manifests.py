@@ -55,7 +55,13 @@ def test_build_workflow_export_keeps_default_input_semantics():
                         "id": "blk_plugin",
                         "type": "plugin",
                         "name": "执行器",
-                        "config": {"plugin_id": "workflow_executor", "prompt": None},
+                        "config": {
+                            "plugin_id": "workflow_executor",
+                            "prompt": None,
+                            "plugin_input_bindings": {
+                                "workflow_id": {"kind": "literal", "value": "wf_export"}
+                            },
+                        },
                         "connections": [],
                     },
                 ],
@@ -73,6 +79,8 @@ def test_build_workflow_export_keeps_default_input_semantics():
     assert exported["steps"][1]["execution_mode"] == "parallel"
     assert exported["steps"][1]["blocks"][0]["default_input_mode"] == "formatted_text"
     assert exported["steps"][1]["blocks"][1]["default_input_mode"] == "structured_upstream_value"
+    assert exported["steps"][1]["blocks"][1]["plugin_input_bindings"]["workflow_id"]["kind"] == "literal"
+    assert exported["execution_semantics"]["default_output_behavior"] == "structured_passthrough"
     assert exported["llm_description"]
 
 

@@ -51,7 +51,7 @@ def _resolve_workflow_outputs(workflow: Workflow) -> list[dict[str, Any]]:
             "type": block.type.value,
         }
         if block.type == BlockType.OUTPUT:
-            item["output_mode"] = "passthrough_text"
+            item["output_mode"] = "passthrough_structured"
         elif block.type == BlockType.AI:
             item["output_mode"] = "json" if block.output_schema and block.output_schema.keys else "text"
             if block.output_schema and block.output_schema.keys:
@@ -108,8 +108,11 @@ def build_workflow_description(workflow: Workflow) -> str:
             if block.type == BlockType.PLUGIN:
                 lines.append(f"  - 插件 ID: `{block.config.plugin_id or '未配置'}`")
                 lines.append("  - 默认输入语义: 结构化上游结果")
+                if block.config.plugin_input_bindings:
+                    binding_keys = ", ".join(f"`{key}`" for key in block.config.plugin_input_bindings.keys())
+                    lines.append(f"  - 字段映射: {binding_keys}")
                 if block.config.prompt:
-                    lines.append(f"  - 输入模板: {block.config.prompt}")
+                    lines.append(f"  - 高级模板: {block.config.prompt}")
 
             if block.connections:
                 sources: list[str] = []
@@ -128,7 +131,7 @@ def build_workflow_description(workflow: Workflow) -> str:
     lines.append("**数据流规则：**")
     lines.append("- 默认：每步自动接收上一步所有块的全部输出")
     lines.append("- AI 块默认接收适合模型理解的文本格式")
-    lines.append("- Plugin 块默认接收适合程序执行的结构化格式")
+    lines.append("- Plugin 块默认接收适合程序执行的结构化格式，优先使用字段映射配置")
     lines.append("- 手动连线：仅接收指定来源块的输出（可精确到某个 JSON key）")
     lines.append("- 同一步内的多个块并行执行")
     return "\n".join(lines)
@@ -181,6 +184,13 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
                 plugin = get_plugin(block.config.plugin_id or "")
                 item["default_input_mode"] = "structured_upstream_value"
                 item["plugin_id"] = block.config.plugin_id
+                item["plugin_input_bindings"] = (
+                    {
+                        key: binding.model_dump()
+                        for key, binding in (block.config.plugin_input_bindings or {}).items()
+                    }
+                    or None
+                )
                 item["input_template"] = block.config.prompt
                 item["plugin_meta"] = (
                     {
@@ -193,7 +203,7 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
                     else None
                 )
             elif block.type == BlockType.OUTPUT:
-                item["default_input_mode"] = "formatted_text"
+                item["default_input_mode"] = "structured_passthrough"
 
             blocks.append(item)
 
@@ -223,6 +233,7 @@ def build_workflow_export(workflow: Workflow) -> dict[str, Any]:
             "blocks_within_column": "parallel",
             "default_ai_input": "formatted_text",
             "default_plugin_input": "structured_upstream_value",
+            "default_output_behavior": "structured_passthrough",
         },
         "inputs": _resolve_workflow_inputs(workflow),
         "outputs": _resolve_workflow_outputs(workflow),
