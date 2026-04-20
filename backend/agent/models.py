@@ -57,3 +57,11 @@ class ChatMessage(BaseModel):
         default=None,
         description="工具名称（role=tool_result 时使用）",
     )
+
+
+class AgentConversation(BaseModel):
+    """Agent 对话快照"""
+
+    agent_id: str = Field(description="Agent ID")
+    messages: list[ChatMessage] = Field(default_factory=list, description="完整消息列表")
+    updated_at: str = Field(description="最后更新时间")

@@ -10,8 +10,8 @@
  */
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap, Wrench, CheckCircle } from 'lucide-react'
-import { getAgent, createAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgent, chatWithAgentStream, listProviders, createCustomSkill, listCustomSkills, listWorkflows } from '@/api/client'
+import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap, Wrench, CheckCircle, Square } from 'lucide-react'
+import { getAgent, updateAgent, listSkills, generateSystemPrompt, chatWithAgentStream, listProviders, createCustomSkill, listCustomSkills, listWorkflows, downloadAgentManifest, getAgentConversation, clearAgentConversation } from '@/api/client'
 import { AgentTestChat } from './AgentTestChat'
 import { SkillEditor } from './SkillEditor'
 import type { Agent, AgentSkill, ChatMessage } from '@/types/agent'
@@ -173,6 +173,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
   const [liveReasoning, setLiveReasoning] = useState('')
   const [liveStatus, setLiveStatus] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatAbortRef = useRef<AbortController | null>(null)
 
   // 自动滚动到底部
   useEffect(() => {
@@ -218,8 +219,12 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
         setAvailableFlows(workflows)
 
         if (agentId) {
-          const data = await getAgent(agentId)
+          const [data, conversation] = await Promise.all([
+            getAgent(agentId),
+            getAgentConversation(agentId).catch(() => null),
+          ])
           setAgent(data)
+          setMessages(conversation?.messages || [])
         }
       } catch (e) {
         console.error('加载失败:', e)
@@ -281,40 +286,13 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
   }
 
   // 导出 Agent
-  const handleExport = () => {
-    const exportData = {
-      agent: {
-        name: agent.name,
-        description: agent.description,
-        system_prompt: agent.system_prompt,
-        skills: agent.skills.map(s => {
-          const skill = availableSkills.find(sk => sk.meta.id === s.skill_id)
-          return {
-            id: s.skill_id,
-            name: skill?.meta.name || '',
-            description: skill?.meta.description || '',
-            order: s.order,
-          }
-        }),
-      },
-      usage: {
-        description: '这是一个 Tweak Agent 配置文件',
-        how_to_use: [
-          '1. 在 Tweak 中创建新 Agent',
-          '2. 按照 skills 列表添加对应的 Skills',
-          '3. 复制 system_prompt 到系统提示词',
-          '4. 保存并开始使用',
-        ],
-      },
+  const handleExport = async () => {
+    if (!agentId) return
+    try {
+      await downloadAgentManifest(agentId)
+    } catch (e) {
+      alert(`导出失败: ${e}`)
     }
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${agent.name.replace(/\s+/g, '_')}_agent.json`
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   // 添加 Skill
@@ -497,17 +475,35 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
   }
 
+  const handleStopChat = () => {
+    chatAbortRef.current?.abort()
+    chatAbortRef.current = null
+  }
+
+  const handleClearConversation = async () => {
+    if (!agentId) return
+    if (!confirm('确定清空当前 Agent 的已保存对话？')) return
+
+    try {
+      await clearAgentConversation(agentId)
+      setMessages([])
+      setInput('')
+      setLiveReasoning('')
+      setLiveStatus('')
+      setStreamPhase('idle')
+    } catch (e) {
+      alert(`清空失败: ${e}`)
+    }
+  }
+
   // 发送消息
   const handleSendMessage = async () => {
-    console.log('handleSendMessage 被调用')
     if (!input.trim() || chatLoading) return
 
     if (!agentId) {
       alert('请先保存 Agent 后再进行对话')
       return
     }
-
-    console.log('准备发送消息, agentId:', agentId)
 
     // 如果 skills 有变化，先刷新 prompt 再发送
     if (skillsDirty) {
@@ -528,6 +524,8 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     setLiveStatus('正在思考...')
 
     try {
+      const controller = new AbortController()
+      chatAbortRef.current = controller
       const history = messages.map(m => ({
         role: m.role,
         content: m.content,
@@ -537,14 +535,12 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
       }))
 
       // 使用流式 API
-      console.log('开始流式调用:', agentId)
       let currentReasoningByRound = ''
       let currentContent = ''
       let isStreamingAssistant = false
       const allMessages: ChatMessage[] = []
 
-      for await (const event of chatWithAgentStream(agentId, userMessage.content, history)) {
-        console.log('收到事件:', event)
+      for await (const event of chatWithAgentStream(agentId, userMessage.content, history, controller.signal)) {
         if (event.type === 'round_start') {
           currentReasoningByRound = ''
           currentContent = ''
@@ -553,13 +549,11 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           setLiveReasoning('')
           setLiveStatus('正在思考...')
         } else if (event.type === 'reasoning_delta') {
-          console.log('Reasoning:', event.data)
           currentReasoningByRound += event.data.delta
           setStreamPhase('thinking')
           setLiveReasoning(currentReasoningByRound)
           setLiveStatus('正在思考...')
         } else if (event.type === 'assistant_delta') {
-          console.log('Content chunk:', event.data)
           currentContent += event.data.delta
           setStreamPhase('responding')
           setLiveStatus('正在生成回复...')
@@ -588,7 +582,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
             }
           }
         } else if (event.type === 'tool_call') {
-          console.log('Tool call:', event.data)
           const msg: ChatMessage = {
             role: 'tool_call',
             content: event.data.content,
@@ -604,11 +597,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           setLiveReasoning('')
           setLiveStatus('正在准备工具调用...')
         } else if (event.type === 'tool_status') {
-          console.log('Tool status:', event.data)
           setStreamPhase('tool-running')
           setLiveStatus(event.data.message || '正在执行工具...')
         } else if (event.type === 'tool_result') {
-          console.log('Tool result:', event.data)
           const msg: ChatMessage = {
             role: 'tool_result',
             content: event.data.content,
@@ -620,7 +611,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           setStreamPhase('thinking')
           setLiveStatus('工具执行完成，继续思考...')
         } else if (event.type === 'assistant_message') {
-          console.log('Assistant message:', event.data)
           if (isStreamingAssistant) {
             isStreamingAssistant = false
             currentContent = ''
@@ -645,14 +635,12 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           allMessages.push(errorMsg)
           break
         } else if (event.type === 'done') {
-          console.log('Done')
           setStreamPhase('idle')
           setLiveReasoning('')
           setLiveStatus('')
           break
         }
       }
-      console.log('流式调用结束')
 
       // 如果 workflow_designer 创建了新 Flow，刷新 Flow 列表
       const hasNewFlow = allMessages.some(
@@ -660,20 +648,24 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           && m.content && m.content.includes('"success": true')
       )
       if (hasNewFlow) {
-        console.log('检测到新 Flow，刷新列表')
         listWorkflows().then(setAvailableFlows).catch(() => {})
       }
     } catch (e) {
-      console.error('发送失败:', e)
       setStreamPhase('idle')
       setLiveReasoning('')
       setLiveStatus('')
+
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return
+      }
+
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: `抱歉，发送失败：${e}`,
       }
       setMessages(prev => [...prev, errorMessage])
     } finally {
+      chatAbortRef.current = null
       setChatLoading(false)
     }
   }
@@ -909,6 +901,18 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
         {/* 中栏：对话界面 */}
         <div className="editor-panel flex flex-1 flex-col">
           <div className="flex-1 overflow-y-auto p-6">
+            <div className="mx-auto mb-4 flex max-w-3xl items-center justify-between">
+              <div className="text-xs text-[var(--app-text-soft)]">
+                已保存对话会在重新进入 Agent 时自动恢复
+              </div>
+              <button
+                onClick={handleClearConversation}
+                disabled={!agentId || chatLoading}
+                className="text-xs text-[var(--app-text-soft)] transition hover:text-[var(--app-danger)] disabled:opacity-40"
+              >
+                清空对话
+              </button>
+            </div>
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center text-[var(--app-text-soft)]">
@@ -923,8 +927,17 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                 {chatLoading && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-2xl bg-[rgba(255,255,255,0.05)] px-4 py-3">
-                      <div className="mb-2 animate-pulse text-sm text-[var(--app-text-soft)]">
-                        {liveStatus || (streamPhase === 'responding' ? '正在生成回复...' : '处理中...')}
+                      <div className="mb-2 flex items-center justify-between gap-3 text-sm text-[var(--app-text-soft)]">
+                        <div className="animate-pulse">
+                          {liveStatus || (streamPhase === 'responding' ? '正在生成回复...' : '处理中...')}
+                        </div>
+                        <button
+                          onClick={handleStopChat}
+                          className="text-[var(--app-danger)] transition hover:opacity-80"
+                          title="停止"
+                        >
+                          <Square size={12} fill="currentColor" />
+                        </button>
                       </div>
                       {liveReasoning && (
                         <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap border-t border-[var(--app-border)] pt-2 text-xs text-[var(--app-text-soft)]">

@@ -18,3 +18,8 @@
 开始新一轮改动前，先确认开发细节和当前版本文档。
 
 开始编码前，先确保命名、结构、注释和文档写法与这里保持一致。
+
+Python 相关开发统一使用 `uv` 管理环境和依赖。
+
+- 安装后端开发依赖：`uv sync --project backend --extra dev`
+- 运行后端脚本或测试：`uv run --project backend ...`

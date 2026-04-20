@@ -14,6 +14,7 @@ from typing import Any
 
 from plugins.base import BasePlugin, PluginMeta
 from plugins.analyst_soul import AnalystSoulSkill
+from plugins.custom_skills import CustomSkill, load_custom_skill
 from plugins.mock_tool import MockToolPlugin
 from plugins.stock_analysis import StockAnalysisPlugin
 from plugins.workflow_executor import WorkflowExecutorSkill
@@ -41,7 +42,12 @@ def register_plugin(plugin: BasePlugin) -> None:
 
 def get_plugin(plugin_id: str) -> BasePlugin | None:
     """获取插件实例"""
-    return _PLUGINS.get(plugin_id)
+    plugin = _PLUGINS.get(plugin_id)
+    custom_skill = load_custom_skill(plugin_id)
+    if custom_skill:
+        plugin = CustomSkill(custom_skill)
+        _PLUGINS[plugin_id] = plugin
+    return plugin
 
 
 # ===== 插件状态持久化 =====

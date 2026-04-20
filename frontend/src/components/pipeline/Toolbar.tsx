@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Play, Save, Factory, ArrowLeft, Download, FileText, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
-import { saveWorkflow, updateWorkflow, runWorkflowStream, downloadCode, getAuthHeaders } from '@/api/client'
+import { saveWorkflow, updateWorkflow, runWorkflowStream, downloadCode, downloadWorkflowManifest, getAuthHeaders } from '@/api/client'
 import type { Workflow, Block, StepEvent } from '@/types/workflow'
 import { ThemeToggle } from '../ui/ThemeToggle'
 
@@ -273,6 +273,19 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
     }
   }
 
+  const handleExportManifest = async () => {
+    if (!workflow.id) {
+      alert('请先保存工作流')
+      return
+    }
+    setShowExportMenu(false)
+    try {
+      await downloadWorkflowManifest(workflow.id)
+    } catch (e) {
+      alert(`导出失败: ${e}`)
+    }
+  }
+
   const handleExportDescribe = async () => {
     if (!workflow.id) {
       alert('请先保存工作流')
@@ -416,8 +429,18 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
               <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
               <div className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-3xl border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]">
                 <button
-                  onClick={handleExportCode}
+                  onClick={handleExportManifest}
                   className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
+                >
+                  <FileText size={15} className="text-[var(--app-accent)]" />
+                  <div>
+                    <span className="font-medium text-[var(--app-text)]">导出结构化 Flow</span>
+                    <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">JSON 清单，便于复用和模型理解</p>
+                  </div>
+                </button>
+                <button
+                  onClick={handleExportCode}
+                  className="flex w-full items-center gap-2.5 border-t border-[var(--app-border)] px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
                 >
                   <Download size={15} className="text-[var(--app-accent)]" />
                   <div>

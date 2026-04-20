@@ -207,6 +207,25 @@ export async function downloadCode(id: string) {
   URL.revokeObjectURL(url)
 }
 
+async function downloadJsonFile(path: string, filename: string) {
+  const response = await fetch(`${BASE}${path}`, {
+    headers: getAuthHeaders(),
+  })
+  if (!response.ok) throw new Error('导出失败')
+  const data = await response.json()
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadWorkflowManifest(id: string) {
+  return downloadJsonFile(`/workflows/${id}/export`, `workflow_${id}.json`)
+}
+
 // ===== Plugins =====
 
 export async function listPlugins() {
@@ -362,6 +381,20 @@ export async function deleteAgent(id: string) {
   return request<{ success: boolean }>(`/agents/${id}`, { method: 'DELETE' })
 }
 
+export async function downloadAgentManifest(id: string) {
+  return downloadJsonFile(`/agents/${id}/export`, `agent_${id}.json`)
+}
+
+export async function getAgentConversation(agentId: string) {
+  return request<{ agent_id: string; messages: ChatMessage[]; updated_at?: string | null }>(`/agents/${agentId}/conversation`)
+}
+
+export async function clearAgentConversation(agentId: string) {
+  return request<{ success: boolean }>(`/agents/${agentId}/conversation`, {
+    method: 'DELETE',
+  })
+}
+
 export async function generateSystemPrompt(agentName: string, skills: { skill_id: string; name: string; description: string }[]) {
   return request<{ system_prompt: string }>('/agents/generate-prompt', {
     method: 'POST',
@@ -379,12 +412,14 @@ export async function chatWithAgent(agentId: string, message: string, history: R
 export async function* chatWithAgentStream(
   agentId: string,
   message: string,
-  history: Record<string, any>[]
+  history: Record<string, any>[],
+  signal?: AbortSignal
 ): AsyncGenerator<{ type: string; data: any }> {
   const response = await fetch(`${BASE}/agents/${agentId}/chat-stream`, {
     method: 'POST',
     headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ message, history }),
+    signal,
   })
 
   if (!response.ok) {

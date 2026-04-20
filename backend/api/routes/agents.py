@@ -6,19 +6,24 @@ Agent API
 
 from __future__ import annotations
 
-import time
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from agent.models import Agent, AgentSkill, ChatMessage
+from agent.models import Agent, AgentConversation, ChatMessage
 from agent.engine import AgentEngine
+from exporters import build_agent_export
 from plugins.base import describe_json_schema
 from shared_llm import call_llm
 from plugins.registry import get_plugin
 from storage.agent_store import delete_agent, list_agents, load_agent, save_agent
+from storage.agent_chat_store import (
+    delete_agent_conversation,
+    load_agent_conversation,
+    save_agent_conversation,
+)
 from api.routes.settings import get_default_provider
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
@@ -100,6 +105,44 @@ async def remove_agent(agent_id: str):
     """删除 Agent"""
     if not delete_agent(agent_id):
         raise HTTPException(status_code=404, detail="Agent 不存在")
+    delete_agent_conversation(agent_id)
+    return {"success": True}
+
+
+@router.get("/{agent_id}/export")
+async def export_agent(agent_id: str):
+    """导出 Agent 结构化清单。"""
+    agent = load_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+    return build_agent_export(agent)
+
+
+@router.get("/{agent_id}/conversation", response_model=ConversationResponse)
+async def get_agent_conversation(agent_id: str):
+    """获取 Agent 已保存的对话。"""
+    agent = load_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+
+    conversation = load_agent_conversation(agent_id)
+    if not conversation:
+        return ConversationResponse(agent_id=agent_id, messages=[], updated_at=None)
+
+    return ConversationResponse(
+        agent_id=agent_id,
+        messages=[message.model_dump() for message in conversation.messages],
+        updated_at=conversation.updated_at,
+    )
+
+
+@router.delete("/{agent_id}/conversation")
+async def clear_agent_conversation(agent_id: str):
+    """清空 Agent 已保存的对话。"""
+    agent = load_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+    delete_agent_conversation(agent_id)
     return {"success": True}
 
 
@@ -180,6 +223,27 @@ class ChatResponse(BaseModel):
     reasoning: str = ""  # 思考过程
 
 
+class ConversationResponse(BaseModel):
+    """Agent 对话响应"""
+
+    agent_id: str
+    messages: list[dict] = Field(default_factory=list)
+    updated_at: str | None = None
+
+
+def _build_saved_conversation(
+    agent_id: str,
+    history: list[ChatMessage],
+    user_message: str,
+    output_messages: list[ChatMessage],
+) -> AgentConversation:
+    messages = [*history, ChatMessage(role="user", content=user_message), *output_messages]
+    return save_agent_conversation(
+        agent_id,
+        [message.model_dump() for message in messages],
+    )
+
+
 @router.post("/{agent_id}/chat", response_model=ChatResponse)
 async def chat_with_agent(agent_id: str, req: ChatRequest):
     """与 Agent 对话（非流式）"""
@@ -188,11 +252,16 @@ async def chat_with_agent(agent_id: str, req: ChatRequest):
         raise HTTPException(status_code=404, detail="Agent 不存在")
 
     # 转换历史消息
-    history = [ChatMessage(**msg) for msg in req.history]
+    if req.history:
+        history = [ChatMessage(**msg) for msg in req.history]
+    else:
+        conversation = load_agent_conversation(agent_id)
+        history = conversation.messages if conversation else []
 
     # 创建引擎并执行
     engine = AgentEngine(agent)
     result = await engine.chat(req.message, history)
+    _build_saved_conversation(agent_id, history, req.message, result["messages"])
 
     return ChatResponse(
         messages=[msg.model_dump() for msg in result["messages"]],
@@ -208,7 +277,11 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
         raise HTTPException(status_code=404, detail="Agent 不存在")
 
     # 转换历史消息
-    history = [ChatMessage(**msg) for msg in req.history]
+    if req.history:
+        history = [ChatMessage(**msg) for msg in req.history]
+    else:
+        conversation = load_agent_conversation(agent_id)
+        history = conversation.messages if conversation else []
 
     # 创建引擎并执行
     engine = AgentEngine(agent)
@@ -219,11 +292,34 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
         import logging
 
         log = logging.getLogger(__name__)
+        output_messages: list[ChatMessage] = []
 
         try:
             async for event in engine.chat_stream(req.message, history):
+                if event["type"] == "tool_call":
+                    output_messages.append(ChatMessage(
+                        role="tool_call",
+                        content=event["data"].get("content", ""),
+                        tool_calls=event["data"].get("tool_calls"),
+                    ))
+                elif event["type"] == "tool_result":
+                    output_messages.append(ChatMessage(
+                        role="tool_result",
+                        content=event["data"].get("content", ""),
+                        tool_call_id=event["data"].get("tool_call_id"),
+                        tool_name=event["data"].get("tool_name"),
+                    ))
+                elif event["type"] == "assistant_message":
+                    output_messages.append(ChatMessage(
+                        role="assistant",
+                        content=event["data"].get("content", ""),
+                    ))
+
                 event_json = json.dumps(event, ensure_ascii=False)
                 yield f"data: {event_json}\n\n"
+
+            if output_messages:
+                _build_saved_conversation(agent_id, history, req.message, output_messages)
         except Exception as e:
             log.exception("Agent 流式对话失败")
             error_event = {

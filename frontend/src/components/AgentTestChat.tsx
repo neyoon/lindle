@@ -6,7 +6,7 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import { Send, X, MessageCircle, Minimize2, Maximize2, Wrench, CheckCircle, ChevronDown, ChevronUp, StopCircle } from 'lucide-react'
-import { chatWithAgentStream } from '@/api/client'
+import { chatWithAgentStream, getAgentConversation } from '@/api/client'
 import type { ChatMessage } from '@/types/agent'
 
 interface Props {
@@ -26,10 +26,18 @@ export function AgentTestChat({ agentId, agentName }: Props) {
   const [liveReasoning, setLiveReasoning] = useState('')
   const [liveStatus, setLiveStatus] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, liveReasoning, liveStatus, loading])
+
+  useEffect(() => {
+    if (!isOpen) return
+    getAgentConversation(agentId)
+      .then((conversation) => setMessages(conversation.messages || []))
+      .catch(() => {})
+  }, [agentId, isOpen])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
@@ -47,6 +55,8 @@ export function AgentTestChat({ agentId, agentName }: Props) {
     setLiveStatus('正在思考...')
 
     try {
+      const controller = new AbortController()
+      abortRef.current = controller
       // 使用流式 API
       const history = messages.map(m => ({
         role: m.role,
@@ -60,7 +70,7 @@ export function AgentTestChat({ agentId, agentName }: Props) {
       let currentContent = ''
       let isStreamingAssistant = false
 
-      for await (const event of chatWithAgentStream(agentId, userMessage.content, history)) {
+      for await (const event of chatWithAgentStream(agentId, userMessage.content, history, controller.signal)) {
         if (event.type === 'round_start') {
           currentReasoningByRound = ''
           currentContent = ''
@@ -155,22 +165,31 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         }
       }
     } catch (e) {
-      console.error('发送失败:', e)
       setStreamPhase('idle')
       setLiveReasoning('')
       setLiveStatus('')
+
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return
+      }
+
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: `发送失败：${e}`,
       }
       setMessages(prev => [...prev, errorMessage])
     } finally {
+      abortRef.current = null
       setLoading(false)
     }
   }
 
   const handleStop = () => {
-    // TODO: 实现打断功能（需要后端支持）
+    abortRef.current?.abort()
+    abortRef.current = null
+    setStreamPhase('idle')
+    setLiveReasoning('')
+    setLiveStatus('')
     setLoading(false)
   }
 
