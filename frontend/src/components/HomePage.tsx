@@ -1,7 +1,10 @@
 /**
  * Lindle 首页 —— Paper & Ink 设计语言
  *
- * stage = 'overview'  : 卷首（介绍 + Flow / Agent 两端 + 织线 timeline）
+ * 叙事类比：把任务组织成结构，像搭积木 — 一块一块落位、咬合成形。
+ * 视觉动效沿用纸墨语言（stamp-land / ink-bleed / thread-draw）。
+ *
+ * stage = 'overview'  : 卷首（介绍 + Flow / Agent 两端 + 连接 timeline）
  * stage = 'entry'     : 入场（Settings / Flow / Agent 三个入口卡）
  */
 import { ArrowLeft, ArrowRight, Settings, Sparkles, Workflow } from 'lucide-react'
@@ -20,7 +23,7 @@ interface Props {
   headerActions?: ReactNode
 }
 
-const HERO_TITLE = '把任务，像纺织一样收敛成结构。'
+const HERO_TITLE = '把任务，像搭积木一样落位成结构。'
 
 const LOOP = [
   { num: 'i.',   title: '编排', desc: '把任务组织成可见阶段。' },
@@ -29,7 +32,7 @@ const LOOP = [
   { num: 'iv.',  title: '调度', desc: 'Agent 按上下文调用。' },
 ]
 
-const LOOM_STAGES = [
+const STRUCTURE_STAGES = [
   { idx: 'i.',   name: '目标理解',     desc: '识别任务边界',     state: 'done' as const },
   { idx: 'ii.',  name: '阶段组织',     desc: '拆分执行阶段',     state: 'done' as const },
   { idx: 'iii.', name: '节点连接',     desc: '组织处理路径',     state: 'now'  as const },
@@ -111,7 +114,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
             <div className="leading-tight">
               <div className="app-brand-mark">Lindle</div>
               <div className="text-[0.62rem] uppercase tracking-[0.22em] text-[var(--ink-soft)] mt-0.5 font-mono">
-                loom · spindle
+                blocks · joints
               </div>
             </div>
           </div>
@@ -124,21 +127,21 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
         <section className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-center">
           <div>
             <span className="app-kicker anim-ink" style={{ animationDelay: '0.1s' }}>
-              Chapter I · Loom &amp; Spindle
+              Chapter I · Blocks &amp; Joints
             </span>
             <h1 className="app-section-title mt-6 text-4xl leading-[1.18] md:text-5xl lg:text-[3.6rem]"
                 style={{ fontWeight: 500 }}>
               <PressTitle text="把任务，" base={0.20} />
               <br />
               <PressTitle text="像" base={0.52} />
-              <em><PressTitle text="纺织" base={0.60} /></em>
-              <PressTitle text="一样" base={0.74} />
+              <em><PressTitle text="搭积木" base={0.60} /></em>
+              <PressTitle text="一样" base={0.81} />
               <br />
-              <PressTitle text="收敛成结构。" base={0.88} />
+              <PressTitle text="落位成结构。" base={0.95} />
             </h1>
             <p className="anim-ink mt-5 italic text-[var(--ink-soft)] text-lg"
                style={{ fontFamily: 'Fraunces, serif', animationDelay: '1.5s' }}>
-              To weave capability, to converge intent.
+              To stack capability, to converge intent.
             </p>
             <div className="anim-ink mt-9 flex flex-wrap gap-3" style={{ animationDelay: '1.75s' }}>
               <button onClick={onShowEntry} className="app-button app-button-primary">
@@ -149,7 +152,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
             </div>
           </div>
 
-          {/* Loom card */}
+          {/* Structure card — 从需求到结构化工作流的预览 */}
           <aside className="app-card stitched anim-loom relative p-7 pt-8">
             <span className="stamp-corner">Canvas · 01 / 04</span>
             <div className="font-serif italic text-lg" style={{ fontFamily: 'Fraunces, serif' }}>需求 → 结构化工作流</div>
@@ -157,7 +160,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
               workflow preview · 4 stages
             </div>
             <ul className="flex flex-col">
-              {LOOM_STAGES.map((s) => (
+              {STRUCTURE_STAGES.map((s) => (
                 <li key={s.idx} className="grid grid-cols-[34px_1fr_auto] gap-3 items-center py-3 border-b border-dashed border-[var(--line)] last:border-b-0">
                   <span className="font-serif italic text-[var(--rust)]" style={{ fontFamily: 'Fraunces, serif' }}>{s.idx}</span>
                   <div>
@@ -178,9 +181,9 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                 </li>
               ))}
             </ul>
-            {/* loom thread — thread-draw 首次绘出，然后静置 */}
+            {/* 连接预览 — thread-draw 首次绘出两段连接线，中间一个落位点 */}
             <div className="mt-5 pt-4 border-t border-dashed border-[var(--line)] flex items-center gap-3">
-              <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Loom</span>
+              <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Block</span>
               <svg className="loom-thread" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
                 <line x1="0" y1="0.5" x2="100" y2="0.5" pathLength="100" style={{ animationDelay: '0.9s' }} />
               </svg>
@@ -188,7 +191,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
               <svg className="loom-thread" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
                 <line x1="0" y1="0.5" x2="100" y2="0.5" pathLength="100" style={{ animationDelay: '1.75s' }} />
               </svg>
-              <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Spindle</span>
+              <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Slot</span>
             </div>
           </aside>
         </section>
@@ -254,13 +257,13 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           </div>
         </section>
 
-        {/* ===== ONE WEAVE — 动效演示 ===== */}
+        {/* ===== ONE STACK — 动效演示 ===== */}
         <section id="loop" className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
-              <span className="app-kicker">Chapter III · One Weave</span>
+              <span className="app-kicker">Chapter III · One Stack</span>
               <p className="italic text-[var(--ink-soft)] text-[0.96rem] leading-relaxed" style={{ fontFamily: 'Fraunces, serif' }}>
-                Watch it weave, once.
+                Watch it stack, once.
               </p>
             </div>
             <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
@@ -273,7 +276,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           <div className="reveal">
             <WeaveDemo />
             <p className="mt-6 text-center italic text-[var(--ink-soft)] text-[0.9rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-              从左向右织线，从左向右运行 —— 编排即结构，运行即显影。
+              一块一块落位，一步一步运行 —— 编排即结构，运行即显影。
             </p>
           </div>
         </section>
@@ -284,11 +287,11 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
             <div className="flex flex-col gap-3">
               <span className="app-kicker">Chapter IV · Continuous Loop</span>
               <p className="italic text-[var(--ink-soft)] text-[0.96rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-                One loop, woven continuously.
+                One loop, stacked continuously.
               </p>
             </div>
             <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
-              编织不是一次，
+              搭建不是一次，
               <br />是<em>持续</em>的沉淀。
             </h2>
           </div>
@@ -322,7 +325,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           <span className="italic normal-case tracking-normal text-[var(--ink-mid)] inline-flex items-center gap-3 text-[0.86rem]"
                 style={{ fontFamily: 'Fraunces, serif' }}>
             <span className="inline-block w-16 align-middle running-thread" />
-            Orchestrate, as one weaves
+            Orchestrate, as one stacks
             <span className="inline-block w-16 align-middle running-thread" />
           </span>
           <button onClick={onShowEntry} className="hover:text-[var(--rust)] transition">

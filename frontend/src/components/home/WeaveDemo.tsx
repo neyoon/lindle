@@ -1,11 +1,14 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 
 /**
- * WeaveDemo — 首页 Chapter III 的"一次编织"
+ * WeaveDemo — 首页 Chapter III 的"一次搭建"
+ *
+ * 类名沿用旧的 weave-* 命名属于历史遗留，语义上已统一为"搭积木"叙事：
+ * 三个方块依次落位，中间的连接线把它们咬合成一条 Flow。
  *
  * 设计目的：
  *   用 Paper & Ink 已有的动效（stamp-land / thread-draw / ink-pulse / stamp-land-tilted / ink-bleed），
- *   在六秒内演示一次工作流的「编排 → 织线 → 运行 → 收敛」。
+ *   在六秒内演示一次工作流的「编排 → 连接 → 运行 → 收敛」。
  *   进入视口才开始，不抢注意力；结束后可以"重播"。
  *
  * 时间线（t 以 started 为 0 计算）：
@@ -13,14 +16,14 @@ import { Fragment, useEffect, useRef, useState } from 'react'
  *   1.00 ─ 方块 1 stamp-land
  *   1.50 ─ 方块 2 stamp-land
  *   2.00 ─ 方块 3 stamp-land
- *   2.50 ─ 线 1 thread-draw
- *   3.00 ─ 线 2 thread-draw
+ *   2.50 ─ 连接线 1 thread-draw
+ *   3.00 ─ 连接线 2 thread-draw
  *   3.40 ─ 底部状态：编排完成
  *   3.90 ─ block 0 running（rust 脉冲）
  *   4.50 ─ block 0 done，block 1 running
  *   5.10 ─ block 1 done，block 2 running
  *   5.70 ─ block 2 done
- *   5.90 ─ 底部状态：已织成；重播按钮 ink-bleed
+ *   5.90 ─ 底部状态：已搭成；重播按钮 ink-bleed
  */
 
 type RunState = 'idle' | 'running' | 'done'
@@ -150,7 +153,7 @@ export function WeaveDemo() {
           <div className="weave-footer">
             <span className={`weave-status is-${status}`}>
               {status === 'ready' && '编排完成 · 开始运行'}
-              {status === 'done' && '已织成 · 一条可复用的 Flow'}
+              {status === 'done' && '已搭成 · 一条可复用的 Flow'}
               {status === 'hidden' && '\u00A0'}
             </span>
             {status === 'done' && (

@@ -449,7 +449,7 @@ export function ConnectionLines({ containerRef }: Props) {
         )
       })}
 
-      {/* 连接模式: 临时织线（rust 色虚线跟手） */}
+      {/* 连接模式: 临时连接线（rust 色虚线跟手） */}
       {connectingFrom && sourcePortPos && mousePos && (
         <g>
           <path
