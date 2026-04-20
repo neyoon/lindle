@@ -1,6 +1,12 @@
-# Tweak
+# Lindle
 
-Tweak 是一个面向 AI 能力编排的工作台，提供可视化 Flow、对话式 Agent、Skill 和 Plugin 机制。
+Lindle 是一个面向 AI 能力编排的工作台，提供可视化 Flow、对话式 Agent、Skill 和 Plugin 机制。
+
+## 名称
+
+Lindle 取自 `Loom` 和 `Spindle` 这两个方向。
+
+这个命名强调的不是单个模型，而是把多个能力组织、编织并收敛成可运行结构的过程。
 
 ## 核心能力
 
