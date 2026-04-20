@@ -110,7 +110,9 @@
 body::before { display: none; content: none; }
 
 /* =========================================================
-   Shared keyframes  — 6 motion primitives
+   Shared keyframes — 6 motion primitives
+   动效类名里的 loom / knot / thread / weave 是历史命名，
+   叙事上已统一为"搭积木"：落位、咬合、连接、持续成形。
    ========================================================= */
 
 @keyframes ink-bleed {
@@ -204,7 +206,7 @@ body::before { display: none; content: none; }
   background-image: linear-gradient(90deg, var(--rust) 0, var(--rust) 5px, transparent 5px, transparent 14px);
 }
 
-/* Loom thread — 一次性 thread-draw，画完留线（对应 motion §2 织线绘制）*/
+/* Connector line — 一次性 thread-draw，画完留线（对应 motion §2 连接线绘制） */
 .loom-thread {
   flex: 1;
   height: 1px;
@@ -740,8 +742,9 @@ body::before { display: none; content: none; }
   }
 
   /* =========================================================
-     Weave Demo — Chapter III 的"一次编织"
-     （由 WeaveDemo.tsx 消费；动效全部复用现有关键帧）
+     Stack Demo — Chapter III 的"一次搭建"
+     （由 WeaveDemo.tsx 消费；类名沿用旧的 weave-* 是历史遗留，语义为"搭积木"。
+       动效全部复用现有关键帧）
      ========================================================= */
   .weave-demo {
     position: relative;
@@ -957,6 +960,82 @@ body::before { display: none; content: none; }
      ========================================================= */
   .app-page section[id] {
     scroll-margin-top: 96px;
+  }
+
+  /* =========================================================
+     Settings entry — 齿轮 + 下拉菜单
+     齿轮沿用纸墨动效：落印时 stamp-land 带入，悬浮时 ink-ease 缓慢转动，
+     下拉菜单使用 panel-slide-in，和工具栏其他菜单保持一致。
+     ========================================================= */
+  .settings-entry {
+    position: relative;
+    transition: border-color 0.3s, color 0.3s, background 0.25s;
+  }
+  .settings-entry.is-open {
+    color: var(--rust);
+    border-color: var(--rust);
+    background: var(--rust-soft);
+  }
+
+  .settings-seal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--card-soft);
+    animation: stamp-land 0.85s var(--ease-ink) backwards;
+    transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.4s var(--ease);
+  }
+  .settings-entry:hover .settings-seal,
+  .settings-entry.is-open .settings-seal {
+    border-color: var(--rust);
+    background: var(--rust-soft);
+    box-shadow: 0 0 0 3px rgba(176, 96, 62, 0.12);
+  }
+
+  .settings-gear {
+    color: var(--ink-soft);
+    transform-origin: 50% 50%;
+    transition: color 0.3s ease, transform 1.2s var(--ease-ink);
+  }
+  .settings-entry:hover .settings-gear {
+    color: var(--rust);
+    transform: rotate(90deg);
+  }
+  .settings-entry.is-open .settings-gear {
+    color: var(--rust);
+    animation: settings-gear-spin 6s linear infinite;
+  }
+
+  @keyframes settings-gear-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  .settings-menu {
+    animation: panel-slide-in 0.35s var(--ease-ink);
+    transform-origin: top right;
+  }
+  .settings-menu-item {
+    position: relative;
+  }
+  .settings-menu-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--rust);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 0.3s var(--ease-ink);
+  }
+  .settings-menu-item:hover::before {
+    transform: scaleY(1);
   }
 }
 

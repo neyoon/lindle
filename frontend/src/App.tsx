@@ -7,9 +7,10 @@
  * 2. 工作流编辑器
  * 3. 插件管理页面
  * 4. 制造工坊（块模板管理）
- * 5. 设置页面（LLM 配置）
- * 6. Agent 列表页面
- * 7. Agent 编辑器
+ * 5. 设置页面（总体设置）
+ * 6. Provider 页面（模型来源管理）
+ * 7. Agent 列表页面
+ * 8. Agent 编辑器
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -25,17 +26,23 @@ import { AgentListPage } from './components/AgentListPage'
 import { AgentEditorPage } from './components/AgentEditorPage'
 import { SkillLibraryPage } from './components/SkillLibraryPage'
 import { SettingsPage } from './components/SettingsPage'
-import { UserMenu } from './components/UserMenu'
+import { SettingsEntry } from './components/SettingsEntry'
 import { useWorkflowStore } from './stores/workflow'
+import { getAppPreferences } from './utils/preferences'
 import { getWorkflow, getSettings, saveWorkflow, deleteWorkflow, createAgent, deleteAgent } from './api/client'
 
-type Page = 'home-overview' | 'home-entry' | 'flow-list' | 'flow-editor' | 'plugins' | 'manufacture' | 'settings' | 'agent-list' | 'agent-editor' | 'skill-library'
-
-const LOCAL_USER = {
-  user_id: 'local-user',
-  username: '本地工作区',
-  role: 'local',
-}
+type Page =
+  | 'home-overview'
+  | 'home-entry'
+  | 'flow-list'
+  | 'flow-editor'
+  | 'plugins'
+  | 'manufacture'
+  | 'settings-general'
+  | 'settings-provider'
+  | 'agent-list'
+  | 'agent-editor'
+  | 'skill-library'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home-overview')
@@ -48,18 +55,27 @@ export default function App() {
   const selectedBlockId = useWorkflowStore((s) => s.selectedBlockId)
   const setWorkflow = useWorkflowStore((s) => s.setWorkflow)
 
-  const openSettingsFrom = (from: Page) => {
+  const rememberOrigin = (from: Page) => {
     settingsFrom.current = from === 'home-overview' ? 'home-entry' : from
-    setPage('settings')
   }
 
-  // 本地模式下检查是否已配置 API Key，未配置则引导到设置页
+  const openGeneralSettings = (from: Page) => {
+    rememberOrigin(from)
+    setPage('settings-general')
+  }
+
+  const openProviderSettings = (from: Page) => {
+    rememberOrigin(from)
+    setPage('settings-provider')
+  }
+
+  // 本地模式下检查是否已配置 API Key，未配置则引导到 Provider 页
   useEffect(() => {
     getSettings()
       .then((s) => {
         if (!s.api_key_set) {
           settingsFrom.current = 'home-entry'
-          setPage('settings')
+          setPage('settings-provider')
         }
       })
       .catch(() => {})
@@ -81,7 +97,14 @@ export default function App() {
   // 新建空白工作流 — 自动保存到后端，便于 AI 编辑等功能直接使用
   const handleCreateNew = async () => {
     const id = `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    const wf = { id, name: '新建工作流', description: '', columns: [] }
+    const preferences = getAppPreferences()
+    const wf = {
+      id,
+      name: '新建工作流',
+      description: '',
+      columns: [],
+      stop_on_error: preferences.defaultStopOnError,
+    }
     try {
       await saveWorkflow(wf)
       setWorkflow(wf)
@@ -108,11 +131,9 @@ export default function App() {
   if (!checkedSettings) return null
 
   const headerActions = (
-    <UserMenu
-      user={LOCAL_USER}
-      onOpenSettings={() => {
-        openSettingsFrom(page)
-      }}
+    <SettingsEntry
+      onOpenGeneral={() => openGeneralSettings(page)}
+      onOpenProvider={() => openProviderSettings(page)}
     />
   )
 
@@ -129,8 +150,22 @@ export default function App() {
         headerActions={page === 'home-entry' ? headerActions : undefined}
       />
     )
-  } else if (page === 'settings') {
-    content = <SettingsPage onBack={() => setPage(settingsFrom.current)} headerActions={headerActions} />
+  } else if (page === 'settings-general') {
+    content = (
+      <SettingsPage
+        section="general"
+        onBack={() => setPage(settingsFrom.current)}
+        headerActions={headerActions}
+      />
+    )
+  } else if (page === 'settings-provider') {
+    content = (
+      <SettingsPage
+        section="provider"
+        onBack={() => setPage(settingsFrom.current)}
+        headerActions={headerActions}
+      />
+    )
   } else if (page === 'flow-list') {
     content = (
       <WorkflowListPage

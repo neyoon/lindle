@@ -13,6 +13,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react'
+import { getAppPreferences, saveAppPreferences, type AppPreferences } from '@/utils/preferences'
 import {
   addProvider,
   deleteProvider,
@@ -25,7 +26,10 @@ import {
   type ProviderResponse,
 } from '@/api/client'
 
+export type SettingsSection = 'general' | 'provider'
+
 interface Props {
+  section: SettingsSection
   onBack: () => void
   headerActions?: ReactNode
 }
@@ -37,8 +41,9 @@ const PRESETS = [
   { name: 'Ollama (本地)', base_url: 'http://localhost:11434/v1', model: 'llama3' },
 ]
 
-export function SettingsPage({ onBack, headerActions }: Props) {
+export function SettingsPage({ section, onBack, headerActions }: Props) {
   const [providers, setProviders] = useState<ProviderResponse[]>([])
+  const [preferences, setPreferences] = useState<AppPreferences>(() => getAppPreferences())
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<string | null>(null)
@@ -52,9 +57,18 @@ export function SettingsPage({ onBack, headerActions }: Props) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    if (section !== 'provider') {
+      setLoading(false)
+      return
+    }
     loadProviders()
     getAIEditProvider().then((result) => setAiEditProviderId(result.provider_id)).catch(() => {})
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section])
+
+  useEffect(() => {
+    saveAppPreferences(preferences)
+  }, [preferences])
 
   const loadProviders = async () => {
     try {
@@ -91,6 +105,10 @@ export function SettingsPage({ onBack, headerActions }: Props) {
     setFormName(preset.name)
     setFormUrl(preset.base_url)
     setFormModel(preset.model)
+  }
+
+  const updatePreference = <K extends keyof AppPreferences,>(key: K, value: AppPreferences[K]) => {
+    setPreferences((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleSave = async () => {
@@ -165,6 +183,9 @@ export function SettingsPage({ onBack, headerActions }: Props) {
     )
   }
 
+  const headerKicker = section === 'general' ? 'Settings / general preferences' : 'Settings / model providers'
+  const headerTitle = section === 'general' ? '设置' : 'Provider'
+
   return (
     <div className="app-shell">
       <header className="app-topbar">
@@ -175,157 +196,345 @@ export function SettingsPage({ onBack, headerActions }: Props) {
               返回
             </button>
             <div>
-              <div className="app-kicker">Settings / model providers</div>
-              <h1 className="app-section-title text-2xl">设置</h1>
+              <div className="app-kicker">{headerKicker}</div>
+              <h1 className="app-section-title text-2xl">{headerTitle}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={startAdd} disabled={editingId === 'new'} className="app-button app-button-primary disabled:opacity-50">
-              <Plus size={16} />
-              添加 Provider
-            </button>
+            {section === 'provider' && (
+              <button onClick={startAdd} disabled={editingId === 'new'} className="app-button app-button-primary disabled:opacity-50">
+                <Plus size={16} />
+                添加 Provider
+              </button>
+            )}
             {headerActions}
           </div>
         </div>
       </header>
 
       <main className="app-page py-8">
-        <section className="app-card p-6 md:p-8">
-          <div className="grid gap-6 md:grid-cols-[1.15fr_0.85fr]">
-            <div>
-              <div className="app-kicker mb-3">Model registry</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">管理所有 OpenAI 兼容 Provider</h2>
-              <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-                Lindle 的 Flow、Agent 和 AI 编辑能力都依赖这里的 Provider。
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="app-stat">
-                <div className="app-kicker mb-2">Providers</div>
-                <div className="text-3xl font-semibold text-[var(--app-text)]">{providers.length}</div>
-                <p className="app-muted mt-2 text-sm">已接入模型源</p>
-              </div>
-              <div className="app-stat">
-                <div className="app-kicker mb-2">AI Edit</div>
-                <div className="text-lg font-semibold text-[var(--app-text)]">{aiEditProviderId ? '独立指定' : '跟随默认'}</div>
-                <p className="app-muted mt-2 text-sm">AI 编辑可使用单独 Provider</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {editingId === 'new' && (
-          <section className="mt-6">
-            <ProviderForm
-              title="添加新 Provider"
-              formName={formName}
-              formKey={formKey}
-              formUrl={formUrl}
-              formModel={formModel}
-              showKey={showKey}
-              saving={saving}
-              isNew
-              testingId={testingId}
-              testResult={testResult?.id === 'new' ? testResult : null}
-              onNameChange={setFormName}
-              onKeyChange={setFormKey}
-              onUrlChange={setFormUrl}
-              onModelChange={setFormModel}
-              onToggleKey={() => setShowKey(!showKey)}
-              onSave={handleSave}
-              onCancel={() => setEditingId(null)}
-              onTest={() => handleTest('new')}
-              onPreset={applyPreset}
-            />
-          </section>
+        {section === 'general' ? (
+          <GeneralSettingsSection preferences={preferences} updatePreference={updatePreference} />
+        ) : (
+          <ProviderSettingsSection
+            providers={providers}
+            aiEditProviderId={aiEditProviderId}
+            setAiEditProviderId={setAiEditProviderId}
+            editingId={editingId}
+            setEditingId={setEditingId}
+            formName={formName}
+            formKey={formKey}
+            formUrl={formUrl}
+            formModel={formModel}
+            showKey={showKey}
+            saving={saving}
+            testingId={testingId}
+            testResult={testResult}
+            setFormName={setFormName}
+            setFormKey={setFormKey}
+            setFormUrl={setFormUrl}
+            setFormModel={setFormModel}
+            setShowKey={setShowKey}
+            handleSave={handleSave}
+            handleDelete={handleDelete}
+            handleSetDefault={handleSetDefault}
+            handleTest={handleTest}
+            startEdit={startEdit}
+            applyPreset={applyPreset}
+          />
         )}
-
-        <section className="mt-6 space-y-4">
-          {providers.length === 0 && editingId !== 'new' ? (
-            <div className="app-card p-12 text-center">
-              <div className="app-kicker mb-3">No providers yet</div>
-              <h3 className="app-section-title text-3xl">还没有配置 Provider</h3>
-              <p className="app-muted mt-4 text-sm leading-8">先接入一个模型服务，整套 Flow / Agent 系统才能开始工作。</p>
-            </div>
-          ) : (
-            providers.map((provider) => (
-              editingId === provider.id ? (
-                <ProviderForm
-                  key={provider.id}
-                  title={`编辑: ${provider.name}`}
-                  formName={formName}
-                  formKey={formKey}
-                  formUrl={formUrl}
-                  formModel={formModel}
-                  showKey={showKey}
-                  saving={saving}
-                  isNew={false}
-                  testingId={testingId}
-                  testResult={testResult?.id === provider.id ? testResult : null}
-                  onNameChange={setFormName}
-                  onKeyChange={setFormKey}
-                  onUrlChange={setFormUrl}
-                  onModelChange={setFormModel}
-                  onToggleKey={() => setShowKey(!showKey)}
-                  onSave={handleSave}
-                  onCancel={() => setEditingId(null)}
-                  onTest={() => handleTest(provider.id)}
-                  onPreset={applyPreset}
-                  existingKeyHint={provider.api_key_set}
-                />
-              ) : (
-                <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  testingId={testingId}
-                  testResult={testResult?.id === provider.id ? testResult : null}
-                  onEdit={() => startEdit(provider)}
-                  onDelete={() => handleDelete(provider.id, provider.name)}
-                  onSetDefault={() => handleSetDefault(provider.id)}
-                  onTest={() => handleTest(provider.id)}
-                />
-              )
-            ))
-          )}
-        </section>
-
-        {providers.length > 0 && (
-          <section className="app-card-soft mt-6 p-5">
-            <div className="app-kicker mb-2">AI edit provider</div>
-            <h3 className="text-xl font-semibold text-[var(--app-text)]">给 AI 编辑单独指定模型</h3>
-            <p className="app-muted mt-3 text-sm leading-7">建议给 AI 编辑分配能力更强的模型，避免和日常运行模型混用。</p>
-            <select
-              className="app-input mt-4"
-              value={aiEditProviderId}
-              onChange={async (e) => {
-                const newId = e.target.value
-                setAiEditProviderId(newId)
-                try {
-                  await setAIEditProvider(newId)
-                } catch (error) {
-                  alert(`设置失败: ${error}`)
-                }
-              }}
-            >
-              <option value="">跟随默认 Provider</option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name} ({provider.model}){provider.is_default ? ' (默认)' : ''}
-                </option>
-              ))}
-            </select>
-          </section>
-        )}
-
-        <section className="app-card-soft mt-6 p-5">
-          <div className="app-kicker mb-2">Compatibility note</div>
-          <p className="app-muted text-sm leading-7">
-            Lindle 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面和 Ollama 本地部署。
-            你可以同时添加多个不同来源的Provider，在工作流 AI 块和 Agent 中分别选择。
-          </p>
-        </section>
       </main>
     </div>
+  )
+}
+
+function GeneralSettingsSection({
+  preferences,
+  updatePreference,
+}: {
+  preferences: AppPreferences
+  updatePreference: <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => void
+}) {
+  return (
+    <section className="app-card p-6 md:p-8">
+      <div className="app-kicker mb-3">General settings</div>
+      <h2 className="app-section-title text-3xl md:text-4xl">总体设置</h2>
+      <p className="app-muted mt-4 text-sm leading-8">
+        这一组优先承接本地工作区体验。语言、显示方式、高级选项和默认执行策略先以本地配置保存，后续再逐步接入全局行为。
+      </p>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">界面语言</label>
+          <select
+            className="app-input"
+            value={preferences.language}
+            onChange={(e) => updatePreference('language', e.target.value as AppPreferences['language'])}
+          >
+            <option value="zh-CN">简体中文</option>
+            <option value="en-US">English</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">显示方式</label>
+          <select
+            className="app-input"
+            value={preferences.displayMode}
+            onChange={(e) => updatePreference('displayMode', e.target.value as AppPreferences['displayMode'])}
+          >
+            <option value="paper">纸墨默认</option>
+            <option value="compact">紧凑视图</option>
+            <option value="focus">聚焦视图</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        <PreferenceToggle
+          title="默认失败即停"
+          description="新建 Flow 默认在任一步骤报错时停止执行。当前默认开启。"
+          checked={preferences.defaultStopOnError}
+          onChange={(checked) => updatePreference('defaultStopOnError', checked)}
+        />
+        <PreferenceToggle
+          title="显示高级选项"
+          description="控制编辑器里是否优先显示更细的绑定、模板和诊断入口。当前先作为占位开关。"
+          checked={preferences.showAdvancedOptions}
+          onChange={(checked) => updatePreference('showAdvancedOptions', checked)}
+        />
+        <PreferenceToggle
+          title="自定义模式"
+          description="为后续更强的工作区定制能力预留入口，目前先记录本地偏好。"
+          checked={preferences.customMode}
+          onChange={(checked) => updatePreference('customMode', checked)}
+        />
+      </div>
+
+      <div className="app-card-soft mt-6 p-4">
+        <div className="app-kicker mb-2">Local only</div>
+        <p className="app-muted text-sm leading-7">
+          这些总体设置目前保存在当前浏览器本地。除了“默认失败即停”会影响新建 Flow 之外，其余项先作为体验占位符。
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function ProviderSettingsSection({
+  providers,
+  aiEditProviderId,
+  setAiEditProviderId,
+  editingId,
+  setEditingId,
+  formName,
+  formKey,
+  formUrl,
+  formModel,
+  showKey,
+  saving,
+  testingId,
+  testResult,
+  setFormName,
+  setFormKey,
+  setFormUrl,
+  setFormModel,
+  setShowKey,
+  handleSave,
+  handleDelete,
+  handleSetDefault,
+  handleTest,
+  startEdit,
+  applyPreset,
+}: {
+  providers: ProviderResponse[]
+  aiEditProviderId: string
+  setAiEditProviderId: (value: string) => void
+  editingId: string | null
+  setEditingId: (value: string | null) => void
+  formName: string
+  formKey: string
+  formUrl: string
+  formModel: string
+  showKey: boolean
+  saving: boolean
+  testingId: string | null
+  testResult: { id: string; success: boolean; message: string } | null
+  setFormName: (value: string) => void
+  setFormKey: (value: string) => void
+  setFormUrl: (value: string) => void
+  setFormModel: (value: string) => void
+  setShowKey: (fn: (prev: boolean) => boolean) => void
+  handleSave: () => Promise<void>
+  handleDelete: (id: string, name: string) => Promise<void>
+  handleSetDefault: (id: string) => Promise<void>
+  handleTest: (providerId: string) => Promise<void>
+  startEdit: (provider: ProviderResponse) => void
+  applyPreset: (preset: (typeof PRESETS)[0]) => void
+}) {
+  return (
+    <>
+      <section className="app-card p-6 md:p-8">
+        <div className="grid gap-6 md:grid-cols-[1.15fr_0.85fr]">
+          <div>
+            <div className="app-kicker mb-3">Provider</div>
+            <h2 className="app-section-title text-3xl md:text-4xl">管理所有 OpenAI 兼容 Provider</h2>
+            <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
+              Lindle 的 Flow、Agent 和 AI 编辑能力都依赖这里的 Provider。
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="app-stat">
+              <div className="app-kicker mb-2">Providers</div>
+              <div className="text-3xl font-semibold text-[var(--app-text)]">{providers.length}</div>
+              <p className="app-muted mt-2 text-sm">已接入模型源</p>
+            </div>
+            <div className="app-stat">
+              <div className="app-kicker mb-2">AI Edit</div>
+              <div className="text-lg font-semibold text-[var(--app-text)]">{aiEditProviderId ? '独立指定' : '跟随默认'}</div>
+              <p className="app-muted mt-2 text-sm">AI 编辑可使用单独 Provider</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {editingId === 'new' && (
+        <section className="mt-6">
+          <ProviderForm
+            title="添加新 Provider"
+            formName={formName}
+            formKey={formKey}
+            formUrl={formUrl}
+            formModel={formModel}
+            showKey={showKey}
+            saving={saving}
+            isNew
+            testingId={testingId}
+            testResult={testResult?.id === 'new' ? testResult : null}
+            onNameChange={setFormName}
+            onKeyChange={setFormKey}
+            onUrlChange={setFormUrl}
+            onModelChange={setFormModel}
+            onToggleKey={() => setShowKey((prev) => !prev)}
+            onSave={handleSave}
+            onCancel={() => setEditingId(null)}
+            onTest={() => handleTest('new')}
+            onPreset={applyPreset}
+          />
+        </section>
+      )}
+
+      <section className="mt-6 space-y-4">
+        {providers.length === 0 && editingId !== 'new' ? (
+          <div className="app-card p-12 text-center">
+            <div className="app-kicker mb-3">No providers yet</div>
+            <h3 className="app-section-title text-3xl">还没有配置 Provider</h3>
+            <p className="app-muted mt-4 text-sm leading-8">先接入一个模型服务，整套 Flow / Agent 系统才能开始工作。</p>
+          </div>
+        ) : (
+          providers.map((provider) => (
+            editingId === provider.id ? (
+              <ProviderForm
+                key={provider.id}
+                title={`编辑: ${provider.name}`}
+                formName={formName}
+                formKey={formKey}
+                formUrl={formUrl}
+                formModel={formModel}
+                showKey={showKey}
+                saving={saving}
+                isNew={false}
+                testingId={testingId}
+                testResult={testResult?.id === provider.id ? testResult : null}
+                onNameChange={setFormName}
+                onKeyChange={setFormKey}
+                onUrlChange={setFormUrl}
+                onModelChange={setFormModel}
+                onToggleKey={() => setShowKey((prev) => !prev)}
+                onSave={handleSave}
+                onCancel={() => setEditingId(null)}
+                onTest={() => handleTest(provider.id)}
+                onPreset={applyPreset}
+                existingKeyHint={provider.api_key_set}
+              />
+            ) : (
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                testingId={testingId}
+                testResult={testResult?.id === provider.id ? testResult : null}
+                onEdit={() => startEdit(provider)}
+                onDelete={() => handleDelete(provider.id, provider.name)}
+                onSetDefault={() => handleSetDefault(provider.id)}
+                onTest={() => handleTest(provider.id)}
+              />
+            )
+          ))
+        )}
+      </section>
+
+      {providers.length > 0 && (
+        <section className="app-card-soft mt-6 p-5">
+          <div className="app-kicker mb-2">AI edit provider</div>
+          <h3 className="text-xl font-semibold text-[var(--app-text)]">给 AI 编辑单独指定模型</h3>
+          <p className="app-muted mt-3 text-sm leading-7">建议给 AI 编辑分配能力更强的模型，避免和日常运行模型混用。</p>
+          <select
+            className="app-input mt-4"
+            value={aiEditProviderId}
+            onChange={async (e) => {
+              const newId = e.target.value
+              setAiEditProviderId(newId)
+              try {
+                await setAIEditProvider(newId)
+              } catch (error) {
+                alert(`设置失败: ${error}`)
+              }
+            }}
+          >
+            <option value="">跟随默认 Provider</option>
+            {providers.map((provider) => (
+              <option key={provider.id} value={provider.id}>
+                {provider.name} ({provider.model}){provider.is_default ? ' (默认)' : ''}
+              </option>
+            ))}
+          </select>
+        </section>
+      )}
+
+      <section className="app-card-soft mt-6 p-5">
+        <div className="app-kicker mb-2">Compatibility note</div>
+        <p className="app-muted text-sm leading-7">
+          Lindle 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面和 Ollama 本地部署。
+          你可以同时添加多个不同来源的Provider，在工作流 AI 块和 Agent 中分别选择。
+        </p>
+      </section>
+    </>
+  )
+}
+
+function PreferenceToggle({
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  title: string
+  description: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="app-card-soft flex cursor-pointer items-start justify-between gap-4 p-4">
+      <div>
+        <div className="text-base font-medium text-[var(--app-text)]">{title}</div>
+        <p className="app-muted mt-2 text-sm leading-7">{description}</p>
+      </div>
+      <input
+        type="checkbox"
+        className="mt-1 h-4 w-4 shrink-0 accent-[var(--app-accent)]"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </label>
   )
 }
 

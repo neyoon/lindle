@@ -3,7 +3,7 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Play, Save, Factory, ArrowLeft, Download, FileText, Sparkles, X, Loader2, Square, Undo2, Check, ShieldAlert } from 'lucide-react'
+import { Play, Save, Factory, ArrowLeft, Download, FileText, Sparkles, X, Loader2, Square, Undo2, Check } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { saveWorkflow, updateWorkflow, runWorkflowStream, downloadCode, downloadWorkflowManifest } from '@/api/client'
 import type { Workflow, Block, StepEvent } from '@/types/workflow'
@@ -50,7 +50,6 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
     setIsRunning,
     isRunning,
     setBlockDiffMap,
-    setStopOnError,
     resetRunState,
     appendRunEvent,
     setLiveOutput,
@@ -392,21 +391,6 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
         >
           <Factory size={16} />
           制造
-        </button>
-        <span className="text-[var(--app-border-strong)]">|</span>
-
-        {/* 失败即停止开关 */}
-        <button
-          onClick={() => setStopOnError(!workflow.stop_on_error)}
-          className={`app-button ${
-            workflow.stop_on_error
-              ? 'border border-[var(--app-warm)] bg-[var(--rust-soft)] text-[var(--app-accent-strong)]'
-              : 'app-button-ghost'
-          }`}
-          title={workflow.stop_on_error ? '遇到错误时停止执行' : '遇到错误时继续执行'}
-        >
-          <ShieldAlert size={16} />
-          {workflow.stop_on_error ? '失败即停' : '忽略错误'}
         </button>
         <span className="text-[var(--app-border-strong)]">|</span>
 
