@@ -15,6 +15,8 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 PID_DIR="$ROOT_DIR/.pids"
+BACKEND_PORT="${BACKEND_PORT:-6011}"
+FRONTEND_PORT="${FRONTEND_PORT:-1106}"
 
 export UV_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
 
@@ -74,9 +76,9 @@ start_backend() {
   cd "$BACKEND_DIR"
   uv sync --quiet 2>/dev/null || true
 
-  echo "[后端] 启动 (http://localhost:8000)..."
+  echo "[后端] 启动 (http://localhost:$BACKEND_PORT)..."
   print_runtime_mode
-  DEV="$BACKEND_DEV" uv run python main.py > "$BACKEND_LOG" 2>&1 &
+  FRONTEND_PORT="$FRONTEND_PORT" PORT="$BACKEND_PORT" DEV="$BACKEND_DEV" uv run python main.py > "$BACKEND_LOG" 2>&1 &
   local pid=$!
   echo "$pid" > "$BACKEND_PID_FILE"
   echo "[后端] 已启动 (PID: $pid, 日志: .pids/backend.log)"
@@ -91,8 +93,9 @@ start_frontend() {
     npm install --silent
   fi
 
-  echo "[前端] 启动 (http://localhost:3000)..."
-  npx vite --port 3000 > "$FRONTEND_LOG" 2>&1 &
+  echo "[前端] 启动 (http://localhost:$FRONTEND_PORT)..."
+  FRONTEND_PORT="$FRONTEND_PORT" BACKEND_PORT="$BACKEND_PORT" VITE_API_TARGET="http://localhost:$BACKEND_PORT" \
+    npx vite --port "$FRONTEND_PORT" --strictPort > "$FRONTEND_LOG" 2>&1 &
   local pid=$!
   echo "$pid" > "$FRONTEND_PID_FILE"
   echo "[前端] 已启动 (PID: $pid, 日志: .pids/frontend.log)"
@@ -132,13 +135,13 @@ case "${1:-start}" in
     start_backend
     start_frontend
     echo ""
-    wait_for_service "后端" "http://localhost:8000/api/health"
-    wait_for_service "前端" "http://localhost:3000"
+    wait_for_service "后端" "http://localhost:$BACKEND_PORT/api/health"
+    wait_for_service "前端" "http://localhost:$FRONTEND_PORT"
     echo ""
     echo "=== Lindle 已重启 ==="
-    echo "  前端: http://localhost:3000"
-    echo "  后端: http://localhost:8000"
-    echo "  API 文档: http://localhost:8000/docs"
+    echo "  前端: http://localhost:$FRONTEND_PORT"
+    echo "  后端: http://localhost:$BACKEND_PORT"
+    echo "  API 文档: http://localhost:$BACKEND_PORT/docs"
     ;;
   start|"")
     echo "=== 启动 Lindle ==="
@@ -154,15 +157,15 @@ case "${1:-start}" in
     start_frontend
 
     echo ""
-    wait_for_service "后端" "http://localhost:8000/api/health"
-    wait_for_service "前端" "http://localhost:3000"
+    wait_for_service "后端" "http://localhost:$BACKEND_PORT/api/health"
+    wait_for_service "前端" "http://localhost:$FRONTEND_PORT"
 
     echo ""
     echo "========================================="
     echo "  Lindle 启动完成"
-    echo "  前端: http://localhost:3000"
-    echo "  后端: http://localhost:8000"
-    echo "  API 文档: http://localhost:8000/docs"
+    echo "  前端: http://localhost:$FRONTEND_PORT"
+    echo "  后端: http://localhost:$BACKEND_PORT"
+    echo "  API 文档: http://localhost:$BACKEND_PORT/docs"
     echo "  模式: 本地单机"
     echo ""
     echo "  停止: ./start.sh stop"

@@ -2,7 +2,7 @@
 Lindle 启动入口
 
 启动方式: python main.py
-默认端口: 8000
+默认端口: 6011
 
 LLM 配置加载优先级:
 1. data/settings.json 中的默认 Provider
@@ -44,7 +44,7 @@ def main():
             )
 
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "6011"))
     dev = os.getenv("DEV", "").lower() in ("1", "true", "yes")
 
     uvicorn.run(

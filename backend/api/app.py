@@ -96,8 +96,10 @@ else:
     # 开发模式: 简单的根路由提示
     @app.get("/")
     async def root():
+        backend_port = os.getenv("PORT", "6011")
+        frontend_port = os.getenv("FRONTEND_PORT", "1106")
         return {
             "message": "Lindle API 运行中",
-            "docs": "http://localhost:8000/docs",
-            "frontend": "http://localhost:3000",
+            "docs": f"http://localhost:{backend_port}/docs",
+            "frontend": f"http://localhost:{frontend_port}",
         }
