@@ -321,7 +321,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
 
         {/* ===== Footer signature ===== */}
         <div className="mt-20 pt-10 border-t border-[var(--line)] flex items-center justify-between font-mono text-[0.7rem] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
-          <span>Lindle · MIT</span>
+          <span>Copyright © 2026 guanxingjian · Noncommercial Source Available</span>
           <span className="italic normal-case tracking-normal text-[var(--ink-mid)] inline-flex items-center gap-3 text-[0.86rem]"
                 style={{ fontFamily: 'Fraunces, serif' }}>
             <span className="inline-block w-16 align-middle running-thread" />

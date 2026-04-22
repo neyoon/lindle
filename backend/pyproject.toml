@@ -3,6 +3,10 @@ name = "lindle"
 version = "0.1.0"
 description = "极简 AI 工作流引擎 - 分栏式可视化 + 代码生成"
 requires-python = ">=3.11"
+authors = [
+    { name = "guanxingjian" },
+]
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
