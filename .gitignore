@@ -1,4 +1,4 @@
-# ===== MiniFlow 项目 =====
+# ===== Lindle 项目 =====
 
 # ----- 通用 -----
 .DS_Store
@@ -33,6 +33,9 @@ backend/data/*
 !backend/data/custom_skills/
 !backend/data/custom_skills/*.json
 
+# ----- 文档 -----
+docs/
+
 # ----- Node / 前端 -----
 frontend/node_modules/
 frontend/dist/
@@ -45,6 +48,3 @@ frontend/.vite/
 
 # ----- Claude -----
 .claude
-
-# ----- Coxie -----
-coxie-api-go/

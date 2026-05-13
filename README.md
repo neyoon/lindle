@@ -38,20 +38,11 @@ Lindle 取自 `Loom` 和 `Spindle` 这两个方向。
 
 启动后访问本地前端入口。
 
-## 文档
-
-完整文档见 docs 目录。
-
-- docs/README.md：文档入口
-- docs/architecture：架构文档
-- docs/development：开发规范
-- docs/versioning：版本文档
-
 ## 版权与许可
 
 - 版权所有 `Copyright (C) 2026 guanxingjian`
 - 许可模式：`PolyForm-Noncommercial-1.0.0 + 商业授权`
 - 默认仅授权非商业用途，商业使用、商业部署、商业分发或其他超出默认许可范围的用途，必须另行获得 `guanxingjian` 的书面商业授权
 - 本项目为源码可见软件，不属于 OSI 定义的开源软件
-- 完整默认许可文本见项目根目录 [LICENSE](/Users/xingjian/miniflow/LICENSE)
-- 商业授权说明见 [COMMERCIAL-LICENSE.md](/Users/xingjian/miniflow/COMMERCIAL-LICENSE.md)
+- 完整默认许可文本见项目根目录 [LICENSE](./LICENSE)
+- 商业授权说明见 [COMMERCIAL-LICENSE.md](./COMMERCIAL-LICENSE.md)
