@@ -2,7 +2,7 @@
 设置管理 API — 多 LLM Provider 管理
 
 每个 Provider 包含完整的连接信息 (API Key / Base URL / Model)。
-用户可以配置多个 Provider，在 AI 块中选择使用哪一个。
+可以配置多个 Provider，在 AI 块中选择使用哪一个。
 
 路由:
 - GET    /api/settings/providers       → 获取所有 Provider（API Key 脱敏）
@@ -25,7 +25,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from shared_llm import configure as configure_llm
-from storage.user_scoped import ensure_parent, get_user_file
+from storage.local_paths import ensure_parent, get_local_file
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class TestInput(BaseModel):
 
 
 def _settings_file() -> Path:
-    return get_user_file("settings", "settings.json")
+    return get_local_file("settings", "settings.json")
 
 
 # ===== 文件读写 =====
@@ -146,8 +146,13 @@ def _mask_key(key: str) -> str:
 
 
 def init_settings() -> None:
-    """启动时不加载用户级 Provider。"""
-    logger.info("用户级 Provider 已启用，等待请求级认证上下文")
+    """启动时加载本地默认 Provider。"""
+    default = get_default_provider()
+    if default:
+        _apply_provider(default)
+        logger.info("已加载本地默认 Provider: %s", default.get("name", ""))
+    else:
+        logger.info("未配置本地 Provider")
 
 
 # ===== API 路由 =====
@@ -391,7 +396,7 @@ async def get_settings_summary() -> dict[str, Any]:
 
 
 def _apply_provider(provider: dict[str, Any]) -> None:
-    """兼容旧逻辑：把当前用户的默认 Provider 应用到全局 LLM 模块。"""
+    """把本地默认 Provider 应用到全局 LLM 模块。"""
     configure_llm(
         api_key=provider.get("api_key", ""),
         base_url=provider.get("base_url", "https://api.openai.com/v1"),

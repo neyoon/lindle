@@ -260,33 +260,12 @@ function GeneralSettingsSection({
       <div className="app-kicker mb-3">General settings</div>
       <h2 className="app-section-title text-3xl md:text-4xl">总体设置</h2>
       <p className="app-muted mt-4 text-sm leading-8">
-        这一组优先承接本地工作区体验。语言、显示方式、高级选项和默认执行策略先以本地配置保存，后续再逐步接入全局行为。
+        管理当前工作区的基础体验与默认执行策略。
       </p>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">界面语言</label>
-          <select
-            className="app-input"
-            value={preferences.language}
-            onChange={(e) => updatePreference('language', e.target.value as AppPreferences['language'])}
-          >
-            <option value="zh-CN">简体中文</option>
-            <option value="en-US">English</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">显示方式</label>
-          <select
-            className="app-input"
-            value={preferences.displayMode}
-            onChange={(e) => updatePreference('displayMode', e.target.value as AppPreferences['displayMode'])}
-          >
-            <option value="paper">纸墨默认</option>
-            <option value="compact">紧凑视图</option>
-            <option value="focus">聚焦视图</option>
-          </select>
-        </div>
+        <ReadonlyPreference label="界面语言" value="简体中文" />
+        <ReadonlyPreference label="视觉风格" value="纸墨默认" />
       </div>
 
       <div className="mt-6 space-y-3">
@@ -296,27 +275,20 @@ function GeneralSettingsSection({
           checked={preferences.defaultStopOnError}
           onChange={(checked) => updatePreference('defaultStopOnError', checked)}
         />
-        <PreferenceToggle
-          title="显示高级选项"
-          description="控制编辑器里是否优先显示更细的绑定、模板和诊断入口。当前先作为占位开关。"
-          checked={preferences.showAdvancedOptions}
-          onChange={(checked) => updatePreference('showAdvancedOptions', checked)}
-        />
-        <PreferenceToggle
-          title="自定义模式"
-          description="为后续更强的工作区定制能力预留入口，目前先记录本地偏好。"
-          checked={preferences.customMode}
-          onChange={(checked) => updatePreference('customMode', checked)}
-        />
-      </div>
-
-      <div className="app-card-soft mt-6 p-4">
-        <div className="app-kicker mb-2">Local only</div>
-        <p className="app-muted text-sm leading-7">
-          这些总体设置目前保存在当前浏览器本地。除了“默认失败即停”会影响新建 Flow 之外，其余项先作为体验占位符。
-        </p>
       </div>
     </section>
+  )
+}
+
+function ReadonlyPreference({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">{label}</label>
+      <div className="app-input flex items-center justify-between bg-[var(--app-panel-soft)] text-[var(--app-text-soft)]">
+        <span>{value}</span>
+        <span className="app-pill text-[0.65rem]">固定</span>
+      </div>
+    </div>
   )
 }
 

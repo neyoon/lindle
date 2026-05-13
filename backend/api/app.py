@@ -9,12 +9,13 @@ FastAPI 应用入口
 - workspace: 块模板（制造工坊）
 - settings: LLM 配置管理
 
-当前默认运行在本地单机模式，为每个请求注入固定的本地用户上下文。
+当前运行在本地单机模式。
 生产模式下同时托管前端静态文件（由 Dockerfile 中 vite build 生成）。
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -24,7 +25,6 @@ from fastapi.staticfiles import StaticFiles
 
 from api.routes import agents, codegen, execution, plugins, settings, workflow, workspace
 from api.routes.settings import init_settings
-from api.user_context import build_local_user, reset_current_user, set_current_user
 
 app = FastAPI(
     title="Lindle",
@@ -41,16 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.middleware("http")
-async def local_user_middleware(request: Request, call_next):
-    current_user = build_local_user()
-    context_token = set_current_user(current_user)
-    request.state.current_user = current_user
-    try:
-        return await call_next(request)
-    finally:
-        reset_current_user(context_token)
 
 # 注册路由
 app.include_router(workflow.router)

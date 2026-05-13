@@ -164,7 +164,7 @@ export function WeaveDemo() {
           </div>
         </div>
       ) : (
-        // 未进入视口时的占位：只保留骨架高度，避免 layout shift
+        // 未进入视口时只保留骨架高度，避免 layout shift
         <div className="weave-stage is-placeholder" aria-hidden="true">
           <div className="weave-row weave-headers">
             {STAGES.map((s, i) => (

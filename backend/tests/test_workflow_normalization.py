@@ -64,10 +64,10 @@ def test_load_workflow_repairs_legacy_null_fields(tmp_path, monkeypatch):
         "stop_on_error": True,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    def fake_get_user_file(*parts: str, user_id: str | None = None):
+    def fake_get_local_file(*parts: str):
         return tmp_path.joinpath(*parts)
 
-    monkeypatch.setattr(file_store, "get_user_file", fake_get_user_file)
+    monkeypatch.setattr(file_store, "get_local_file", fake_get_local_file)
 
     workflow = file_store.load_workflow("wf_test")
     assert workflow is not None

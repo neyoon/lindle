@@ -1,21 +1,10 @@
-export type AppLanguage = 'zh-CN' | 'en-US'
-export type AppDisplayMode = 'paper' | 'compact' | 'focus'
-
 export interface AppPreferences {
-  language: AppLanguage
-  displayMode: AppDisplayMode
-  showAdvancedOptions: boolean
-  customMode: boolean
   defaultStopOnError: boolean
 }
 
 const STORAGE_KEY = 'lindle.app.preferences'
 
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
-  language: 'zh-CN',
-  displayMode: 'paper',
-  showAdvancedOptions: false,
-  customMode: false,
   defaultStopOnError: true,
 }
 
@@ -26,7 +15,10 @@ export function getAppPreferences(): AppPreferences {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULT_APP_PREFERENCES
     const parsed = JSON.parse(raw) as Partial<AppPreferences>
-    return { ...DEFAULT_APP_PREFERENCES, ...parsed }
+    return {
+      ...DEFAULT_APP_PREFERENCES,
+      defaultStopOnError: parsed.defaultStopOnError ?? DEFAULT_APP_PREFERENCES.defaultStopOnError,
+    }
   } catch {
     return DEFAULT_APP_PREFERENCES
   }

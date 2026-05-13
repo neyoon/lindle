@@ -14,7 +14,7 @@ import os
 from typing import Any
 
 from flow.models import BlockTemplate, Workflow
-from storage.user_scoped import ensure_parent, get_user_file
+from storage.local_paths import ensure_parent, get_local_file
 
 # 默认存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "workflows")
@@ -48,7 +48,7 @@ def _load_and_repair_workflow_file(file_path) -> Workflow:
 
 def save_workflow(workflow: Workflow) -> str:
     """保存工作流到文件"""
-    file_path = get_user_file("workflows", f"{workflow.id}.json")
+    file_path = get_local_file("workflows", f"{workflow.id}.json")
     ensure_parent(file_path)
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(workflow.model_dump(), f, ensure_ascii=False, indent=2)
@@ -57,7 +57,7 @@ def save_workflow(workflow: Workflow) -> str:
 
 def load_workflow(workflow_id: str) -> Workflow | None:
     """从文件加载工作流"""
-    file_path = get_user_file("workflows", f"{workflow_id}.json")
+    file_path = get_local_file("workflows", f"{workflow_id}.json")
     if not file_path.exists():
         return None
     return _load_and_repair_workflow_file(file_path)
@@ -65,7 +65,7 @@ def load_workflow(workflow_id: str) -> Workflow | None:
 
 def list_workflows() -> list[dict[str, Any]]:
     """列出所有工作流（摘要信息）"""
-    workflow_dir = get_user_file("workflows")
+    workflow_dir = get_local_file("workflows")
     workflow_dir.mkdir(parents=True, exist_ok=True)
     workflows = []
     for filename in os.listdir(workflow_dir):
@@ -84,7 +84,7 @@ def list_workflows() -> list[dict[str, Any]]:
 
 def delete_workflow(workflow_id: str) -> bool:
     """删除工作流"""
-    file_path = get_user_file("workflows", f"{workflow_id}.json")
+    file_path = get_local_file("workflows", f"{workflow_id}.json")
     if file_path.exists():
         os.remove(file_path)
         return True
@@ -96,7 +96,7 @@ def delete_workflow(workflow_id: str) -> bool:
 
 def save_template(template: BlockTemplate) -> str:
     """保存块模板到 workspace"""
-    file_path = get_user_file("workspace", f"{template.id}.json")
+    file_path = get_local_file("workspace", f"{template.id}.json")
     ensure_parent(file_path)
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(template.model_dump(), f, ensure_ascii=False, indent=2)
@@ -105,7 +105,7 @@ def save_template(template: BlockTemplate) -> str:
 
 def load_template(template_id: str) -> BlockTemplate | None:
     """从 workspace 加载块模板"""
-    file_path = get_user_file("workspace", f"{template_id}.json")
+    file_path = get_local_file("workspace", f"{template_id}.json")
     if not file_path.exists():
         return None
     with open(file_path, encoding="utf-8") as f:
@@ -115,7 +115,7 @@ def load_template(template_id: str) -> BlockTemplate | None:
 
 def list_templates() -> list[dict[str, Any]]:
     """列出所有块模板"""
-    workspace_dir = get_user_file("workspace")
+    workspace_dir = get_local_file("workspace")
     workspace_dir.mkdir(parents=True, exist_ok=True)
     templates = []
     for filename in os.listdir(workspace_dir):
@@ -129,7 +129,7 @@ def list_templates() -> list[dict[str, Any]]:
 
 def delete_template(template_id: str) -> bool:
     """删除块模板"""
-    file_path = get_user_file("workspace", f"{template_id}.json")
+    file_path = get_local_file("workspace", f"{template_id}.json")
     if file_path.exists():
         os.remove(file_path)
         return True

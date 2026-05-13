@@ -1,7 +1,7 @@
 """
 Agent 对话存储
 
-按用户隔离保存每个 Agent 的最近一段对话历史。
+保存每个 Agent 的最近一段对话历史。
 """
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import json
 from datetime import datetime, timezone
 
 from agent.models import AgentConversation
-from storage.user_scoped import ensure_parent, get_user_file
+from storage.local_paths import ensure_parent, get_local_file
 
 
 def _conversation_path(agent_id: str):
-    return get_user_file("agent_conversations", f"{agent_id}.json")
+    return get_local_file("agent_conversations", f"{agent_id}.json")
 
 
 def load_agent_conversation(agent_id: str) -> AgentConversation | None:

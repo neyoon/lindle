@@ -7,10 +7,10 @@ from storage import agent_chat_store
 
 
 def test_agent_conversation_store_roundtrip(tmp_path, monkeypatch):
-    def fake_get_user_file(*parts: str, user_id: str | None = None):
+    def fake_get_local_file(*parts: str):
         return tmp_path.joinpath(*parts)
 
-    monkeypatch.setattr(agent_chat_store, "get_user_file", fake_get_user_file)
+    monkeypatch.setattr(agent_chat_store, "get_local_file", fake_get_local_file)
 
     saved = agent_chat_store.save_agent_conversation(
         "agent_test",

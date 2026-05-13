@@ -1,13 +1,5 @@
 /**
  * 顶栏右侧的设置入口
- *
- * 这里取代了之前的 UserMenu：不再有"本地用户"的伪概念，直接就是一个设置入口。
- * 点击后展开下拉面板，提供两个并列入口：
- *   - 设置（总体偏好）
- *   - Provider（模型来源管理）
- *
- * 齿轮图标的动效沿用现有纸墨动效（stamp-land + ink ease），悬浮时慢速自转，
- * 面板出现沿用 panel-slide-in，保持和工具栏导出菜单等一致的气质。
  */
 import { useEffect, useRef, useState } from 'react'
 import { Settings2, SlidersHorizontal, Cable } from 'lucide-react'

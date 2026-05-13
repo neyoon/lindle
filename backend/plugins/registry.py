@@ -18,7 +18,7 @@ from plugins.custom_skills import CustomSkill, load_custom_skill
 from plugins.mock_tool import MockToolPlugin
 from plugins.workflow_executor import WorkflowExecutorSkill
 from plugins.workflow_designer import WorkflowDesignerSkill
-from storage.user_scoped import ensure_parent, get_user_file
+from storage.local_paths import ensure_parent, get_local_file
 
 # 存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -54,7 +54,7 @@ def get_plugin(plugin_id: str) -> BasePlugin | None:
 
 def _load_state() -> dict[str, Any]:
     """加载插件状态"""
-    config_file = get_user_file("plugins", "plugins.json")
+    config_file = get_local_file("plugins", "plugins.json")
     if config_file.exists():
         with open(config_file, encoding="utf-8") as f:
             return json.load(f)
@@ -63,7 +63,7 @@ def _load_state() -> dict[str, Any]:
 
 def _save_state(state: dict[str, Any]) -> None:
     """保存插件状态"""
-    config_file = get_user_file("plugins", "plugins.json")
+    config_file = get_local_file("plugins", "plugins.json")
     ensure_parent(config_file)
     with open(config_file, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)

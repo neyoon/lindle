@@ -1,9 +1,7 @@
 /**
  * UI 主题
  *
- * Lindle 的视觉是单一的「Paper & Ink」纸墨风格，
- * 此处仅保留旧的 Provider/hook 形态以便组件继续 import，
- * 但不再切换主题 —— 始终是 paper。
+ * Lindle 当前固定使用「Paper & Ink」纸墨风格。
  */
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'

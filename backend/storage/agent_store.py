@@ -11,7 +11,7 @@ import os
 from typing import Any
 
 from agent.models import Agent
-from storage.user_scoped import ensure_parent, get_user_file
+from storage.local_paths import ensure_parent, get_local_file
 
 # 存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "agents")
@@ -24,12 +24,12 @@ def _ensure_dir() -> None:
 
 def _get_agent_path(agent_id: str) -> str:
     """获取 Agent 文件路径"""
-    return str(get_user_file("agents", f"{agent_id}.json"))
+    return str(get_local_file("agents", f"{agent_id}.json"))
 
 
 def list_agents() -> list[dict[str, Any]]:
     """列出所有 Agent（摘要信息）"""
-    agent_dir = get_user_file("agents")
+    agent_dir = get_local_file("agents")
     agent_dir.mkdir(parents=True, exist_ok=True)
     agents = []
     for filename in os.listdir(agent_dir):
@@ -66,7 +66,7 @@ def load_agent(agent_id: str) -> Agent | None:
 def save_agent(agent: Agent) -> bool:
     """保存 Agent"""
     try:
-        path = get_user_file("agents", f"{agent.id}.json")
+        path = get_local_file("agents", f"{agent.id}.json")
         ensure_parent(path)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(agent.model_dump(), f, ensure_ascii=False, indent=2)

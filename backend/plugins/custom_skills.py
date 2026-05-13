@@ -11,7 +11,7 @@ import os
 from typing import Any
 
 from plugins.base import BasePlugin, PluginMeta
-from storage.user_scoped import ensure_parent, get_user_file
+from storage.local_paths import ensure_parent, get_local_file
 
 # 存储目录
 _CUSTOM_SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "custom_skills")
@@ -38,7 +38,7 @@ def save_custom_skill(skill_data: dict[str, Any]) -> bool:
     """
     try:
         skill_id = skill_data["id"]
-        file_path = get_user_file("custom_skills", f"{skill_id}.json")
+        file_path = get_local_file("custom_skills", f"{skill_id}.json")
         ensure_parent(file_path)
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(skill_data, f, ensure_ascii=False, indent=2)
@@ -49,7 +49,7 @@ def save_custom_skill(skill_data: dict[str, Any]) -> bool:
 
 def load_custom_skill(skill_id: str) -> dict[str, Any] | None:
     """加载自定义 Skill"""
-    file_path = get_user_file("custom_skills", f"{skill_id}.json")
+    file_path = get_local_file("custom_skills", f"{skill_id}.json")
     if not file_path.exists():
         return None
     try:
@@ -61,7 +61,7 @@ def load_custom_skill(skill_id: str) -> dict[str, Any] | None:
 
 def list_custom_skills() -> list[dict[str, Any]]:
     """列出所有自定义 Skills"""
-    skill_dir = get_user_file("custom_skills")
+    skill_dir = get_local_file("custom_skills")
     skill_dir.mkdir(parents=True, exist_ok=True)
     skills = []
     for filename in os.listdir(skill_dir):
@@ -77,7 +77,7 @@ def list_custom_skills() -> list[dict[str, Any]]:
 
 def delete_custom_skill(skill_id: str) -> bool:
     """删除自定义 Skill"""
-    file_path = get_user_file("custom_skills", f"{skill_id}.json")
+    file_path = get_local_file("custom_skills", f"{skill_id}.json")
     if not file_path.exists():
         return False
     try:
