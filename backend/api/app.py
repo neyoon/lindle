@@ -10,7 +10,7 @@ FastAPI 应用入口
 - settings: LLM 配置管理
 
 当前运行在本地单机模式。
-生产模式下同时托管前端静态文件（由 Dockerfile 中 vite build 生成）。
+生产模式下可托管前端静态构建产物。
 """
 
 from __future__ import annotations
