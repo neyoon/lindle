@@ -96,11 +96,9 @@ class WorkflowExecutorSkill(BasePlugin):
                     "elapsed": 0,
                 }
 
-            # 导入工作流相关模块
             from storage.file_store import load_workflow
             from flow.engine import Engine
 
-            # 加载工作流
             workflow = load_workflow(workflow_id)
             if workflow is None:
                 return {
@@ -110,7 +108,6 @@ class WorkflowExecutorSkill(BasePlugin):
                     "elapsed": 0,
                 }
 
-            # 执行工作流
             engine = Engine(workflow)
             result = await engine.run(user_inputs=inputs)
 

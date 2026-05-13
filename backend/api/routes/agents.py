@@ -41,21 +41,15 @@ class AgentSummary(BaseModel):
 
 
 class GeneratePromptRequest(BaseModel):
-    """生成系统提示词请求"""
-
     agent_name: str
-    skills: list[dict]  # [{"skill_id": "...", "name": "...", "description": "..."}]
+    skills: list[dict]
 
 
 class GeneratePromptResponse(BaseModel):
-    """生成系统提示词响应"""
-
     system_prompt: str
 
 
 class ConversationResponse(BaseModel):
-    """Agent 对话响应"""
-
     agent_id: str
     messages: list[dict] = Field(default_factory=list)
     updated_at: str | None = None
@@ -80,7 +74,6 @@ async def get_agent(agent_id: str):
 @router.post("/", response_model=Agent)
 async def create_agent(agent: Agent):
     """创建新 Agent"""
-    # 设置时间戳
     now = datetime.now().isoformat()
     agent.created_at = now
     agent.updated_at = now
@@ -100,7 +93,6 @@ async def update_agent(agent_id: str, agent: Agent):
     if not existing:
         raise HTTPException(status_code=404, detail="Agent 不存在")
 
-    # 更新时间戳
     agent.updated_at = datetime.now().isoformat()
 
     if not save_agent(agent):
@@ -158,12 +150,10 @@ async def clear_agent_conversation(agent_id: str):
 async def generate_system_prompt(req: GeneratePromptRequest):
     """根据 Agent 名称和 Skills 自动生成系统提示词"""
     if not req.skills:
-        # 没有 Skills，返回默认提示词
         return GeneratePromptResponse(
             system_prompt=f"你是 {req.agent_name}，一个智能助手。请根据用户需求提供帮助。"
         )
 
-    # 构建 Skills 描述
     skill_descriptions = []
     for skill_info in req.skills:
         skill_id = skill_info.get("skill_id")
@@ -181,7 +171,6 @@ async def generate_system_prompt(req: GeneratePromptRequest):
 
     skills_text = "\n".join(skill_descriptions)
 
-    # 调用 LLM 生成系统提示词
     prompt = f"""请为一个 AI Agent 生成系统提示词。
 
 Agent 名称：{req.agent_name}
@@ -210,25 +199,20 @@ Agent 名称：{req.agent_name}
             }
         result = await call_llm(prompt=prompt, context="", **provider_config)
         return GeneratePromptResponse(system_prompt=result.strip())
-    except Exception as e:
-        # 如果生成失败，返回默认提示词
+    except Exception:
         return GeneratePromptResponse(
             system_prompt=f"你是 {req.agent_name}，一个智能助手。你可以使用以下工具帮助用户：{', '.join([s.get('name', '') for s in req.skills])}。"
         )
 
 
 class ChatRequest(BaseModel):
-    """对话请求"""
-
     message: str
-    history: list[dict] = Field(default_factory=list)  # [{"role": "user", "content": "..."}, ...]
+    history: list[dict] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
-    """对话响应"""
-
-    messages: list[dict]  # 完整的消息列表（包含 tool_call/tool_result）
-    reasoning: str = ""  # 思考过程
+    messages: list[dict]
+    reasoning: str = ""
 
 
 def _build_saved_conversation(
@@ -251,14 +235,12 @@ async def chat_with_agent(agent_id: str, req: ChatRequest):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent 不存在")
 
-    # 转换历史消息
     if req.history:
         history = [ChatMessage(**msg) for msg in req.history]
     else:
         conversation = load_agent_conversation(agent_id)
         history = conversation.messages if conversation else []
 
-    # 创建引擎并执行
     engine = AgentEngine(agent)
     result = await engine.chat(req.message, history)
     _build_saved_conversation(agent_id, history, req.message, result["messages"])
@@ -276,14 +258,12 @@ async def chat_with_agent_stream(agent_id: str, req: ChatRequest):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent 不存在")
 
-    # 转换历史消息
     if req.history:
         history = [ChatMessage(**msg) for msg in req.history]
     else:
         conversation = load_agent_conversation(agent_id)
         history = conversation.messages if conversation else []
 
-    # 创建引擎并执行
     engine = AgentEngine(agent)
 
     async def event_generator():

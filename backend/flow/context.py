@@ -24,7 +24,7 @@ class BlockResult:
     block_ref: str
     block_name: str
     data: Any
-    output_keys: list[str] | None = None  # 如果定义了 OutputSchema
+    output_keys: list[str] | None = None
 
     def get_key(self, key: str) -> Any:
         """获取特定 JSON key 的值"""
@@ -52,13 +52,10 @@ class Context:
 
     user_inputs: dict[str, Any] = field(default_factory=dict)
 
-    # column_id -> list of BlockResult
     _column_results: dict[str, list[BlockResult]] = field(default_factory=dict)
 
-    # block_id -> BlockResult (快速查找)
     _block_results: dict[str, BlockResult] = field(default_factory=dict)
 
-    # 记录栏的执行顺序
     _column_order: list[str] = field(default_factory=list)
 
     # 下游插件格式提示：当下一栏有插件块时，存储其 input_schema 信息
@@ -118,7 +115,6 @@ class Context:
                 continue
 
             if from_key:
-                # 精确到某个 JSON key
                 value = result.get_key(from_key)
                 if isinstance(value, dict | list):
                     parts.append(f"[{result.block_name}.{from_key}]:\n{json.dumps(value, ensure_ascii=False, indent=2)}")
@@ -132,7 +128,6 @@ class Context:
     def _get_previous_column_data(self) -> str:
         """获取上一栏所有块的输出"""
         if not self._column_order:
-            # 没有上一栏，返回用户输入
             return self._format_user_inputs()
 
         last_column_id = self._column_order[-1]

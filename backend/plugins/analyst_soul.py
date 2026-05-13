@@ -26,8 +26,8 @@ class AnalystSoulSkill(BasePlugin):
         name="分析师的灵魂",
         icon="",
         description="提供数据计算、统计分析等能力，是分析师的得力助手",
-        category="skill",  # 标记为 skill，只在 Agent 中显示
-        params=[],  # 不需要配置参数
+        category="skill",
+        params=[],
         input_schema={
             "type": "object",
             "description": "支持的计算类型",
@@ -158,4 +158,3 @@ class AnalystSoulSkill(BasePlugin):
             return {"result": 0, "explanation": f"计算错误：{str(e)}"}
         except Exception as e:
             return {"result": 0, "explanation": f"未知错误：{str(e)}"}
-

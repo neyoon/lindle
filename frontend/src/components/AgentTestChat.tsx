@@ -1,9 +1,3 @@
-/**
- * Agent 测试对话框
- *
- * 浮动在右下角的小对话框，用于测试 Agent
- * 支持展示工具调用过程（tool_call/tool_result）
- */
 import { useState, useRef, useEffect } from 'react'
 import { Send, X, MessageCircle, Minimize2, Maximize2, Wrench, CheckCircle, ChevronDown, ChevronUp, StopCircle } from 'lucide-react'
 import { chatWithAgentStream, getAgentConversation } from '@/api/client'
@@ -57,7 +51,6 @@ export function AgentTestChat({ agentId, agentName }: Props) {
     try {
       const controller = new AbortController()
       abortRef.current = controller
-      // 使用流式 API
       const history = messages.map(m => ({
         role: m.role,
         content: m.content,
@@ -232,7 +225,6 @@ export function AgentTestChat({ agentId, agentName }: Props) {
   return (
     <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-[var(--card)] rounded-sm shadow-[var(--app-shadow)] border border-[var(--line)] flex flex-col"
          style={{ animation: 'panel-slide-in 0.4s var(--ease-ink)' }}>
-      {/* 标题栏 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--line)] bg-[var(--paper-warm)]">
         <div className="flex items-center gap-2">
           <MessageCircle size={16} className="text-[var(--rust)]" />
@@ -257,12 +249,10 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         </div>
       </div>
 
-      {/* 提示 */}
       <div className="px-4 py-2 bg-[var(--rust-soft)] border-b border-[var(--line)] text-xs text-[var(--app-warning)]">
         这是测试环境，用于验证 Agent 配置
       </div>
 
-      {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
           <div className="text-center text-[var(--app-text-muted)] text-sm py-8" style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic' }}>
@@ -299,7 +289,6 @@ export function AgentTestChat({ agentId, agentName }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 输入框 */}
       <div className="border-t border-[var(--line)] p-3">
         <div className="flex gap-2">
           <input
@@ -371,13 +360,11 @@ function MessageItem({ message }: { message: ChatMessage }) {
   if (message.role === 'tool_result') {
     const content = message.content || ''
 
-    // 尝试解析 JSON
     let jsonContent: any = null
     try {
       jsonContent = JSON.parse(content)
     } catch {}
 
-    // 对 workflow_executor 的结果做友好展示：提取 output，元信息变标签
     const isFlowResult = jsonContent && typeof jsonContent === 'object' && 'success' in jsonContent && 'output' in jsonContent
     let displayData: any = null
     let metaLine = ''

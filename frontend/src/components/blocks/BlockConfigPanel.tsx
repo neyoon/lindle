@@ -1,9 +1,3 @@
-/**
- * 步骤配置面板 - 右侧边栏
- *
- * 主文件只负责选中步骤、通用信息和按类型分发配置。
- * 具体配置项拆在 ./config 下，避免 Flow 交互继续增长时挤进一个大文件。
- */
 import { Save, X } from 'lucide-react'
 import { useState } from 'react'
 import { createTemplate } from '@/api/client'

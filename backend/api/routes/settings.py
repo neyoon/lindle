@@ -31,12 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-# ===== 数据模型 =====
-
-
 class ProviderInput(BaseModel):
-    """前端提交的 Provider 数据"""
-
     name: str = ""
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
@@ -44,8 +39,6 @@ class ProviderInput(BaseModel):
 
 
 class ProviderResponse(BaseModel):
-    """返回给前端的 Provider（API Key 脱敏）"""
-
     id: str
     name: str
     api_key_masked: str
@@ -56,19 +49,14 @@ class ProviderResponse(BaseModel):
 
 
 class TestInput(BaseModel):
-    """测试连接的参数"""
-
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
-    provider_id: str = ""  # 可选: 用已保存 provider 的 key
+    provider_id: str = ""
 
 
 def _settings_file() -> Path:
     return get_local_file("settings", "settings.json")
-
-
-# ===== 文件读写 =====
 
 
 def _load_raw() -> dict[str, Any]:
@@ -131,7 +119,6 @@ def get_default_provider() -> dict[str, Any] | None:
     for p in providers:
         if p.get("is_default"):
             return p
-    # 没有标记默认的，返回第一个
     return providers[0] if providers else None
 
 
@@ -142,9 +129,6 @@ def _mask_key(key: str) -> str:
     return f"{key[:6]}...{key[-4:]}"
 
 
-# ===== 启动时加载 =====
-
-
 def init_settings() -> None:
     """启动时加载本地默认 Provider。"""
     default = get_default_provider()
@@ -153,9 +137,6 @@ def init_settings() -> None:
         logger.info("已加载本地默认 Provider: %s", default.get("name", ""))
     else:
         logger.info("未配置本地 Provider")
-
-
-# ===== API 路由 =====
 
 
 @router.get("/providers")
@@ -183,7 +164,7 @@ async def add_provider(body: ProviderInput) -> ProviderResponse:
     providers = data.get("providers", [])
 
     new_id = f"p_{int(time.time())}_{len(providers)}"
-    is_default = len(providers) == 0  # 第一个自动设为默认
+    is_default = len(providers) == 0
 
     new_provider = {
         "id": new_id,
@@ -197,7 +178,6 @@ async def add_provider(body: ProviderInput) -> ProviderResponse:
     data["providers"] = providers
     _save_raw(data)
 
-    # 如果是默认，立即应用
     if is_default:
         _apply_provider(new_provider)
 
@@ -228,7 +208,6 @@ async def update_provider(provider_id: str, body: ProviderInput) -> ProviderResp
         raise HTTPException(status_code=404, detail="Provider 不存在")
 
     target["name"] = body.name or body.model
-    # 空 api_key 表示不修改
     if body.api_key:
         target["api_key"] = body.api_key
     target["base_url"] = body.base_url
@@ -237,7 +216,6 @@ async def update_provider(provider_id: str, body: ProviderInput) -> ProviderResp
     data["providers"] = providers
     _save_raw(data)
 
-    # 如果是默认 provider，立即应用
     if target.get("is_default"):
         _apply_provider(target)
 
@@ -257,7 +235,6 @@ async def delete_provider(provider_id: str) -> dict[str, str]:
     """删除 Provider"""
     from storage.file_store import list_workflows, load_workflow
 
-    # 检查是否有工作流正在使用该 Provider
     workflows_using_provider = []
     for workflow_summary in list_workflows():
         workflow = load_workflow(workflow_summary["id"])
@@ -282,7 +259,6 @@ async def delete_provider(provider_id: str) -> dict[str, str]:
     if len(new_providers) == len(providers):
         raise HTTPException(status_code=404, detail="Provider 不存在")
 
-    # 如果删掉了默认的，把第一个设为默认
     if new_providers and not any(p.get("is_default") for p in new_providers):
         new_providers[0]["is_default"] = True
         _apply_provider(new_providers[0])
@@ -328,7 +304,6 @@ async def test_connection(body: TestInput) -> dict[str, Any]:
     base_url = body.base_url
     model = body.model
 
-    # 如果指定了 provider_id，用已保存 provider 的 api_key
     if not api_key and body.provider_id:
         p = get_provider_by_id(body.provider_id)
         if p:
@@ -372,13 +347,9 @@ async def test_connection(body: TestInput) -> dict[str, Any]:
         return {"success": False, "message": f"连接失败: {str(e)}"}
 
 
-# ===== 兼容旧接口 =====
-# 前端初始化检查用：返回是否有任何已配置的 provider
-
-
 @router.get("/")
 async def get_settings_summary() -> dict[str, Any]:
-    """获取配置概要（兼容旧版 + 前端启动检查）"""
+    """获取配置概要。"""
     default = get_default_provider()
     if default:
         return {
@@ -402,9 +373,6 @@ def _apply_provider(provider: dict[str, Any]) -> None:
         base_url=provider.get("base_url", "https://api.openai.com/v1"),
         default_model=provider.get("model", "gpt-4o-mini"),
     )
-
-
-# =====编辑专用 Provider =====
 
 
 def get_edit_provider_id() -> str:

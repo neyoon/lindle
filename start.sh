@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-#
-# Lindle 一键启动脚本
-#
-# 用法:
-#   ./start.sh          启动前端 + 后端（默认稳定模式，后端不热重载）
-#   ./start.sh stop     停止所有服务
-#   ./start.sh restart  重启所有服务
-#   ./start.sh hot      本地模式 + 后端热重载
-#   BACKEND_DEV=1 ./start.sh   启动后端热重载（开发调试）
-#
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -38,8 +28,6 @@ print_runtime_mode() {
   echo "[启动模式] 工作区: 本地单机模式"
 }
 
-# ---------- 工具函数 ----------
-
 stop_service() {
   local name="$1"
   local pid_file="$2"
@@ -49,12 +37,10 @@ stop_service() {
     if kill -0 "$pid" 2>/dev/null; then
       echo "[$name] 正在停止 (PID: $pid)..."
       kill "$pid" 2>/dev/null || true
-      # 等待进程退出
       for i in $(seq 1 10); do
         kill -0 "$pid" 2>/dev/null || break
         sleep 0.5
       done
-      # 强制杀掉
       kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
       echo "[$name] 已停止"
     else
@@ -87,7 +73,6 @@ start_backend() {
 start_frontend() {
   cd "$FRONTEND_DIR"
 
-  # 检查 node_modules
   if [ ! -d "node_modules" ]; then
     echo "[前端] 安装依赖..."
     npm install --silent
@@ -115,8 +100,6 @@ wait_for_service() {
   echo "[$name] 启动超时，请检查日志"
   return 1
 }
-
-# ---------- 主逻辑 ----------
 
 if [ "${1:-start}" = "hot" ]; then
   BACKEND_DEV="1"
@@ -146,7 +129,6 @@ case "${1:-start}" in
   start|"")
     echo "=== 启动 Lindle ==="
 
-    # 如果已经在运行，先停掉
     if [ -f "$BACKEND_PID_FILE" ] && kill -0 "$(cat "$BACKEND_PID_FILE")" 2>/dev/null; then
       echo "检测到已有服务运行，先停止..."
       stop_all

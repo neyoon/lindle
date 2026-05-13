@@ -20,7 +20,6 @@ from plugins.workflow_executor import WorkflowExecutorSkill
 from plugins.workflow_designer import WorkflowDesignerSkill
 from storage.local_paths import ensure_parent, get_local_file
 
-# 存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 _CONFIG_FILE = os.path.join(_STORAGE_DIR, "plugins.json")
 
@@ -28,8 +27,6 @@ _CONFIG_FILE = os.path.join(_STORAGE_DIR, "plugins.json")
 def _ensure_dir() -> None:
     os.makedirs(_STORAGE_DIR, exist_ok=True)
 
-
-# ===== 插件注册 =====
 
 _PLUGINS: dict[str, BasePlugin] = {}
 
@@ -49,9 +46,6 @@ def get_plugin(plugin_id: str) -> BasePlugin | None:
     return plugin
 
 
-# ===== 插件状态持久化 =====
-
-
 def _load_state() -> dict[str, Any]:
     """加载插件状态"""
     config_file = get_local_file("plugins", "plugins.json")
@@ -69,15 +63,11 @@ def _save_state(state: dict[str, Any]) -> None:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 
-# ===== 公开 API =====
-
-
 def list_plugins() -> list[dict[str, Any]]:
     """列出所有插件及其状态（只返回 category='plugin' 的）"""
     state = _load_state()
     result = []
     for plugin_id, plugin in _PLUGINS.items():
-        # 只返回 plugin 类型，不返回 skill 类型
         if plugin.meta.category != "plugin":
             continue
         plugin_state = state.get(plugin_id, {})
@@ -94,7 +84,6 @@ def list_skills() -> list[dict[str, Any]]:
     state = _load_state()
     result = []
     for plugin_id, plugin in _PLUGINS.items():
-        # 只返回 skill 类型
         if plugin.meta.category != "skill":
             continue
         plugin_state = state.get(plugin_id, {})
@@ -171,16 +160,12 @@ async def execute_plugin(plugin_id: str, input_data: str) -> Any:
     state = _load_state()
     plugin_state = state.get(plugin_id, {})
 
-    # Skill 类型（Agent 使用）不需要手动启用，添加到 Agent 即视为可用
-    # Plugin 类型（Flow Block 使用）需要在插件页面手动启用
     if plugin.meta.category != "skill" and not plugin_state.get("enabled", False):
         raise ValueError(f"插件未启用: {plugin.meta.name}")
 
     config = plugin_state.get("config", {})
     return await plugin.execute(input_data, config)
 
-
-# ===== 注册内置插件 =====
 
 def _register_builtin_plugins() -> None:
     register_plugin(AnalystSoulSkill())

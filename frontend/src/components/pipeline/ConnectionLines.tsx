@@ -1,13 +1,3 @@
-/**
- * 连接线可视化 - SVG 覆盖层
- *
- * 特性:
- * - 相邻栏连接: 平滑贝塞尔曲线
- * - 跨栏连接 (如 1→3): 通过底部路由，避开中间栏的块
- * - 与板块重叠时自动变为虚线
- * - 无箭头: 顺序由左到右自然表达
- * - 连接模式: 临时虚线跟随鼠标
- */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useWorkflowStore } from '@/stores/workflow'
 
@@ -37,8 +27,6 @@ interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>
 }
 
-// ===== 贝塞尔曲线采样 =====
-
 function cubicBezierPoint(
   t: number,
   p0: [number, number],
@@ -53,7 +41,6 @@ function cubicBezierPoint(
   ]
 }
 
-/** 沿路径采样点，用于碰撞检测 */
 function getSamplePoints(
   fromX: number,
   fromY: number,
@@ -65,7 +52,6 @@ function getSamplePoints(
   const points: [number, number][] = []
 
   if (skipDistance <= 1 || routeY === undefined) {
-    // 相邻连接: 简单贝塞尔
     const dx = toX - fromX
     const cp = Math.max(dx * 0.4, 40)
     for (let i = 0; i <= 12; i++) {
@@ -75,7 +61,6 @@ function getSamplePoints(
       )
     }
   } else {
-    // 跨栏连接: 入口曲线 + 水平段 + 出口曲线
     for (let i = 0; i <= 8; i++) {
       const t = i / 8
       points.push(
@@ -109,7 +94,6 @@ function getSamplePoints(
   return points
 }
 
-/** 检测采样点是否与任意板块重叠（排除源/目标块） */
 function checkOverlap(
   samplePoints: [number, number][],
   blockRects: BlockRect[],
@@ -140,7 +124,6 @@ export function ConnectionLines({ containerRef }: Props) {
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const hoverTimeoutRef = useRef<number | null>(null)
 
-  // blockId → columnOrder 映射
   const blockColumnMap = useMemo(() => {
     const map = new Map<string, number>()
     for (const col of workflow.columns) {
@@ -151,7 +134,6 @@ export function ConnectionLines({ containerRef }: Props) {
     return map
   }, [workflow])
 
-  // 连接模式下跟踪鼠标位置
   useEffect(() => {
     if (!connectingFrom || !containerRef.current) {
       setMousePos(null)
@@ -182,14 +164,12 @@ export function ConnectionLines({ containerRef }: Props) {
     return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [connectingFrom, containerRef])
 
-  // 计算所有连接线位置 + 碰撞检测
   const computeLines = useCallback(() => {
     const container = containerRef.current
     if (!container) return
 
     const containerRect = container.getBoundingClientRect()
 
-    // 1) 收集所有板块矩形，找最低点
     const blockElements = container.querySelectorAll<HTMLElement>('[data-block-id]')
     const blockRects: BlockRect[] = []
     let maxBlockBottom = 0
@@ -208,7 +188,6 @@ export function ConnectionLines({ containerRef }: Props) {
       if (relRect.bottom > maxBlockBottom) maxBlockBottom = relRect.bottom
     })
 
-    // 2) 计算连线
     const newLines: LineData[] = []
     let skipCounter = 0
 
@@ -237,10 +216,8 @@ export function ConnectionLines({ containerRef }: Props) {
           const toX = toRect.left - containerRect.left
           const toY = toRect.top + toRect.height / 2 - containerRect.top
 
-          // 跨栏路由走下方
           const routeY = skipDistance > 1 ? maxBlockBottom + 25 + skipIdx * 14 : undefined
 
-          // 3) 采样 + 碰撞检测
           const samplePoints = getSamplePoints(fromX, fromY, toX, toY, skipDistance, routeY)
           const isOverlapping = checkOverlap(samplePoints, blockRects, conn.from_block_id, block.id)
 
@@ -264,7 +241,6 @@ export function ConnectionLines({ containerRef }: Props) {
     setLines(newLines)
   }, [workflow, containerRef, blockColumnMap])
 
-  // 监听变化重算连线
   useEffect(() => {
     computeLines()
 
@@ -276,13 +252,11 @@ export function ConnectionLines({ containerRef }: Props) {
     window.addEventListener('resize', handleResize)
     container.addEventListener('scroll', handleResize)
 
-    // 监听外层水平滚动容器
     const scrollParent = container.parentElement
     if (scrollParent) {
       scrollParent.addEventListener('scroll', handleResize)
     }
 
-    // 监听所有栏内的滚动事件
     const columnScrollContainers = Array.from(
       container.querySelectorAll('.column-scroll-container')
     )
@@ -306,13 +280,11 @@ export function ConnectionLines({ containerRef }: Props) {
     }
   }, [computeLines, containerRef])
 
-  // workflow 变化后延迟一帧重算
   useEffect(() => {
     const frame = requestAnimationFrame(computeLines)
     return () => cancelAnimationFrame(frame)
   }, [workflow, computeLines])
 
-  // 生成 SVG 路径
   const getPath = (line: LineData): string => {
     const { fromX, fromY, toX, toY, skipDistance, routeY } = line
 
@@ -321,7 +293,6 @@ export function ConnectionLines({ containerRef }: Props) {
       const cp = Math.max(dx * 0.4, 40)
       return `M ${fromX},${fromY} C ${fromX + cp},${fromY} ${toX - cp},${toY} ${toX},${toY}`
     } else {
-      // 跨栏: 通过底部路由
       return [
         `M ${fromX},${fromY}`,
         `C ${fromX + 25},${fromY}, ${fromX + 25},${routeY}, ${fromX + 50},${routeY}`,
@@ -356,19 +327,16 @@ export function ConnectionLines({ containerRef }: Props) {
       className="absolute inset-0"
       style={{ width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}
     >
-      {/* 已有连接线 */}
       {lines.map((line) => {
         const isHighlighted =
           selectedBlockId === line.fromBlockId || selectedBlockId === line.toBlockId
         const isHovered = hoveredLineId === line.id
         const path = getPath(line)
 
-        // 纸墨配色：悬停（将删）= bruise red；高亮 = rust；常态 = soft ink
         const strokeColor = isHovered ? '#8b3a3a' : isHighlighted ? '#b0603e' : '#7c6f5d'
 
         return (
           <g key={line.id}>
-            {/* 透明宽路径用于鼠标点击检测 */}
             <path
               d={path}
               fill="none"
@@ -380,7 +348,6 @@ export function ConnectionLines({ containerRef }: Props) {
               onMouseEnter={() => handleLineMouseEnter(line.id)}
               onMouseLeave={handleLineMouseLeave}
             />
-            {/* 底层光晕 — 纸色墨晕 */}
             {(isHighlighted || isHovered) && (
               <path
                 d={path}
@@ -391,7 +358,6 @@ export function ConnectionLines({ containerRef }: Props) {
                 opacity={0.55}
               />
             )}
-            {/* 主线 — 与板块重叠时变虚线 */}
             <path
               d={path}
               fill="none"
@@ -401,7 +367,6 @@ export function ConnectionLines({ containerRef }: Props) {
               strokeDasharray={line.isOverlapping ? '6 4' : 'none'}
               style={{ transition: 'stroke 0.2s, stroke-width 0.2s' }}
             />
-            {/* 源端点 */}
             <circle
               cx={line.fromX}
               cy={line.fromY}
@@ -409,7 +374,6 @@ export function ConnectionLines({ containerRef }: Props) {
               fill={strokeColor}
               style={{ transition: 'r 0.2s, fill 0.2s' }}
             />
-            {/* 目标端点 */}
             <circle
               cx={line.toX}
               cy={line.toY}
@@ -417,7 +381,6 @@ export function ConnectionLines({ containerRef }: Props) {
               fill={strokeColor}
               style={{ transition: 'r 0.2s, fill 0.2s' }}
             />
-            {/* 删除印记 — 印章风 */}
             {isHovered && !connectingFrom && (
               <g>
                 <rect
@@ -449,7 +412,6 @@ export function ConnectionLines({ containerRef }: Props) {
         )
       })}
 
-      {/* 连接模式: 临时连接线（rust 色虚线跟手） */}
       {connectingFrom && sourcePortPos && mousePos && (
         <g>
           <path

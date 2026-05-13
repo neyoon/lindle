@@ -1,12 +1,3 @@
-/**
- * 块组件 - 带端口的正方形卡片
- *
- * 端口规则:
- * - 左侧圆圈 = 输入端口（第一栏不显示）
- * - 右侧圆圈 = 输出端口（最后一栏不显示）
- * - 点击右端口 → 进入连接模式
- * - 连接模式下点击左端口 → 完成连接
- */
 import { Trash2, Pencil } from 'lucide-react'
 import type { Block } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
@@ -48,12 +39,10 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
   const isConnectingSource = connectingFrom?.blockId === block.id
   const diffStatus = blockDiffMap?.[block.id] ?? null
 
-  // 是否为有效连接目标（连接模式下，当前块在源块之后的列）
   const isValidTarget = connectingFrom
     ? columnOrder > connectingFrom.columnOrder && connectingFrom.blockId !== block.id
     : false
 
-  // 配置预览
   let preview = ''
   if (block.type === 'process' && block.config.prompt) {
     preview = block.config.prompt.slice(0, 40) + (block.config.prompt.length > 40 ? '...' : '')
@@ -89,7 +78,6 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         ${hasHealthWarning && !hasHealthError ? 'ring-1 ring-[var(--app-warning)]' : ''}
       `}
     >
-      {/* ===== 左侧输入端口 ===== */}
       {!isFirstColumn && (
         <div
           onClick={(e) => {
@@ -109,7 +97,6 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         />
       )}
 
-      {/* ===== 右侧输出端口 ===== */}
       {!isLastColumn && (
         <div
           onClick={(e) => {
@@ -121,7 +108,6 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         />
       )}
 
-      {/* 顶部工具 */}
       <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
         {block.output_schema && (
           <span className="rounded-sm px-1 font-mono text-[9px] tracking-[0.1em] text-[var(--gold)] border border-[var(--line)] bg-[var(--paper-warm)]" title="JSON 输出">
@@ -149,7 +135,6 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         </button>
       </div>
 
-      {/* 连接数量提示 */}
       {block.connections.length > 0 && (
         <div className="absolute top-1.5 left-1.5">
           <span className="font-mono rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] px-1 text-[9px] tracking-[0.1em] text-[var(--app-accent-strong)]">
@@ -158,7 +143,6 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         </div>
       )}
 
-      {/* AI diff 印章 */}
       {diffStatus && (
         <span className={`block-stamp ${diffStatus === 'added' ? 'is-added' : 'is-modified'}`}>
           {diffStatus === 'added' ? '新增' : '修改'}
@@ -181,10 +165,8 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         </span>
       )}
 
-      {/* 类型标签 */}
       <span className={style.tagColor}>{style.tag}</span>
 
-      {/* 名称 */}
       <span className="w-full truncate text-center text-[0.85rem] font-medium leading-tight text-[var(--app-text)]" style={{ fontFamily: '"Noto Serif SC", serif' }}>
         {block.name}
       </span>
@@ -193,7 +175,6 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         {block.ref}
       </span>
 
-      {/* 预览 */}
       {preview && (
         <p className="w-full truncate text-center font-mono text-[10px] leading-tight text-[var(--app-text-soft)]">{preview}</p>
       )}

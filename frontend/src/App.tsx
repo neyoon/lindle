@@ -1,17 +1,3 @@
-/**
- * Lindle 主应用
- *
- * 页面:
- * 0. 首页（选择 Flow 或 Agent）
- * 1. 工作流列表
- * 2. 工作流编辑器
- * 3. 插件管理页面
- * 4. 制造工坊（块模板管理）
- * 5. 设置页面（总体设置）
- * 6. Provider 页面（模型来源管理）
- * 7. Agent 列表页面
- * 8. Agent 编辑器
- */
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { HomePage } from './components/HomePage'
@@ -69,7 +55,6 @@ export default function App() {
     setPage('settings-provider')
   }
 
-  // 本地模式下检查是否已配置 API Key，未配置则引导到 Provider 页
   useEffect(() => {
     getSettings()
       .then((s) => {
@@ -82,7 +67,6 @@ export default function App() {
       .finally(() => setCheckedSettings(true))
   }, [])
 
-  // 打开已有工作流
   const handleOpenWorkflow = async (workflowId: string) => {
     try {
       const wf = await getWorkflow(workflowId)
@@ -94,7 +78,6 @@ export default function App() {
     }
   }
 
-  // 新建空白工作流 — 自动保存到后端，便于 编辑等功能直接使用
   const handleCreateNew = async () => {
     const id = `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const preferences = getAppPreferences()
@@ -115,7 +98,6 @@ export default function App() {
     }
   }
 
-  // 返回列表 — 如未手动保存则自动删除
   const handleBackToFlowList = async () => {
     if (autoSavedWorkflowRef.current) {
       const wfId = useWorkflowStore.getState().workflow.id
@@ -127,7 +109,6 @@ export default function App() {
     setPage('flow-list')
   }
 
-  // 初始检查中不渲染
   if (!checkedSettings) return null
 
   const headerActions = (
@@ -186,7 +167,6 @@ export default function App() {
           setPage('agent-editor')
         }}
         onCreateNew={async () => {
-          // 自动保存新 Agent（与 Flow 一致）
           const id = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
           const agent = {
             id,
@@ -224,7 +204,6 @@ export default function App() {
       <AgentEditorPage
         agentId={currentAgentId}
         onBack={async () => {
-          // 如果是自动保存的且未手动保存，则删除
           if (autoSavedAgentRef.current && currentAgentId) {
             try {
               await deleteAgent(currentAgentId)

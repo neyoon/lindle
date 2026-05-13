@@ -1,8 +1,3 @@
-/**
- * Skill 编辑器 - 创建/编辑自定义 Skill
- *
- * 风格与 Flow 编辑器保持一致
- */
 import { useState } from 'react'
 import { X, Save, Code, Sparkles } from 'lucide-react'
 
@@ -29,19 +24,14 @@ export function SkillEditor({ onClose, onSave, initialSkill }: Props) {
       name: '',
       description: '',
       icon: '',
-      code: `# 处理输入数据并返回结果
+          code: `# 处理输入数据并返回结果
 # input_data: 输入的字符串
 # config: 配置参数（字典）
 
 import json
 
-# 解析输入
 data = json.loads(input_data)
 
-# 你的处理逻辑
-# ...
-
-# 设置返回结果
 result = {
     "output": "处理结果",
     "success": True
@@ -78,7 +68,6 @@ result = {
   return (
     <div className="fixed inset-0 bg-[rgba(30,20,15,0.5)] flex items-center justify-center z-50 p-4">
       <div className="app-card w-full max-w-4xl max-h-[90vh] flex flex-col" style={{ animation: 'panel-slide-in 0.4s var(--ease-ink)' }}>
-        {/* 标题栏 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--app-border)]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full border-[1.5px] border-[var(--rust)] inline-flex items-center justify-center text-[var(--rust)]">
@@ -99,9 +88,7 @@ result = {
           </button>
         </div>
 
-        {/* 内容区 */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* 基本信息 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-[var(--app-text-soft)] mb-1">
@@ -143,7 +130,6 @@ result = {
             />
           </div>
 
-          {/* Python 代码 */}
           <div>
             <label className="block text-sm font-medium text-[var(--app-text-soft)] mb-1">
               Python 代码 *
@@ -161,7 +147,6 @@ result = {
             />
           </div>
 
-          {/* 提示信息 */}
           <div className="bg-[var(--rust-soft)] border border-[var(--line)] rounded-sm p-4">
             <div className="flex items-start gap-2">
               <Sparkles size={16} className="text-[var(--app-warning)] mt-0.5 shrink-0" />
@@ -173,7 +158,6 @@ result = {
           </div>
         </div>
 
-        {/* 底部按钮 */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--app-border)] bg-[var(--paper-warm)]">
           <button
             onClick={onClose}
