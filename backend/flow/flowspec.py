@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from flow.models import BlockType, Workflow
+from flow.models import BlockType, PluginInputBinding, Workflow
 
 
 def sanitize_ref(value: str) -> str:
@@ -36,6 +36,11 @@ class FlowSpecOutput(BaseModel):
     source_step_refs: list[str] = Field(default_factory=list)
 
 
+class FlowStepInputBinding(BaseModel):
+    step_ref: str
+    from_key: str | None = None
+
+
 class FlowStep(BaseModel):
     step_ref: str
     title: str
@@ -43,6 +48,9 @@ class FlowStep(BaseModel):
     purpose: str = ""
     depends_on: list[str] = Field(default_factory=list)
     plugin_id: str | None = None
+    model: str | None = None
+    plugin_input_bindings: dict[str, PluginInputBinding] | None = None
+    input_bindings: list[FlowStepInputBinding] = Field(default_factory=list)
     output_contract: dict[str, Any] = Field(default_factory=dict)
     prompt: str | None = None
     input_refs: list[str] = Field(default_factory=list)
@@ -84,6 +92,12 @@ def workflow_to_flowspec(workflow: Workflow) -> FlowSpec:
                 block_to_step_ref=block_to_step_ref,
                 previous_column_step_refs=previous_column_step_refs,
             )
+            input_bindings = _resolve_input_bindings(
+                block_id=block.id,
+                workflow=workflow,
+                block_to_step_ref=block_to_step_ref,
+                previous_column_step_refs=previous_column_step_refs,
+            )
 
             step = FlowStep(
                 step_ref=step_ref,
@@ -92,6 +106,9 @@ def workflow_to_flowspec(workflow: Workflow) -> FlowSpec:
                 purpose=_infer_step_purpose(block),
                 depends_on=depends_on,
                 plugin_id=block.config.plugin_id,
+                model=block.config.model,
+                plugin_input_bindings=block.config.plugin_input_bindings,
+                input_bindings=input_bindings,
                 output_contract=_build_output_contract(block),
                 prompt=block.config.prompt,
                 input_refs=[field.name for field in (block.config.fields or [])],
@@ -150,6 +167,34 @@ def _resolve_dependencies(
                 step_refs.append(step_ref)
         return step_refs
     return list(previous_column_step_refs)
+
+
+def _resolve_input_bindings(
+    *,
+    block_id: str,
+    workflow: Workflow,
+    block_to_step_ref: dict[str, str],
+    previous_column_step_refs: list[str],
+) -> list[FlowStepInputBinding]:
+    block = workflow.get_block_by_id(block_id)
+    if block is None:
+        return []
+    if block.connections:
+        bindings: list[FlowStepInputBinding] = []
+        for connection in block.connections:
+            step_ref = block_to_step_ref.get(connection.from_block_id)
+            if step_ref:
+                bindings.append(
+                    FlowStepInputBinding(
+                        step_ref=step_ref,
+                        from_key=connection.from_key,
+                    )
+                )
+        return bindings
+    return [
+        FlowStepInputBinding(step_ref=step_ref, from_key=None)
+        for step_ref in previous_column_step_refs
+    ]
 
 
 def _infer_step_purpose(block) -> str:

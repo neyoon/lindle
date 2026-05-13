@@ -26,20 +26,23 @@ export function RunPanel() {
   const [showResult, setShowResult] = useState(true)
 
   // 收集所有 Collect 步骤定义的字段
-  const inputFields = useMemo(() => {
+  const { inputFields, hasCollectBlock } = useMemo(() => {
     const fields: InputField[] = []
+    let hasCollect = false
     const sorted = [...workflow.columns].sort((a, b) => a.order - b.order)
     for (const col of sorted) {
       for (const block of col.blocks) {
+        if (block.type === 'collect') hasCollect = true
         if (block.type === 'collect' && block.config.fields) {
           fields.push(...block.config.fields)
         }
       }
     }
-    return fields
+    return { inputFields: fields, hasCollectBlock: hasCollect }
   }, [workflow.columns])
 
   const hasInputs = inputFields.length > 0
+  const showSimpleInput = hasCollectBlock && !hasInputs
   const visibleSteps = useMemo(
     () => (isRunning ? runEvents : (runResult?.steps || [])).filter(
       (step) => step.event_type === 'block_start' || step.event_type === 'block_done' || step.event_type === 'error',
@@ -56,32 +59,46 @@ export function RunPanel() {
   return (
     <div className="editor-runbar">
       {/* 输入区 */}
-      {hasInputs && (
+      {(hasInputs || showSimpleInput) && (
         <div className="flex flex-wrap gap-3 border-b border-[var(--app-border)] px-4 py-3">
-          {inputFields.map((field) => (
-            <div key={field.name} className="flex-1 min-w-[200px] max-w-md">
+          {showSimpleInput ? (
+            <div className="flex-1 min-w-[260px] max-w-2xl">
               <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
-                {field.label || field.name}
-                {field.required && <span className="ml-0.5 text-[var(--app-danger)]">*</span>}
+                本次输入
               </label>
-              {field.field_type === 'textarea' ? (
-                <textarea
-                  className="app-input min-h-[36px] max-h-[100px] resize-y py-1.5"
-                  value={userInputs[field.name] || ''}
-                  onChange={(e) => setUserInput(field.name, e.target.value)}
-                  placeholder={`输入${field.label || field.name}...`}
-                />
-              ) : (
-                <input
-                  type={field.field_type === 'number' ? 'number' : 'text'}
-                  className="app-input py-1.5"
-                  value={userInputs[field.name] || ''}
-                  onChange={(e) => setUserInput(field.name, e.target.value)}
-                  placeholder={`输入${field.label || field.name}...`}
-                />
-              )}
+              <textarea
+                className="app-input min-h-[48px] max-h-[120px] resize-y py-1.5"
+                value={userInputs.input || ''}
+                onChange={(e) => setUserInput('input', e.target.value)}
+                placeholder="输入这次要处理的内容..."
+              />
             </div>
-          ))}
+          ) : (
+            inputFields.map((field) => (
+              <div key={field.name} className="flex-1 min-w-[200px] max-w-md">
+                <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
+                  {field.label || field.name}
+                  {field.required && <span className="ml-0.5 text-[var(--app-danger)]">*</span>}
+                </label>
+                {field.field_type === 'textarea' ? (
+                  <textarea
+                    className="app-input min-h-[36px] max-h-[100px] resize-y py-1.5"
+                    value={userInputs[field.name] || ''}
+                    onChange={(e) => setUserInput(field.name, e.target.value)}
+                    placeholder={`输入${field.label || field.name}...`}
+                  />
+                ) : (
+                  <input
+                    type={field.field_type === 'number' ? 'number' : 'text'}
+                    className="app-input py-1.5"
+                    value={userInputs[field.name] || ''}
+                    onChange={(e) => setUserInput(field.name, e.target.value)}
+                    placeholder={`输入${field.label || field.name}...`}
+                  />
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
 

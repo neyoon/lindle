@@ -2,7 +2,7 @@
 Flow 设计器 Skill
 
 允许 Agent 通过自然语言创建 Flow。
-复用现有的 AI 编辑功能。
+复用现有的 编辑功能。
 """
 
 from __future__ import annotations
@@ -118,13 +118,13 @@ class WorkflowDesignerSkill(BasePlugin):
             yield {"type": "progress", "data": "正在调用 AI 生成工作流内容..."}
             print(f"[workflow_designer] 正在调用 AI 生成工作流内容...")
 
-            # 使用 AI 编辑功能生成工作流内容
-            # 导入 AI 编辑相关模块
-            from api.routes.settings import get_ai_edit_provider
+            # 使用 编辑功能生成工作流内容
+            # 导入 编辑相关模块
+            from api.routes.settings import get_edit_provider
             from shared_llm import _config
 
             # 获取 LLM 配置
-            provider = get_ai_edit_provider()
+            provider = get_edit_provider()
             if provider and provider.get("api_key"):
                 api_key = provider["api_key"]
                 base_url = provider.get("base_url", "https://api.openai.com/v1")
@@ -140,19 +140,19 @@ class WorkflowDesignerSkill(BasePlugin):
                         "success": False,
                         "workflow_id": "",
                         "workflow_name": "",
-                        "error": "未配置 AI 编辑 Provider",
+                        "error": "未配置编辑 Provider",
                     }
                 }
                 return
 
-            # 构建 AI 编辑的 prompt
-            from api.routes.workflow import _AI_EDIT_SYSTEM_PROMPT, _build_plugins_info
+            # 构建 编辑的 prompt
+            from api.routes.workflow_edit import _EDIT_SYSTEM_PROMPT, _build_plugins_info
 
             plugins_info = _build_plugins_info()
             flowspec_json = spec.model_dump_json(indent=2)
 
             # 强制要求 JSON 输出
-            system_prompt = _AI_EDIT_SYSTEM_PROMPT + plugins_info + "\n\n**重要：你必须只返回有效的 JSON 对象，不要包含任何其他内容。**"
+            system_prompt = _EDIT_SYSTEM_PROMPT + plugins_info + "\n\n**重要：你必须只返回有效的 JSON 对象，不要包含任何其他内容。**"
 
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -182,7 +182,7 @@ class WorkflowDesignerSkill(BasePlugin):
 
                         # 每 1000 字符发送一次进度
                         if len(full_text) - last_progress_length >= 1000:
-                            progress_msg = f"AI 正在生成工作流... ({len(full_text)} 字符)"
+                            progress_msg = f"正在生成工作流... ({len(full_text)} 字符)"
                             print(f"[workflow_designer] {progress_msg}")
                             yield {"type": "progress", "data": progress_msg}
                             last_progress_length = len(full_text)

@@ -114,7 +114,7 @@ interface WorkflowState {
   // 端口连接交互
   connectingFrom: ConnectingState | null
 
-  // AI 编辑 diff 高亮
+  // 编辑 diff 高亮
   blockDiffMap: Record<string, 'added' | 'modified'> | null
   setBlockDiffMap: (map: Record<string, 'added' | 'modified'> | null) => void
 

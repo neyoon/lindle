@@ -253,12 +253,12 @@ export async function setDefaultProvider(id: string) {
   return request<{ message: string }>(`/settings/providers/${id}/default`, { method: 'POST' })
 }
 
-export async function getAIEditProvider() {
-  return request<{ provider_id: string }>('/settings/ai-edit-provider')
+export async function getEditProvider() {
+  return request<{ provider_id: string }>('/settings/edit-provider')
 }
 
-export async function setAIEditProvider(providerId: string) {
-  return request<{ provider_id: string }>('/settings/ai-edit-provider', {
+export async function setEditProvider(providerId: string) {
+  return request<{ provider_id: string }>('/settings/edit-provider', {
     method: 'POST',
     body: JSON.stringify({ provider_id: providerId }),
   })

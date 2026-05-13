@@ -395,7 +395,7 @@ function EntryView({
                   <div className="app-kicker no-rule mb-2">System Setup</div>
                   <h2 className="app-section-title text-2xl">设置</h2>
                   <p className="text-[var(--ink-mid)] mt-2 text-sm leading-relaxed">
-                    配置模型源、默认 Provider 与 AI 编辑能力。
+                    配置模型源、默认 Provider 与 编辑能力。
                   </p>
                 </div>
               </button>

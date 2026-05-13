@@ -17,9 +17,9 @@ import { getAppPreferences, saveAppPreferences, type AppPreferences } from '@/ut
 import {
   addProvider,
   deleteProvider,
-  getAIEditProvider,
+  getEditProvider,
   listProviders,
-  setAIEditProvider,
+  setEditProvider,
   setDefaultProvider,
   testConnection,
   updateProvider,
@@ -48,7 +48,7 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string } | null>(null)
-  const [aiEditProviderId, setAiEditProviderId] = useState('')
+  const [editProviderId, setEditProviderId] = useState('')
   const [formName, setFormName] = useState('')
   const [formKey, setFormKey] = useState('')
   const [formUrl, setFormUrl] = useState('https://api.openai.com/v1')
@@ -62,7 +62,7 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
       return
     }
     loadProviders()
-    getAIEditProvider().then((result) => setAiEditProviderId(result.provider_id)).catch(() => {})
+    getEditProvider().then((result) => setEditProviderId(result.provider_id)).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section])
 
@@ -218,8 +218,8 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
         ) : (
           <ProviderSettingsSection
             providers={providers}
-            aiEditProviderId={aiEditProviderId}
-            setAiEditProviderId={setAiEditProviderId}
+            editProviderId={editProviderId}
+            setEditProviderId={setEditProviderId}
             editingId={editingId}
             setEditingId={setEditingId}
             formName={formName}
@@ -322,8 +322,8 @@ function GeneralSettingsSection({
 
 function ProviderSettingsSection({
   providers,
-  aiEditProviderId,
-  setAiEditProviderId,
+  editProviderId,
+  setEditProviderId,
   editingId,
   setEditingId,
   formName,
@@ -347,8 +347,8 @@ function ProviderSettingsSection({
   applyPreset,
 }: {
   providers: ProviderResponse[]
-  aiEditProviderId: string
-  setAiEditProviderId: (value: string) => void
+  editProviderId: string
+  setEditProviderId: (value: string) => void
   editingId: string | null
   setEditingId: (value: string | null) => void
   formName: string
@@ -379,7 +379,7 @@ function ProviderSettingsSection({
             <div className="app-kicker mb-3">Provider</div>
             <h2 className="app-section-title text-3xl md:text-4xl">管理所有 OpenAI 兼容 Provider</h2>
             <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-              Lindle 的 Flow、Agent 和 AI 编辑能力都依赖这里的 Provider。
+              Lindle 的 Flow、Agent 和编辑能力都依赖这里的 Provider。
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -389,9 +389,9 @@ function ProviderSettingsSection({
               <p className="app-muted mt-2 text-sm">已接入模型源</p>
             </div>
             <div className="app-stat">
-              <div className="app-kicker mb-2">AI Edit</div>
-              <div className="text-lg font-semibold text-[var(--app-text)]">{aiEditProviderId ? '独立指定' : '跟随默认'}</div>
-              <p className="app-muted mt-2 text-sm">AI 编辑可使用单独 Provider</p>
+              <div className="app-kicker mb-2">Edit</div>
+              <div className="text-lg font-semibold text-[var(--app-text)]">{editProviderId ? '独立指定' : '跟随默认'}</div>
+              <p className="app-muted mt-2 text-sm">编辑可使用单独 Provider</p>
             </div>
           </div>
         </div>
@@ -474,17 +474,17 @@ function ProviderSettingsSection({
 
       {providers.length > 0 && (
         <section className="app-card-soft mt-6 p-5">
-          <div className="app-kicker mb-2">AI edit provider</div>
-          <h3 className="text-xl font-semibold text-[var(--app-text)]">给 AI 编辑单独指定模型</h3>
-          <p className="app-muted mt-3 text-sm leading-7">建议给 AI 编辑分配能力更强的模型，避免和日常运行模型混用。</p>
+          <div className="app-kicker mb-2">Edit provider</div>
+          <h3 className="text-xl font-semibold text-[var(--app-text)]">给编辑单独指定模型</h3>
+          <p className="app-muted mt-3 text-sm leading-7">建议给编辑分配能力更强的模型，避免和日常运行模型混用。</p>
           <select
             className="app-input mt-4"
-            value={aiEditProviderId}
+            value={editProviderId}
             onChange={async (e) => {
               const newId = e.target.value
-              setAiEditProviderId(newId)
+              setEditProviderId(newId)
               try {
-                await setAIEditProvider(newId)
+                await setEditProvider(newId)
               } catch (error) {
                 alert(`设置失败: ${error}`)
               }

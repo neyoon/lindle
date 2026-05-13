@@ -3,10 +3,15 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Play, Save, Factory, ArrowLeft, Download, FileText, Sparkles, X, Loader2, Square, Undo2, Check } from 'lucide-react'
+import { Play, Save, Factory, ArrowLeft, Sparkles, X, Loader2 } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import { saveWorkflow, updateWorkflow, runWorkflowStream, downloadCode, downloadWorkflowManifest } from '@/api/client'
-import type { Workflow, Block, StepEvent } from '@/types/workflow'
+import type { Workflow, StepEvent } from '@/types/workflow'
+import { evaluateFlowHealth } from '@/utils/flowHealth'
+import { computeBlockDiff } from '@/utils/workflowDiff'
+import { EditStreamPanel } from './toolbar/EditStreamPanel'
+import { ExportMenu } from './toolbar/ExportMenu'
+import { FlowHealthButton } from './toolbar/FlowHealthButton'
 const API_BASE = '/api'
 
 interface ToolbarProps {
@@ -18,28 +23,6 @@ interface ToolbarProps {
 
 function generateId(): string {
   return `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-}
-
-function computeBlockDiff(
-  oldWf: Workflow,
-  newWf: Workflow,
-): Record<string, 'added' | 'modified'> {
-  const oldBlocks = new Map<string, Block>()
-  for (const col of oldWf.columns) {
-    for (const b of col.blocks) oldBlocks.set(b.id, b)
-  }
-  const diff: Record<string, 'added' | 'modified'> = {}
-  for (const col of newWf.columns) {
-    for (const b of col.blocks) {
-      const old = oldBlocks.get(b.id)
-      if (!old) {
-        diff[b.id] = 'added'
-      } else if (JSON.stringify(old) !== JSON.stringify(b)) {
-        diff[b.id] = 'modified'
-      }
-    }
-  }
-  return diff
 }
 
 export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerActions }: ToolbarProps) {
@@ -54,28 +37,31 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
     appendRunEvent,
     setLiveOutput,
     setBlockRunState,
+    selectBlock,
   } = useWorkflowStore()
   const [showExportMenu, setShowExportMenu] = useState(false)
-  const [showAIEdit, setShowAIEdit] = useState(false)
-  const [aiInstruction, setAIInstruction] = useState('')
-  const [aiLoading, setAILoading] = useState(false)
-  const [aiThinking, setAIThinking] = useState('')
-  const [aiDelta, setAIDelta] = useState('')
-  const [aiError, setAIError] = useState('')
-  const [aiDone, setAIDone] = useState(false)
-  const aiInputRef = useRef<HTMLInputElement>(null)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editInstruction, setEditInstruction] = useState('')
+  const [editLoading, setEditLoading] = useState(false)
+  const [editThinking, setEditThinking] = useState('')
+  const [editDelta, setEditDelta] = useState('')
+  const [editError, setEditError] = useState('')
+  const [editDone, setEditDone] = useState(false)
+  const editInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const streamPanelRef = useRef<HTMLPreElement>(null)
   const prevWorkflowRef = useRef<Workflow | null>(null)
+  const health = evaluateFlowHealth(workflow)
+  const firstBlockIssue = health.issues.find((issue) => issue.blockId)
 
   useEffect(() => {
     if (streamPanelRef.current) {
       streamPanelRef.current.scrollTop = streamPanelRef.current.scrollHeight
     }
-  }, [aiDelta, aiThinking])
+  }, [editDelta, editThinking])
 
-  const handleAIEdit = async () => {
-    if (!aiInstruction.trim() || aiLoading) return
+  const handleEdit = async () => {
+    if (!editInstruction.trim() || editLoading) return
     if (!workflow.id) {
       alert('请先保存工作流')
       return
@@ -85,18 +71,18 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
 
     const controller = new AbortController()
     abortRef.current = controller
-    setAILoading(true)
-    setAIThinking('')
-    setAIDelta('')
-    setAIError('')
-    setAIDone(false)
+    setEditLoading(true)
+    setEditThinking('')
+    setEditDelta('')
+    setEditError('')
+    setEditDone(false)
     setBlockDiffMap(null)
 
     try {
-      const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/ai-edit`, {
+      const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction: aiInstruction.trim() }),
+        body: JSON.stringify({ instruction: editInstruction.trim() }),
         signal: controller.signal,
       })
 
@@ -125,9 +111,9 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
             try {
               const data = JSON.parse(line.slice(6))
               if (currentEvent === 'thinking') {
-                setAIThinking((prev) => prev + data.text)
+                setEditThinking((prev) => prev + data.text)
               } else if (currentEvent === 'delta') {
-                setAIDelta((prev) => prev + data.text)
+                setEditDelta((prev) => prev + data.text)
               } else if (currentEvent === 'done') {
                 const newWf = data as Workflow
                 const diff = prevWorkflowRef.current
@@ -135,13 +121,13 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
                   : {}
                 setWorkflow(newWf)
                 setBlockDiffMap(Object.keys(diff).length > 0 ? diff : null)
-                setAIInstruction('')
-                setShowAIEdit(false)
-                setAILoading(false)
-                setAIDone(true)
+                setEditInstruction('')
+                setShowEdit(false)
+                setEditLoading(false)
+                setEditDone(true)
                 return
               } else if (currentEvent === 'error') {
-                setAIError(data.message)
+                setEditError(data.message)
               }
             } catch {}
           }
@@ -149,12 +135,12 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
       }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') {
-        setAIError('已打断')
+        setEditError('已打断')
       } else {
-        setAIError(`${e}`)
+        setEditError(`${e}`)
       }
     } finally {
-      setAILoading(false)
+      setEditLoading(false)
       abortRef.current = null
     }
   }
@@ -169,9 +155,9 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
     setWorkflow(prev)
     setBlockDiffMap(null)
     prevWorkflowRef.current = null
-    setAIDone(false)
-    setAIThinking('')
-    setAIDelta('')
+    setEditDone(false)
+    setEditThinking('')
+    setEditDelta('')
     try {
       await updateWorkflow(prev.id, prev)
     } catch {}
@@ -180,19 +166,19 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
   const handleConfirmEdit = () => {
     setBlockDiffMap(null)
     prevWorkflowRef.current = null
-    setAIDone(false)
-    setAIThinking('')
-    setAIDelta('')
+    setEditDone(false)
+    setEditThinking('')
+    setEditDelta('')
   }
 
   const closeStreamPanel = () => {
-    setAIThinking('')
-    setAIDelta('')
-    setAIError('')
-    setAIDone(false)
+    setEditThinking('')
+    setEditDelta('')
+    setEditError('')
+    setEditDone(false)
   }
 
-  const showStreamPanel = aiLoading || aiThinking || aiDelta || aiError || aiDone
+  const showStreamPanel = editLoading || editThinking || editDelta || editError || editDone
 
   const handleSave = async () => {
     try {
@@ -214,6 +200,11 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
   const handleRun = async () => {
     if (!workflow.id) {
       alert('请先保存工作流')
+      return
+    }
+    if (health.blockingCount > 0) {
+      if (firstBlockIssue?.blockId) selectBlock(firstBlockIssue.blockId)
+      alert(firstBlockIssue ? `${firstBlockIssue.message}${firstBlockIssue.action ? `：${firstBlockIssue.action}` : ''}` : '请先处理 Flow 中的红色步骤')
       return
     }
     const userInputs = useWorkflowStore.getState().userInputs
@@ -333,37 +324,37 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {/* AI 编辑 */}
+        {/* 编辑 */}
         <div className="relative flex items-center">
-          {showAIEdit ? (
+          {showEdit ? (
             <div className="flex items-center gap-1.5 rounded-sm border border-[var(--app-border-strong)] bg-[var(--app-accent-soft)] px-2 py-1">
               <Sparkles size={14} className="shrink-0 text-[var(--app-accent-strong)]" />
               <input
-                ref={aiInputRef}
+                ref={editInputRef}
                 className="w-64 border-none bg-transparent text-sm text-[var(--app-text)] outline-none placeholder:text-[var(--app-text-muted)]"
-                value={aiInstruction}
-                onChange={(e) => setAIInstruction(e.target.value)}
+                value={editInstruction}
+                onChange={(e) => setEditInstruction(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAIEdit()
-                  if (e.key === 'Escape') { setShowAIEdit(false); setAIInstruction('') }
+                  if (e.key === 'Enter') handleEdit()
+                  if (e.key === 'Escape') { setShowEdit(false); setEditInstruction('') }
                 }}
-                placeholder="输入修改指令，如：添加一个翻译AI块..."
-                disabled={aiLoading}
+                placeholder="输入修改指令，如：添加一个翻译步骤..."
+                disabled={editLoading}
                 autoFocus
               />
-              {aiLoading ? (
+              {editLoading ? (
                 <Loader2 size={14} className="text-violet-500 animate-spin shrink-0" />
               ) : (
                 <>
                   <button
-                    onClick={handleAIEdit}
-                    disabled={!aiInstruction.trim()}
+                    onClick={handleEdit}
+                    disabled={!editInstruction.trim()}
                     className="rounded-sm bg-[var(--app-accent)] px-2 py-0.5 text-xs font-medium text-[var(--paper)] transition disabled:opacity-40 shrink-0 hover:bg-[var(--app-accent-strong)]"
                   >
                     执行
                   </button>
                   <button
-                    onClick={() => { setShowAIEdit(false); setAIInstruction('') }}
+                    onClick={() => { setShowEdit(false); setEditInstruction('') }}
                     className="shrink-0 text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
                   >
                     <X size={14} />
@@ -374,13 +365,13 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
           ) : (
             <button
               onClick={() => {
-                setShowAIEdit(true)
-                requestAnimationFrame(() => aiInputRef.current?.focus())
+                setShowEdit(true)
+                requestAnimationFrame(() => editInputRef.current?.focus())
               }}
               className="app-button app-button-secondary"
             >
               <Sparkles size={16} />
-              AI 编辑
+              编辑
             </button>
           )}
         </div>
@@ -394,55 +385,23 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
         </button>
         <span className="text-[var(--app-border-strong)]">|</span>
 
-        {/* 导出菜单 */}
-        <div className="relative">
-          <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            className="app-button app-button-ghost"
-          >
-            <Download size={16} />
-            导出
-          </button>
-          {showExportMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-              <div className="absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-sm border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]" style={{ animation: 'panel-slide-in 0.35s var(--ease-ink)' }}>
-                <button
-                  onClick={handleExportManifest}
-                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
-                >
-                  <FileText size={15} className="text-[var(--app-accent)]" />
-                  <div>
-                    <span className="font-medium text-[var(--app-text)]">导出结构化 Flow</span>
-                    <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">JSON 清单，便于复用和模型理解</p>
-                  </div>
-                </button>
-                <button
-                  onClick={handleExportCode}
-                  className="flex w-full items-center gap-2.5 border-t border-[var(--app-border)] px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
-                >
-                  <Download size={15} className="text-[var(--app-accent)]" />
-                  <div>
-                    <span className="font-medium text-[var(--app-text)]">下载代码项目</span>
-                    <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">ZIP 结构化 Python 项目</p>
-                  </div>
-                </button>
-                <button
-                  onClick={handleExportDescribe}
-                  className="flex w-full items-center gap-2.5 border-t border-[var(--app-border)] px-4 py-3 text-left text-sm transition hover:bg-[var(--app-accent-soft)]"
-                >
-                  <FileText size={15} className="text-[var(--app-accent)]" />
-                  <div>
-                    <span className="font-medium text-[var(--app-text)]">导出流程描述</span>
-                    <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">LLM 可读的文本格式</p>
-                  </div>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <ExportMenu
+          open={showExportMenu}
+          onToggle={() => setShowExportMenu(!showExportMenu)}
+          onClose={() => setShowExportMenu(false)}
+          onExportManifest={handleExportManifest}
+          onExportCode={handleExportCode}
+          onExportDescribe={handleExportDescribe}
+        />
 
         <span className="text-[var(--app-border-strong)]">|</span>
+        <FlowHealthButton
+          health={health}
+          firstBlockIssue={firstBlockIssue}
+          onSelectFirstIssue={() => {
+            if (firstBlockIssue?.blockId) selectBlock(firstBlockIssue.blockId)
+          }}
+        />
         <button
           onClick={handleSave}
           className="app-button app-button-ghost"
@@ -452,7 +411,7 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
         </button>
         <button
           onClick={handleRun}
-          disabled={isRunning}
+          disabled={isRunning || health.blockingCount > 0}
           className="app-button app-button-primary disabled:opacity-50"
         >
           <Play size={16} />
@@ -463,79 +422,20 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
       </div>
     </div>
 
-    {/* AI 编辑流式面板 */}
     {showStreamPanel && (
-      <div className="border-b border-[var(--app-border)] bg-[var(--app-accent-soft)] px-4 py-3" style={{ animation: 'panel-slide-in 0.4s var(--ease-ink)' }}>
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--app-accent-strong)]">
-              {aiLoading ? (
-                <><Loader2 size={12} className="animate-spin" /> AI 正在修改工作流...</>
-              ) : aiError ? (
-                <span className="text-[var(--app-danger)]">{aiError}</span>
-              ) : aiDone ? (
-                '编辑完成 — 画布中高亮显示了变更'
-              ) : (
-                '完成'
-              )}
-            </span>
-            <div className="flex items-center gap-1.5">
-              {aiLoading ? (
-                <button
-                  onClick={handleAbort}
-                  className="flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-medium text-[var(--app-danger)] transition hover:bg-[var(--bruise-soft)]"
-                >
-                  <Square size={10} fill="currentColor" />
-                  打断
-                </button>
-              ) : aiDone && prevWorkflowRef.current ? (
-                <>
-                  <button
-                    onClick={handleUndo}
-                    className="flex items-center gap-1 rounded-sm border border-[var(--app-warm)] px-2.5 py-1 text-xs font-medium text-[var(--app-warning)] transition hover:bg-[var(--rust-soft)]"
-                  >
-                    <Undo2 size={12} />
-                    撤销
-                  </button>
-                  <button
-                    onClick={handleConfirmEdit}
-                    className="flex items-center gap-1 rounded-sm border border-[var(--moss-soft)] px-2.5 py-1 text-xs font-medium text-[var(--app-success)] transition hover:bg-[var(--moss-soft)]"
-                  >
-                    <Check size={12} />
-                    确认
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={closeStreamPanel}
-                  className="rounded-full px-2 py-0.5 text-xs text-[var(--app-text-muted)] transition hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--app-text)]"
-                >
-                  关闭
-                </button>
-              )}
-            </div>
-          </div>
-          {aiThinking && (
-            <div className="mb-2">
-              <span className="text-[10px] font-medium text-[var(--app-text-soft)]">思考过程</span>
-              <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-sm border border-[var(--line)] bg-[var(--paper-warm)] p-2 text-xs italic leading-relaxed text-[var(--app-text-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>
-                {aiThinking}
-              </pre>
-            </div>
-          )}
-          {aiDelta && (
-            <div>
-              <span className="text-[10px] font-medium text-[var(--app-text-soft)]">生成内容</span>
-              <pre
-                ref={streamPanelRef}
-                className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-sm border border-[var(--line)] bg-[var(--card)] p-2 font-mono text-xs leading-relaxed text-[var(--app-text)]"
-              >
-                {aiDelta}
-              </pre>
-            </div>
-          )}
-        </div>
-      </div>
+      <EditStreamPanel
+        editLoading={editLoading}
+        editThinking={editThinking}
+        editDelta={editDelta}
+        editError={editError}
+        editDone={editDone}
+        canUndo={Boolean(prevWorkflowRef.current)}
+        streamPanelRef={streamPanelRef}
+        onAbort={handleAbort}
+        onUndo={handleUndo}
+        onConfirmEdit={handleConfirmEdit}
+        onClose={closeStreamPanel}
+      />
     )}
     </>
   )

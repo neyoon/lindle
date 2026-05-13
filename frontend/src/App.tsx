@@ -94,7 +94,7 @@ export default function App() {
     }
   }
 
-  // 新建空白工作流 — 自动保存到后端，便于 AI 编辑等功能直接使用
+  // 新建空白工作流 — 自动保存到后端，便于 编辑等功能直接使用
   const handleCreateNew = async () => {
     const id = `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const preferences = getAppPreferences()

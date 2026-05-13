@@ -399,17 +399,17 @@ def _apply_provider(provider: dict[str, Any]) -> None:
     )
 
 
-# ===== AI 编辑专用 Provider =====
+# =====编辑专用 Provider =====
 
 
-def get_ai_edit_provider_id() -> str:
-    """获取 AI 编辑专用 Provider ID（空字符串表示使用默认）"""
-    return _load_raw().get("ai_edit_provider_id", "")
+def get_edit_provider_id() -> str:
+    """获取编辑专用 Provider ID（空字符串表示使用默认）"""
+    return _load_raw().get("edit_provider_id", "")
 
 
-def get_ai_edit_provider() -> dict[str, Any] | None:
-    """获取 AI 编辑专用 Provider，未设置则回退到默认"""
-    pid = get_ai_edit_provider_id()
+def get_edit_provider() -> dict[str, Any] | None:
+    """获取编辑专用 Provider，未设置则回退到默认"""
+    pid = get_edit_provider_id()
     if pid:
         p = get_provider_by_id(pid)
         if p:
@@ -417,21 +417,21 @@ def get_ai_edit_provider() -> dict[str, Any] | None:
     return get_default_provider()
 
 
-@router.get("/ai-edit-provider")
-async def get_ai_edit_provider_setting() -> dict[str, str]:
-    """获取 AI 编辑专用 Provider ID"""
-    return {"provider_id": get_ai_edit_provider_id()}
+@router.get("/edit-provider")
+async def get_edit_provider_setting() -> dict[str, str]:
+    """获取编辑专用 Provider ID"""
+    return {"provider_id": get_edit_provider_id()}
 
 
-@router.post("/ai-edit-provider")
-async def set_ai_edit_provider_setting(body: dict[str, str]) -> dict[str, str]:
-    """设置 AI 编辑专用 Provider"""
+@router.post("/edit-provider")
+async def set_edit_provider_setting(body: dict[str, str]) -> dict[str, str]:
+    """设置编辑专用 Provider"""
     provider_id = body.get("provider_id", "")
     if provider_id:
         if get_provider_by_id(provider_id) is None:
             raise HTTPException(status_code=404, detail="Provider 不存在")
 
     data = _load_raw()
-    data["ai_edit_provider_id"] = provider_id
+    data["edit_provider_id"] = provider_id
     _save_raw(data)
     return {"provider_id": provider_id}

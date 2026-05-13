@@ -105,11 +105,7 @@ def canonicalize_flowspec(spec: FlowSpec) -> CanonicalWorkflow:
         )
         column.repeat = max(column.repeat, step.repeat)
 
-        connections = [
-            Connection(from_block_id=_step_ref_to_block_id(spec, dependency), from_key=None)
-            for dependency in step.depends_on
-            if _step_ref_to_block_id(spec, dependency)
-        ]
+        connections = _step_input_bindings_to_connections(spec, step)
 
         fields = [
             _canonical_field_to_input_field(spec, input_ref)
@@ -119,9 +115,10 @@ def canonicalize_flowspec(spec: FlowSpec) -> CanonicalWorkflow:
 
         config = BlockConfig(
             prompt=step.prompt,
-            model=None,
+            model=step.model,
             fields=fields or None,
             plugin_id=step.plugin_id,
+            plugin_input_bindings=step.plugin_input_bindings,
         )
         output_schema = _output_contract_to_schema(step.output_contract)
         block_id = step.source_block_id or f"blk_{sanitize_ref(step.step_ref)}"
@@ -176,6 +173,29 @@ def _step_ref_to_block_id(spec: FlowSpec, step_ref: str) -> str | None:
         if step.step_ref == step_ref:
             return step.source_block_id or step.step_ref
     return None
+
+
+def _step_input_bindings_to_connections(spec: FlowSpec, step) -> list[Connection]:
+    binding_refs = [binding.step_ref for binding in step.input_bindings]
+    bindings_match_dependencies = (
+        not step.depends_on
+        or sorted(binding_refs) == sorted(step.depends_on)
+    )
+    if step.input_bindings and bindings_match_dependencies:
+        connections: list[Connection] = []
+        for binding in step.input_bindings:
+            block_id = _step_ref_to_block_id(spec, binding.step_ref)
+            if block_id:
+                connections.append(
+                    Connection(from_block_id=block_id, from_key=binding.from_key)
+                )
+        return connections
+
+    return [
+        Connection(from_block_id=block_id, from_key=None)
+        for dependency in step.depends_on
+        if (block_id := _step_ref_to_block_id(spec, dependency))
+    ]
 
 
 def _canonical_field_to_input_field(spec: FlowSpec, input_ref: str):

@@ -298,6 +298,113 @@ def test_materialize_flowspec_preserves_workflow_shape():
     assert materialized.columns[1].blocks[0].connections[0].from_block_id == "blk_input"
 
 
+def test_flowspec_roundtrip_preserves_execution_config():
+    workflow = Workflow.model_validate({
+        "id": "wf_test",
+        "name": "配置保真测试",
+        "description": "",
+        "columns": [
+            {
+                "id": "col_ai",
+                "order": 0,
+                "repeat": 1,
+                "blocks": [
+                    {
+                        "id": "blk_ai",
+                        "ref": "analysis",
+                        "type": "process",
+                        "name": "分析",
+                        "config": {
+                            "prompt": "分析输入",
+                            "model": "provider_custom",
+                        },
+                        "output_schema": {
+                            "keys": ["summary", "score"],
+                            "descriptions": {"summary": "摘要", "score": "评分"},
+                        },
+                        "connections": [],
+                    }
+                ],
+            },
+            {
+                "id": "col_tool",
+                "order": 1,
+                "repeat": 1,
+                "blocks": [
+                    {
+                        "id": "blk_tool",
+                        "ref": "send_result",
+                        "type": "tool",
+                        "name": "发送结果",
+                        "config": {
+                            "plugin_id": "mock_tool",
+                            "plugin_input_bindings": {
+                                "content": {"kind": "variable", "value": "steps.analysis.summary"},
+                                "channel": {"kind": "literal", "value": "general"},
+                            },
+                        },
+                        "connections": [{"from_block_id": "blk_ai", "from_key": "summary"}],
+                    }
+                ],
+            },
+        ],
+    })
+
+    spec = workflow_to_flowspec(workflow)
+    materialized = materialize_flowspec(spec)
+
+    step_map = {step.step_ref: step for step in spec.steps}
+    assert step_map["analysis"].model == "provider_custom"
+    assert step_map["send_result"].plugin_input_bindings is not None
+    assert step_map["send_result"].input_bindings[0].step_ref == "analysis"
+    assert step_map["send_result"].input_bindings[0].from_key == "summary"
+
+    ai_block = materialized.get_block_by_id("blk_ai")
+    tool_block = materialized.get_block_by_id("blk_tool")
+    assert ai_block is not None
+    assert tool_block is not None
+    assert ai_block.config.model == "provider_custom"
+    assert tool_block.config.plugin_input_bindings is not None
+    assert tool_block.config.plugin_input_bindings["content"].value == "steps.analysis.summary"
+    assert tool_block.connections[0].from_key == "summary"
+
+
+def test_materialize_flowspec_prefers_updated_dependencies_over_stale_bindings():
+    spec = workflow_to_flowspec(Workflow.model_validate({
+        "id": "wf_test",
+        "name": "依赖更新测试",
+        "description": "",
+        "columns": [
+            {
+                "id": "col_source",
+                "order": 0,
+                "repeat": 1,
+                "blocks": [
+                    {"id": "blk_a", "ref": "a", "type": "process", "name": "A", "config": {"prompt": "A"}, "connections": []},
+                    {"id": "blk_b", "ref": "b", "type": "process", "name": "B", "config": {"prompt": "B"}, "connections": []},
+                ],
+            },
+            {
+                "id": "col_target",
+                "order": 1,
+                "repeat": 1,
+                "blocks": [
+                    {"id": "blk_c", "ref": "c", "type": "process", "name": "C", "config": {"prompt": "C"}, "connections": [{"from_block_id": "blk_a", "from_key": "summary"}]},
+                ],
+            },
+        ],
+    }))
+    target = next(step for step in spec.steps if step.step_ref == "c")
+    target.depends_on = ["b"]
+
+    materialized = materialize_flowspec(spec)
+    block = materialized.get_block_by_id("blk_c")
+
+    assert block is not None
+    assert block.connections[0].from_block_id == "blk_b"
+    assert block.connections[0].from_key is None
+
+
 def test_parse_generated_workflow_accepts_flowspec_payload():
     generated = """
     {

@@ -10,6 +10,7 @@
 import { Trash2, Pencil } from 'lucide-react'
 import type { Block } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
+import { evaluateFlowHealth } from '@/utils/flowHealth'
 
 const TYPE_STYLES: Record<string, { tag: string; tagColor: string }> = {
   collect: { tag: 'COL', tagColor: 'block-tag is-in' },
@@ -34,9 +35,13 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
   const connectingFrom = useWorkflowStore((s) => s.connectingFrom)
   const startConnecting = useWorkflowStore((s) => s.startConnecting)
   const finishConnecting = useWorkflowStore((s) => s.finishConnecting)
+  const workflow = useWorkflowStore((s) => s.workflow)
 
   const blockDiffMap = useWorkflowStore((s) => s.blockDiffMap)
   const runStatus = useWorkflowStore((s) => s.blockRunState[block.id] ?? null)
+  const healthIssues = evaluateFlowHealth(workflow).byBlockId[block.id] || []
+  const hasHealthError = healthIssues.some((issue) => issue.severity === 'error')
+  const hasHealthWarning = healthIssues.some((issue) => issue.severity === 'warning')
 
   const style = TYPE_STYLES[block.type] || TYPE_STYLES.collect
   const isSelected = selectedBlockId === block.id
@@ -80,7 +85,8 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
         ${diffStatus === 'modified' ? 'is-selected' : ''}
         ${runStatus === 'running' ? 'is-running' : ''}
         ${runStatus === 'done' ? 'is-done' : ''}
-        ${runStatus === 'error' ? 'is-error' : ''}
+        ${runStatus === 'error' || hasHealthError ? 'is-error' : ''}
+        ${hasHealthWarning && !hasHealthError ? 'ring-1 ring-[var(--app-warning)]' : ''}
       `}
     >
       {/* ===== 左侧输入端口 ===== */}
@@ -166,6 +172,12 @@ export function BlockView({ block, columnId, columnOrder, isFirstColumn, isLastC
           }`}
         >
           {runStatus === 'running' ? '运行中' : runStatus === 'done' ? '已完成' : '失败'}
+        </span>
+      )}
+
+      {!runStatus && (hasHealthError || hasHealthWarning) && (
+        <span className={`block-stamp ${hasHealthError ? 'is-error' : 'is-running'}`}>
+          {hasHealthError ? '需处理' : '可优化'}
         </span>
       )}
 
