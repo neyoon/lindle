@@ -13,7 +13,6 @@ from typing import Any
 from agent.models import Agent
 from storage.local_paths import ensure_parent, get_local_file
 
-# 存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "agents")
 
 

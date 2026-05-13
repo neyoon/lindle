@@ -61,7 +61,6 @@ class MockToolPlugin(BasePlugin):
         if not token:
             raise ValueError("Mock 工具需要配置 Token")
 
-        # mock 输出
         return {
             "result": "123, tool test",
             "input_received": input_data[:100] if input_data else "(无输入)",

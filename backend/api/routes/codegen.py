@@ -31,7 +31,6 @@ async def download_code(workflow_id: str):
     with tempfile.TemporaryDirectory() as tmp_dir:
         project_dir = generator.generate(workflow, tmp_dir)
 
-        # 打包为 ZIP
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for root, _dirs, files in os.walk(project_dir):
@@ -42,7 +41,6 @@ async def download_code(workflow_id: str):
 
         zip_buffer.seek(0)
 
-    # 文件名用 URL 编码处理中文字符
     encoded_name = quote(f"{workflow.name}.zip")
     return StreamingResponse(
         zip_buffer,

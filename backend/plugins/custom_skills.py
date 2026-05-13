@@ -13,7 +13,6 @@ from typing import Any
 from plugins.base import BasePlugin, PluginMeta
 from storage.local_paths import ensure_parent, get_local_file
 
-# 存储目录
 _CUSTOM_SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "custom_skills")
 
 
@@ -109,7 +108,6 @@ class CustomSkill(BasePlugin):
         使用 exec 执行用户提供的 Python 代码
         """
         try:
-            # 准备执行环境
             local_vars = {
                 "input_data": input_data,
                 "config": config,
@@ -117,11 +115,9 @@ class CustomSkill(BasePlugin):
                 "result": None,
             }
 
-            # 执行用户代码
             code = self.skill_data.get("code", "")
             exec(code, {"__builtins__": __builtins__}, local_vars)
 
-            # 获取结果
             result = local_vars.get("result")
             if result is None:
                 return {"error": "代码未返回结果（请设置 result 变量）"}

@@ -17,7 +17,7 @@ class PluginParam:
 
     name: str
     label: str
-    param_type: str = "text"  # text, password, number
+    param_type: str = "text"
     required: bool = True
     description: str = ""
     default: str = ""
@@ -31,7 +31,7 @@ class PluginMeta:
     name: str
     description: str
     icon: str = ""
-    category: str = "plugin"  # "plugin" 或 "skill"，skill 只在 Agent 中显示
+    category: str = "plugin"
     params: list[PluginParam] = field(default_factory=list)
     input_schema: dict[str, Any] = field(default_factory=dict)
     output_schema: dict[str, Any] = field(default_factory=dict)

@@ -1,10 +1,3 @@
-/**
- * 栏组件 - 全屏高度的竖条
- *
- * 每栏从上到下占满整个屏幕高度，
- * 栏内垂直居中排列正方形块（Block），底部有添加块按钮。
- * 添加块菜单包含: 核心块 + 制造的模板 + 启用的插件。
- */
 import { Plus, Trash2, Repeat } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { BlockTemplate, BlockType, Column, EnabledPlugin } from '@/types/workflow'
@@ -33,7 +26,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
   const [templates, setTemplates] = useState<BlockTemplate[]>([])
   const [dropIndex, setDropIndex] = useState<number | null>(null)
 
-  // 每次打开菜单时加载已启用插件和制造模板
   useEffect(() => {
     if (showAddMenu) {
       getEnabledPlugins().then(setEnabledPlugins).catch(() => {})
@@ -87,7 +79,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
 
   return (
     <div className="editor-column flex h-full w-52 shrink-0 flex-col">
-      {/* 栏头 */}
       <div className="editor-column-header flex items-center justify-between px-3 py-2.5">
         <span className="app-kicker no-rule text-[0.68rem] text-[var(--app-accent-strong)]">
           Stage {String(column.order + 1).padStart(2, '0')}
@@ -149,7 +140,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
         </div>
       </div>
 
-      {/* 块列表 - 居中排列正方形块，支持拖放 */}
       <div
         className="flex-1 overflow-y-auto p-3 flex flex-col items-center gap-3 column-scroll-container"
         onDragOver={handleDragOver}
@@ -175,7 +165,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
         )}
       </div>
 
-      {/* 添加块 - 固定在底部 */}
       <div className="relative border-t border-[var(--app-border)] p-3">
         <button
           onClick={() => setShowAddMenu(!showAddMenu)}
@@ -187,7 +176,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
 
         {showAddMenu && (
           <div className="absolute bottom-full left-3 right-3 z-10 mb-1 max-h-80 overflow-y-auto overflow-hidden rounded-sm border border-[var(--app-border)] bg-[var(--app-panel-solid)] shadow-[var(--app-shadow)]" style={{ animation: 'panel-slide-in 0.35s var(--ease-ink)' }}>
-          {/* 核心步骤 */}
             {CORE_BLOCK_OPTIONS.map((opt) => (
               <button
                 key={opt.type}
@@ -198,7 +186,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
               </button>
             ))}
 
-            {/* 制造的模板 */}
             {templates.length > 0 && (
               <>
                 <div className="border-t border-[var(--app-border)] px-3 py-1.5">
@@ -221,7 +208,6 @@ export function ColumnView({ column, isFirstColumn, isLastColumn }: Props) {
               </>
             )}
 
-            {/* 已启用的工具 */}
             {enabledPlugins.length > 0 && (
               <>
                 <div className="border-t border-[var(--app-border)] px-3 py-1.5">

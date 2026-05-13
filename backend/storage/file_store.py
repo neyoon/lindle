@@ -1,10 +1,7 @@
 """
 文件存储
 
-极简的文件存储:
-- 工作流(pipeline)保存为 JSON 文件 → data/workflows/
-- 块模板(workspace)保存为 JSON 文件 → data/workspace/
-不需要数据库，降低部署复杂度。
+本地单机模式下用 JSON 文件保存工作流和块模板。
 """
 
 from __future__ import annotations
@@ -16,7 +13,6 @@ from typing import Any
 from flow.models import BlockTemplate, Workflow
 from storage.local_paths import ensure_parent, get_local_file
 
-# 默认存储目录
 _STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "workflows")
 _WORKSPACE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "workspace")
 
@@ -25,9 +21,6 @@ def set_storage_dir(path: str) -> None:
     global _STORAGE_DIR
     _STORAGE_DIR = path
     os.makedirs(_STORAGE_DIR, exist_ok=True)
-
-
-# ===== Workflow (Pipeline) 存储 =====
 
 
 def _load_and_repair_workflow_file(file_path) -> Workflow:
@@ -89,9 +82,6 @@ def delete_workflow(workflow_id: str) -> bool:
         os.remove(file_path)
         return True
     return False
-
-
-# ===== Workspace (块模板) 存储 =====
 
 
 def save_template(template: BlockTemplate) -> str:

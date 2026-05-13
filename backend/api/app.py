@@ -32,7 +32,6 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS - 开发环境允许所有来源
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,7 +41,6 @@ app.add_middleware(
 )
 
 
-# 注册路由
 app.include_router(workflow.router)
 app.include_router(execution.router)
 app.include_router(codegen.router)
@@ -63,27 +61,19 @@ async def health():
     return {"status": "ok", "version": "0.1.0"}
 
 
-# ===== 前端静态文件托管 =====
-# 生产模式: 前端 build 产物放在 /app/static 目录
-# 开发模式: 该目录不存在，由 Vite dev server + proxy 处理
-
 STATIC_DIR = Path(__file__).parent.parent / "static"
 
 if STATIC_DIR.is_dir():
-    # 托管 JS/CSS/图片等静态资源
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_frontend(request: Request, full_path: str):
         """所有非 /api 的请求返回 index.html（SPA 路由）"""
-        # 先检查是否是静态文件
         file_path = STATIC_DIR / full_path
         if file_path.is_file():
             return FileResponse(file_path)
-        # 否则返回 index.html（SPA fallback）
         return FileResponse(STATIC_DIR / "index.html")
 else:
-    # 开发模式: 简单的根路由提示
     @app.get("/")
     async def root():
         backend_port = os.getenv("PORT", "6011")

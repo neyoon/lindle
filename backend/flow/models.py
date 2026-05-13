@@ -77,7 +77,6 @@ class InputField(BaseModel):
     default: Any = None
 
 
-# 重建 BlockConfig 使其能引用 InputField
 BlockConfig.model_rebuild()
 
 

@@ -1,8 +1,3 @@
-/**
- * UI 主题
- *
- * Lindle 当前固定使用「Paper & Ink」纸墨风格。
- */
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 

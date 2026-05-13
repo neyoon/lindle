@@ -1,16 +1,8 @@
-/**
- * 运行面板 - 底部常驻
- *
- * 两个区域:
- * 1. 输入表单: 根据工作流中 Collect 步骤的字段定义，让用户填写值（始终可见，方便反复测试）
- * 2. 结果展示: 步骤详情 + 最终输出
- */
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow'
 import type { InputField } from '@/types/workflow'
 
-/** 将任意数据安全转为可显示字符串 */
 function formatData(data: unknown): string {
   if (data == null) return ''
   if (typeof data === 'string') return data
@@ -25,7 +17,6 @@ export function RunPanel() {
   const { workflow, runResult, runEvents, liveOutput, isRunning, userInputs, setUserInput } = useWorkflowStore()
   const [showResult, setShowResult] = useState(true)
 
-  // 收集所有 Collect 步骤定义的字段
   const { inputFields, hasCollectBlock } = useMemo(() => {
     const fields: InputField[] = []
     let hasCollect = false
@@ -58,7 +49,6 @@ export function RunPanel() {
 
   return (
     <div className="editor-runbar">
-      {/* 输入区 */}
       {(hasInputs || showSimpleInput) && (
         <div className="flex flex-wrap gap-3 border-b border-[var(--app-border)] px-4 py-3">
           {showSimpleInput ? (
@@ -102,7 +92,6 @@ export function RunPanel() {
         </div>
       )}
 
-      {/* 运行结果 */}
       {(runResult || isRunning || runEvents.length > 0) && (
         <>
           <button

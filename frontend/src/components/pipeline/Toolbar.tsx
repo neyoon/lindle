@@ -1,6 +1,3 @@
-/**
- * 顶部工具栏
- */
 import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Play, Save, Factory, ArrowLeft, Sparkles, X, Loader2 } from 'lucide-react'
@@ -284,7 +281,6 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
       const resp = await fetch(`${API_BASE}/workflows/${workflow.id}/describe`)
       if (!resp.ok) throw new Error('获取描述失败')
       const data = await resp.json()
-      // 打开新窗口显示描述文本
       const win = window.open('', '_blank')
       if (win) {
         win.document.write(`<pre style="font-family:monospace;white-space:pre-wrap;padding:20px;max-width:800px;margin:0 auto;line-height:1.6">${escapeHtml(data.description)}</pre>`)
@@ -300,7 +296,6 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
     <div className="editor-toolbar px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
-        {/* 返回列表 */}
         {onBackToList && (
           <>
             <button
@@ -324,7 +319,6 @@ export function Toolbar({ onOpenManufacture, onBackToList, onManualSave, headerA
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {/* 编辑 */}
         <div className="relative flex items-center">
           {showEdit ? (
             <div className="flex items-center gap-1.5 rounded-sm border border-[var(--app-border-strong)] bg-[var(--app-accent-soft)] px-2 py-1">

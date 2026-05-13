@@ -4,33 +4,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =========================================================
-   LINDLE · Paper & Ink design language
-   ========================================================= */
-
 @layer base {
   :root {
     color-scheme: light;
 
-    /* ---- Paper tones ---- */
     --paper: #f7f3ed;
     --paper-warm: #f1ebd8;
     --paper-deep: #ede4d1;
     --card: #fffbf3;
     --card-soft: #fbf5e9;
 
-    /* ---- Ink tones ---- */
     --ink: #2d241b;
     --ink-mid: #51463a;
     --ink-soft: #7c6f5d;
     --ink-faint: #b5a792;
 
-    /* ---- Fiber / line ---- */
     --line: #d8cab0;
     --line-soft: #e8dcc3;
     --line-strong: #b9a880;
 
-    /* ---- Accents ---- */
     --rust: #b0603e;
     --rust-soft: #e8cdb9;
     --rust-ink: #8d4727;
@@ -40,7 +32,6 @@
     --bruise: #8b3a3a;
     --bruise-soft: #ebc8c8;
 
-    /* ---- Mapped legacy tokens (so components keep working) ---- */
     --app-bg: var(--paper);
     --app-bg-secondary: var(--paper-warm);
     --app-panel: rgba(255, 251, 243, 0.96);
@@ -68,16 +59,13 @@
     --app-danger: var(--bruise);
     --app-warning: var(--rust);
 
-    /* ---- Motion ---- */
     --ease: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-ink: cubic-bezier(0.33, 0.84, 0.22, 1);
   }
 
-  /* Keep old selector working — everything resolves to paper */
   :root[data-ui-theme='white'],
   :root[data-ui-theme='blue'],
   :root[data-ui-theme='paper'] {
-    /* tokens above already apply — nothing to override */
   }
 
   html {
@@ -106,14 +94,7 @@
   button, input, select, textarea { font: inherit; }
 }
 
-/* Remove the old blue grid overlay */
 body::before { display: none; content: none; }
-
-/* =========================================================
-   Shared keyframes — 6 motion primitives
-   动效类名里的 loom / knot / thread / weave 是历史命名，
-   叙事上已统一为"搭积木"：落位、咬合、连接、持续成形。
-   ========================================================= */
 
 @keyframes ink-bleed {
   0%   { opacity: 0; filter: blur(8px); transform: translateY(6px); letter-spacing: 0.06em; }
@@ -176,7 +157,6 @@ body::before { display: none; content: none; }
   to   { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
 }
 
-/* Compatibility — previous names still used by some components */
 @keyframes capabilityFade {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -185,10 +165,6 @@ body::before { display: none; content: none; }
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.2; }
 }
-
-/* =========================================================
-   Animation utility classes — reuse in JSX without style={{}}
-   ========================================================= */
 
 .anim-ink { opacity: 0; animation: ink-bleed 0.9s var(--ease-ink) forwards; }
 .anim-press > span { display: inline-block; opacity: 0; transform-origin: 50% 80%; animation: letterpress 0.7s var(--ease-ink) forwards; }
@@ -206,7 +182,6 @@ body::before { display: none; content: none; }
   background-image: linear-gradient(90deg, var(--rust) 0, var(--rust) 5px, transparent 5px, transparent 14px);
 }
 
-/* Connector line — 一次性 thread-draw，画完留线（对应 motion §2 连接线绘制） */
 .loom-thread {
   flex: 1;
   height: 1px;
@@ -239,13 +214,8 @@ body::before { display: none; content: none; }
 .reveal.stagger.in > *:nth-child(4) { transition-delay: 0.40s; opacity: 1; transform: translateY(0); }
 .reveal.stagger.in > *:nth-child(5) { transition-delay: 0.52s; opacity: 1; transform: translateY(0); }
 
-/* =========================================================
-   Component classes — kept compatible with existing JSX
-   ========================================================= */
-
 @layer components {
 
-  /* ---------- Shell ---------- */
   .app-shell {
     min-height: 100vh;
     position: relative;
@@ -298,7 +268,6 @@ body::before { display: none; content: none; }
   }
   .app-brand-link:hover { color: var(--rust); }
 
-  /* Kicker — the meta text with a short leading rule */
   .app-kicker, .app-mono {
     font-family: 'IBM Plex Mono', monospace;
     letter-spacing: 0.18em;
@@ -317,7 +286,6 @@ body::before { display: none; content: none; }
     height: 1.2px;
     background: var(--rust);
   }
-  /* Some usages nest .app-kicker where the leading rule isn't desired */
   .app-kicker.no-rule::before { display: none; content: none; }
 
   .app-page {
@@ -325,7 +293,6 @@ body::before { display: none; content: none; }
     margin: 0 auto;
   }
 
-  /* ---------- Cards ---------- */
   .app-card {
     border-radius: 6px;
     border: 1px solid var(--line);
@@ -354,7 +321,6 @@ body::before { display: none; content: none; }
     box-shadow: 0 2px 0 var(--line-soft);
   }
 
-  /* Section title — Chinese serif */
   .app-section-title {
     font-family: 'Noto Serif SC', serif;
     font-weight: 500;
@@ -382,7 +348,6 @@ body::before { display: none; content: none; }
   .app-muted { color: var(--ink-mid); }
   .app-subtle { color: var(--ink-soft); }
 
-  /* ---------- Buttons ---------- */
   .app-button {
     display: inline-flex;
     align-items: center;
@@ -445,7 +410,6 @@ body::before { display: none; content: none; }
   }
   .app-button-danger:hover { background: rgba(139, 58, 58, 0.14); border-color: var(--bruise); color: var(--bruise); }
 
-  /* ---------- Pill / Stat ---------- */
   .app-pill {
     display: inline-flex;
     align-items: center;
@@ -469,7 +433,6 @@ body::before { display: none; content: none; }
     box-shadow: 0 2px 0 var(--line-soft);
   }
 
-  /* ---------- Inputs ---------- */
   .app-input,
   .input-field {
     width: 100%;
@@ -499,7 +462,6 @@ body::before { display: none; content: none; }
     line-height: 1.65;
   }
 
-  /* Legacy toggle remains but hidden visually; useful if any view still uses it */
   .theme-toggle { display: none; }
 
   .hero-cursor {
@@ -509,7 +471,6 @@ body::before { display: none; content: none; }
   }
   .capability-fade { animation: capabilityFade 0.3s ease; }
 
-  /* ---------- Editor shell / chrome ---------- */
   .editor-shell {
     height: 100vh;
     display: flex;
@@ -596,7 +557,6 @@ body::before { display: none; content: none; }
   .editor-block.is-done { border-color: var(--moss); }
   .editor-block.is-error { border-color: var(--bruise); }
 
-  /* Port on block */
   .editor-port {
     position: absolute;
     width: 12px;
@@ -632,7 +592,6 @@ body::before { display: none; content: none; }
     background: var(--rust);
   }
 
-  /* Block type tag — pressed letterform */
   .block-tag {
     display: inline-flex;
     padding: 2px 8px;
@@ -649,7 +608,6 @@ body::before { display: none; content: none; }
   .block-tag.is-out { color: var(--moss); }
   .block-tag.is-plugin { color: var(--ink); background: var(--paper-warm); }
 
-  /* Badges — stamp that lands on the bottom edge of a block */
   .block-stamp {
     position: absolute;
     bottom: -9px;
@@ -671,7 +629,6 @@ body::before { display: none; content: none; }
   .block-stamp.is-added   { background: var(--moss); top: -9px; bottom: auto; }
   .block-stamp.is-modified{ background: var(--rust); top: -9px; bottom: auto; }
 
-  /* Hero seal — the 林 circle */
   .brand-seal {
     width: 38px;
     height: 38px;
@@ -713,7 +670,6 @@ body::before { display: none; content: none; }
   }
   .user-seal:hover { transform: rotate(8deg) scale(1.05); }
 
-  /* Kicker with stamp style — used on card corners */
   .stamp-corner {
     position: absolute;
     top: -12px;
@@ -728,7 +684,6 @@ body::before { display: none; content: none; }
     transform: rotate(2deg);
   }
 
-  /* Stitched border — for dashed paper card lining */
   .stitched {
     position: relative;
   }
@@ -741,11 +696,6 @@ body::before { display: none; content: none; }
     pointer-events: none;
   }
 
-  /* =========================================================
-     Stack Demo — Chapter III 的"一次搭建"
-     （由 WeaveDemo.tsx 消费；类名沿用旧的 weave-* 是历史遗留，语义为"搭积木"。
-       动效全部复用现有关键帧）
-     ========================================================= */
   .weave-demo {
     position: relative;
     padding: 2.25rem 2rem 1.6rem;
@@ -954,19 +904,10 @@ body::before { display: none; content: none; }
     .weave-kicker { font-size: 0.58rem; letter-spacing: 0.14em; }
   }
 
-  /* =========================================================
-     Sticky-topbar aware anchor jumps
-     app-topbar 占 ~72px；给带 id 的 section 留出足够余量。
-     ========================================================= */
   .app-page section[id] {
     scroll-margin-top: 96px;
   }
 
-  /* =========================================================
-     Settings entry — 齿轮 + 下拉菜单
-     齿轮沿用纸墨动效：落印时 stamp-land 带入，悬浮时 ink-ease 缓慢转动，
-     下拉菜单使用 panel-slide-in，和工具栏其他菜单保持一致。
-     ========================================================= */
   .settings-entry {
     position: relative;
     transition: border-color 0.3s, color 0.3s, background 0.25s;
@@ -1039,17 +980,11 @@ body::before { display: none; content: none; }
   }
 }
 
-/* =========================================================
-   Scrollbar — paper flavor
-   ========================================================= */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 0; border: 2px solid var(--paper); }
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
 
-/* =========================================================
-   Responsive + motion-preference overrides
-   ========================================================= */
 @media (max-width: 900px) {
   .app-topbar-inner,
   .app-page {

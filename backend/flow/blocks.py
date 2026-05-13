@@ -28,11 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 class BlockExecutor:
-    """块执行器 - 根据块类型分发执行"""
-
     @staticmethod
     async def execute(block: Block, context: Context) -> BlockResult:
-        """执行一个块"""
         executors = {
             BlockType.COLLECT: _execute_input,
             BlockType.PROCESS: _execute_ai,
@@ -78,7 +75,7 @@ def _resolve_provider(provider_id: str | None) -> dict[str, Any]:
         provider = get_default_provider()
 
     if provider is None:
-        return {}  # 全部回退到 llm.py 的全局 _config
+        return {}
 
     return {
         "model": provider.get("model"),
@@ -132,17 +129,11 @@ async def _execute_ai(block: Block, context: Context) -> BlockResult:
 
     如果下一栏有插件块且未配置输入模板，会自动追加插件期望的输入格式提示。
     """
-    # 获取配置
     prompt = block.config.prompt or ""
     output_keys = block.output_schema.keys if block.output_schema else None
 
-    # 解析 Provider 配置
     provider_config = _resolve_provider(block.config.model)
-
-    # 构建下游插件格式提示
     plugin_hint = _build_downstream_plugin_hint(context)
-
-    # 尝试渲染模板变量
     rendered_prompt, has_template = render_prompt_template(prompt, context)
 
     if has_template:
@@ -194,11 +185,9 @@ async def _execute_plugin(block: Block, context: Context) -> BlockResult:
             payload[key] = resolve_context_expression(str(binding.value), context)
         input_data = json.dumps(payload, ensure_ascii=False)
     elif block.config.prompt:
-        # 如果配置了 prompt 模板，使用模板渲染
         from flow.context import render_prompt_template
         input_data, _ = render_prompt_template(block.config.prompt, context)
     else:
-        # 否则使用默认的结构化上游数据
         connections = [c.model_dump() for c in block.connections] if block.connections else None
         input_value = context.get_upstream_value(connections)
         input_data = _serialize_plugin_input(input_value)

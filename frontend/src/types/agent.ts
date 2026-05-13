@@ -1,10 +1,3 @@
-/**
- * Agent 类型定义
- *
- * Agent 是一个可以动态调用 Skills 的智能助手
- * Skills 复用现有的 Plugin 系统
- */
-
 export interface AgentSkill {
   skill_id: string
   order: number
@@ -26,9 +19,9 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'tool_call' | 'tool_result'
   content: string
   reasoning?: string | null
-  tool_calls?: ToolCallInfo[]      // role=tool_call 时包含工具调用信息
-  tool_call_id?: string | null     // role=tool_result 时关联的调用 ID
-  tool_name?: string | null        // role=tool_result 时的工具名称
+  tool_calls?: ToolCallInfo[]
+  tool_call_id?: string | null
+  tool_name?: string | null
 }
 
 export interface ToolCallInfo {

@@ -23,7 +23,6 @@ from shared_llm import call_llm_with_messages, call_llm_with_messages_stream
 
 logger = logging.getLogger(__name__)
 
-# 最大工具调用轮数
 MAX_TOOL_ROUNDS = 5
 
 
@@ -46,17 +45,14 @@ class AgentEngine:
             {"type": "tool_status", "data": {...}}
             {"type": "tool_result", "data": {...}}
             {"type": "assistant_message", "data": {...}}
-            {"type": "done", "data": None}  # 完成
+            {"type": "done", "data": None}
         """
         history = history or []
 
-        # 构建初始消息列表
         api_messages = self._build_messages(user_message, history)
 
-        # 构建可用的 tools
         tools = self._build_tools() if self.agent.skills else None
 
-        # 解析 Provider 配置
         provider_config = self._resolve_provider()
 
         try:
@@ -67,7 +63,6 @@ class AgentEngine:
                     "data": {"round": round_index},
                 }
 
-                # 流式调用 LLM
                 full_content = ""
                 tool_calls = None
                 done_received = False
@@ -100,7 +95,6 @@ class AgentEngine:
                     elif chunk["type"] == "tool_calls":
                         tool_calls = chunk["data"]
                     elif chunk["type"] == "done":
-                        # 获取完整结果
                         result = chunk["data"]
                         tool_calls = result.get("tool_calls")
                         done_received = True
@@ -160,7 +154,6 @@ class AgentEngine:
                         self.agent.name, tool_name, arguments_str[:200],
                     )
 
-                    # 发送工具执行开始的提示
                     yield {
                         "type": "tool_status",
                         "data": {
@@ -194,7 +187,6 @@ class AgentEngine:
                         else str(tool_result)
                     )
 
-                    # 发送 tool_result
                     msg = ChatMessage(
                         role="tool_result",
                         content=tool_result_str,
@@ -231,7 +223,6 @@ class AgentEngine:
                 )
 
             else:
-                # 超过最大轮数
                 msg = ChatMessage(
                     role="assistant",
                     content="工具调用次数已达上限，我将基于已有结果进行回复。"
@@ -272,34 +263,28 @@ class AgentEngine:
         Returns:
             {
                 "messages": [ChatMessage, ...],
-                "reasoning": str,  # 思考过程（如果模型支持）
+                "reasoning": str,
             }
         """
         history = history or []
 
-        # 构建初始消息列表
         api_messages = self._build_messages(user_message, history)
 
-        # 构建可用的 tools
         tools = self._build_tools() if self.agent.skills else None
 
-        # 解析 Provider 配置
         provider_config = self._resolve_provider()
 
-        # 存储要返回给前端的消息
         output_messages: list[ChatMessage] = []
         reasoning = ""
 
         try:
             for round_num in range(MAX_TOOL_ROUNDS + 1):
-                # 调用 LLM
                 llm_response = await call_llm_with_messages(
                     messages=api_messages,
                     tools=tools,
                     **provider_config,
                 )
 
-                # 收集 reasoning
                 if llm_response.get("reasoning"):
                     if reasoning:
                         reasoning += "\n\n"
@@ -308,15 +293,12 @@ class AgentEngine:
                 tool_calls = llm_response.get("tool_calls")
 
                 if not tool_calls:
-                    # 没有工具调用 → 最终回复
                     content = llm_response.get("content") or ""
                     output_messages.append(
                         ChatMessage(role="assistant", content=content)
                     )
                     break
 
-                # 有工具调用
-                # 1) 添加 assistant 消息（包含 tool_calls 信息）
                 assistant_content = llm_response.get("content") or ""
                 tool_call_infos = []
                 for tc in tool_calls:
@@ -335,14 +317,12 @@ class AgentEngine:
                     )
                 )
 
-                # 2) 将 assistant 消息添加到 api_messages（OpenAI 格式）
                 api_messages.append({
                     "role": "assistant",
                     "content": assistant_content or None,
                     "tool_calls": tool_calls,
                 })
 
-                # 3) 逐个执行工具
                 for tc in tool_calls:
                     tc_id = tc.get("id", "")
                     func = tc.get("function", {})
@@ -354,7 +334,6 @@ class AgentEngine:
                         self.agent.name, tool_name, arguments_str[:200],
                     )
 
-                    # 执行工具
                     tool_result = await self._execute_tool(
                         tool_name, arguments_str
                     )
@@ -364,7 +343,6 @@ class AgentEngine:
                         else str(tool_result)
                     )
 
-                    # 添加 tool_result 消息给前端
                     output_messages.append(
                         ChatMessage(
                             role="tool_result",
@@ -374,7 +352,6 @@ class AgentEngine:
                         )
                     )
 
-                    # 添加 tool result 到 api_messages（OpenAI 格式）
                     api_messages.append({
                         "role": "tool",
                         "tool_call_id": tc_id,
@@ -387,7 +364,6 @@ class AgentEngine:
                 )
 
             else:
-                # 超过最大轮数
                 output_messages.append(
                     ChatMessage(
                         role="assistant",
@@ -439,10 +415,8 @@ class AgentEngine:
         """构建消息列表"""
         messages = []
 
-        # 系统提示词
         system_content = self.agent.system_prompt or ""
 
-        # 自动注入绑定的 Flows 信息
         system_content += self._build_flow_info()
         system_content += self._build_skill_schema_info()
 
@@ -461,7 +435,6 @@ class AgentEngine:
         while idx < len(history):
             msg = history[idx]
 
-            # 正在等待 tool_result 配对
             if pending_tool_ids:
                 if msg.role == "tool_result" and msg.tool_call_id in pending_tool_ids:
                     pending_tool_results.append({
@@ -471,14 +444,12 @@ class AgentEngine:
                     })
                     pending_tool_ids.remove(msg.tool_call_id)
 
-                    # 配对完成后再提交这段 assistant+tool 对话
                     if not pending_tool_ids and pending_assistant_msg is not None:
                         messages.append(pending_assistant_msg)
                         messages.extend(pending_tool_results)
                         pending_assistant_msg = None
                         pending_tool_results = []
                 else:
-                    # 当前消息打断了配对链：丢弃这段不完整 tool 链，并重试当前消息
                     logger.warning("检测到不完整工具调用历史，已跳过该段无效 tool 链")
                     pending_assistant_msg = None
                     pending_tool_ids = set()
@@ -516,14 +487,12 @@ class AgentEngine:
                     pending_tool_ids = {tc["id"] for tc in cleaned_tool_calls}
                     pending_tool_results = []
                 elif msg.content:
-                    # tool_calls 不合法时，降级为普通 assistant 文本
                     messages.append({
                         "role": "assistant",
                         "content": msg.content,
                     })
 
             elif msg.role == "tool_result":
-                # 没有对应 tool_call 的孤立结果，直接忽略
                 logger.warning("检测到孤立 tool_result，已忽略: tool_call_id=%s", msg.tool_call_id)
 
             elif msg.role in ("user", "assistant"):
@@ -534,11 +503,9 @@ class AgentEngine:
 
             idx += 1
 
-        # 结束时仍未闭合，说明 tool 链不完整，丢弃该段
         if pending_tool_ids:
             logger.warning("历史消息末尾存在未闭合 tool_calls，已丢弃该段")
 
-        # 当前用户消息
         messages.append({"role": "user", "content": user_message})
 
         return messages
@@ -571,7 +538,6 @@ class AgentEngine:
             if not workflow:
                 continue
 
-            # 提取输入字段
             input_fields = []
             for col in workflow.columns:
                 for block in col.blocks:
@@ -584,7 +550,6 @@ class AgentEngine:
                                 f"  - `{field.name}` ({required}): {label}{default_str}"
                             )
 
-            # 提取输出信息
             output_info = []
             sorted_cols = workflow.get_sorted_columns()
             if sorted_cols:
@@ -694,20 +659,17 @@ class AgentEngine:
         """执行工具调用（流式版本，支持进度回调）
 
         Yields:
-            {"type": "progress", "data": str}  # 进度消息
-            {"type": "result", "data": Any}    # 最终结果
+            {"type": "progress", "data": str}
+            {"type": "result", "data": Any}
         """
         try:
-            # 检查工具是否支持流式执行
             from plugins.registry import get_plugin
             plugin = get_plugin(tool_name)
 
-            # 如果工具有 execute_stream 方法，使用流式执行
             if plugin and hasattr(plugin, 'execute_stream'):
                 async for event in plugin.execute_stream(arguments_str, {}):
                     yield event
             else:
-                # 否则使用普通执行
                 result = await execute_plugin(tool_name, arguments_str)
                 yield {"type": "result", "data": result}
         except Exception as e:

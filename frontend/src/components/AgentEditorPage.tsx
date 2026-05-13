@@ -1,13 +1,3 @@
-/**
- * Agent 编辑器页面 - 左中右三栏布局（改进版）
- *
- * 改进：
- * 1. 默认折叠高级选项（系统提示词、模型选择）
- * 2. 快速创建功能
- * 3. Skills 推荐标签
- * 4. 保持拖拽交互
- * 5. 导出功能
- */
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Save, ArrowLeft, Sparkles, Plus, Trash2, GripVertical, Send, ChevronDown, ChevronUp, Download, Zap, Wrench, CheckCircle, Square } from 'lucide-react'
@@ -161,10 +151,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
   const [draggedSkillId, setDraggedSkillId] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showSkillEditor, setShowSkillEditor] = useState(false)
-  const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null) // 展开的 Skill ID
-  const [skillsDirty, setSkillsDirty] = useState(false) // Skills 是否有变化，需要在发送时刷新 prompt
+  const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null)
+  const [skillsDirty, setSkillsDirty] = useState(false)
 
-  // 对话相关状态
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -174,15 +163,12 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatAbortRef = useRef<AbortController | null>(null)
 
-  // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, liveReasoning, liveStatus, chatLoading])
 
-  // 推荐的 Skills（标记为推荐）
   const recommendedSkillIds = ['workflow_executor', 'workflow_designer']
 
-  // 加载数据
   useEffect(() => {
     const load = async () => {
       setLoading(true)
@@ -194,7 +180,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           listWorkflows().catch(() => []),
         ])
 
-        // 合并内置 Skills 和自定义 Skills
         const allSkills = [
           ...skills,
           ...customSkills.map((cs: any) => ({
@@ -227,8 +212,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
         }
       } catch (e) {
         console.error('加载失败:', e)
-        // 不要 alert，只在控制台记录错误
-        // 继续加载，即使部分数据失败
       } finally {
         setLoading(false)
       }
@@ -236,9 +219,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     load()
   }, [agentId])
 
-  // 快速创建 Agent
   const handleQuickCreate = async () => {
-    // 自动添加推荐的 Skills
     const skills: { skill_id: string; order: number; config: Record<string, string> }[] = []
 
     const executor = availableSkills.find(s => s.meta.id === 'workflow_executor')
@@ -266,7 +247,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     alert('已快速创建智能助手！你可以在 Flow 执行器中绑定已有的 Flow，或直接保存。')
   }
 
-  // 保存 Agent
   const handleSave = async () => {
     if (!agent.name.trim()) {
       alert('请输入 Agent 名称')
@@ -274,9 +254,8 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
 
     try {
-      // agentId 始终存在（自动保存时已创建）
       await updateAgent(agentId!, agent)
-      onManualSave?.() // 标记为手动保存
+      onManualSave?.()
       alert('保存成功')
       onBack()
     } catch (e) {
@@ -284,7 +263,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
   }
 
-  // 导出 Agent
   const handleExport = async () => {
     if (!agentId) return
     try {
@@ -294,7 +272,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
   }
 
-  // 添加 Skill
   const handleAddSkill = (skillId: string) => {
     if (agent.skills.some(s => s.skill_id === skillId)) {
       return
@@ -311,20 +288,18 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
       skills: [...agent.skills, newSkill],
     }
     setAgent(newAgent)
-    setSkillsDirty(true) // 标记 skills 有变化
+    setSkillsDirty(true)
   }
 
-  // 删除 Skill
   const handleRemoveSkill = (skillId: string) => {
     const newAgent = {
       ...agent,
       skills: agent.skills.filter(s => s.skill_id !== skillId).map((s, i) => ({ ...s, order: i })),
     }
     setAgent(newAgent)
-    setSkillsDirty(true) // 标记 skills 有变化
+    setSkillsDirty(true)
   }
 
-  // 添加/移除 Flow 到 workflow_executor Skill 的 config
   const handleToggleFlow = async (skillId: string, flowId: string) => {
     const skill = agent.skills.find(s => s.skill_id === skillId)
     if (!skill) return
@@ -345,7 +320,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
 
     setAgent(updatedAgent)
 
-    // 自动保存到后端
     if (agentId) {
       try {
         await updateAgent(agentId, updatedAgent)
@@ -354,25 +328,20 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
       }
     }
 
-    // 标记 skills 有变化，发送消息时再刷新 prompt
     setSkillsDirty(true)
   }
 
-  // 判断 Skill 是否需要绑定 Flows
   const isFlowSkill = (skillId: string) => {
     return skillId === 'workflow_executor'
   }
 
-  // 获取 Skill 绑定的 Flow IDs
   const getSkillFlows = (skillId: string): string[] => {
     const skill = agent.skills.find(s => s.skill_id === skillId)
     if (!skill || !skill.config.flows) return []
     return skill.config.flows.split(',').filter(Boolean)
   }
 
-  // 自动生成系统提示词，生成完后自动同步到后端
   const autoGeneratePrompt = async (currentAgent: Agent) => {
-    // 如果没有 skills，清空 prompt
     if (currentAgent.skills.length === 0) {
       const updated = { ...currentAgent, system_prompt: '' }
       setAgent(updated)
@@ -388,7 +357,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
         const skill = availableSkills.find(sk => sk.meta.id === s.skill_id)
         let description = skill?.meta.description || ''
 
-        // 如果是 workflow_executor，附上绑定的 Flow 名称
         if (s.skill_id === 'workflow_executor' && s.config.flows) {
           const flowNames = s.config.flows.split(',').filter(Boolean).map(fid => {
             const flow = availableFlows.find(f => f.id === fid)
@@ -410,7 +378,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
       const updated = { ...currentAgent, system_prompt: result.system_prompt }
       setAgent(updated)
 
-      // 自动同步到后端，保证对话时使用最新的 prompt
       if (agentId) {
         await updateAgent(agentId, updated)
       }
@@ -421,7 +388,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
   }
 
-  // 拖拽处理
   const handleDragStart = (skillId: string) => {
     setDraggedSkillId(skillId)
   }
@@ -438,12 +404,10 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
   }
 
-  // 保存自定义 Skill
   const handleSaveCustomSkill = async (skillData: any) => {
     try {
       await createCustomSkill(skillData)
 
-      // 重新加载 Skills 列表
       const [skills, customSkills] = await Promise.all([
         listSkills(),
         listCustomSkills(),
@@ -495,7 +459,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
   }
 
-  // 发送消息
   const handleSendMessage = async () => {
     if (!input.trim() || chatLoading) return
 
@@ -504,7 +467,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
       return
     }
 
-    // 如果 skills 有变化，先刷新 prompt 再发送
     if (skillsDirty) {
       await autoGeneratePrompt(agent)
       setSkillsDirty(false)
@@ -533,7 +495,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
         tool_name: m.tool_name,
       }))
 
-      // 使用流式 API
       let currentReasoningByRound = ''
       let currentContent = ''
       let isStreamingAssistant = false
@@ -641,7 +602,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
         }
       }
 
-      // 如果 workflow_designer 创建了新 Flow，刷新 Flow 列表
       const hasNewFlow = allMessages.some(
         m => m.role === 'tool_result' && m.tool_name === 'workflow_designer'
           && m.content && m.content.includes('"success": true')
@@ -669,12 +629,10 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     }
   }
 
-  // 获取 Skill 信息
   const getSkillInfo = (skillId: string) => {
     return availableSkills.find(s => s.meta.id === skillId)
   }
 
-  // 获取 Flow 信息
   const getFlowInfo = (flowId: string) => {
     return availableFlows.find(f => f.id === flowId)
   }
@@ -689,7 +647,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
 
   return (
     <div className="editor-shell">
-      {/* 顶栏 */}
       <div className="editor-toolbar px-6 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -741,12 +698,9 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
       </div>
       </div>
 
-      {/* 主内容区 - 左中右三栏 */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 左栏：Agent 配置 + 已激活 Skills */}
         <div className="editor-panel w-80 overflow-y-auto border-r">
           <div className="p-4 space-y-4">
-            {/* Agent 基本信息 */}
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
                 描述
@@ -760,7 +714,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
               />
             </div>
 
-            {/* 高级选项（可折叠） */}
             <div className="rounded-sm border border-[var(--app-border)]">
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
@@ -772,7 +725,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
 
               {showAdvanced && (
                 <div className="space-y-3 border-t border-[var(--app-border)] p-3">
-                  {/* 模型选择 */}
                   <div>
                     <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
                       模型
@@ -795,7 +747,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                     </p>
                   </div>
 
-                  {/* 系统提示词 */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-medium text-[var(--app-text-soft)]">
@@ -820,7 +771,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
               )}
             </div>
 
-            {/* 已激活的 Skills */}
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--app-text-soft)]">
                 已激活的 Skills
@@ -867,7 +817,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                           </button>
                         </div>
 
-                        {/* Flow 选择器（展开时显示） */}
                         {isFlowSkillType && isExpanded && (
                           <div className="ml-6 space-y-1 border-l-2 border-[var(--app-border-strong)] pl-4">
                             <div className="mb-2 text-xs text-[var(--app-text-soft)]">选择可用的 Flows:</div>
@@ -896,7 +845,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           </div>
         </div>
 
-        {/* 中栏：对话界面 */}
         <div className="editor-panel flex flex-1 flex-col">
           <div className="flex-1 overflow-y-auto p-6">
             <div className="mx-auto mb-4 flex max-w-3xl items-center justify-between">
@@ -979,7 +927,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           </div>
         </div>
 
-        {/* 右栏：可用 Skills */}
         <div className="editor-panel w-80 overflow-y-auto border-l">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
@@ -1042,10 +989,8 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
         </div>
       </div>
 
-      {/* 测试对话框 */}
       {agentId && <AgentTestChat agentId={agentId} agentName={agent.name} />}
 
-      {/* Skill 编辑器 */}
       {showSkillEditor && (
         <SkillEditor
           onClose={() => setShowSkillEditor(false)}

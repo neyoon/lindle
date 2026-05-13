@@ -1,14 +1,3 @@
-/**
- * Lindle 类型定义
- *
- * 核心概念:
- * - Workflow: 工作流，由有序的 Column 组成
- * - Column: 栏（竖条），代表一个执行步骤，内含并行执行的 Block
- * - Block: 步骤块，最小执行单元（收集/处理/工具/结果）
- * - Connection: 连接，可选的精确数据流指定
- * - BlockTemplate: 可复用块模板，制造工坊的产物
- */
-
 export type BlockType = 'collect' | 'process' | 'result' | 'tool'
 
 export interface OutputSchema {
@@ -74,8 +63,6 @@ export interface WorkflowSummary {
   column_count: number
 }
 
-// ===== 块模板 (制造工坊) =====
-
 export interface BlockTemplate {
   id: string
   ref: string
@@ -87,8 +74,6 @@ export interface BlockTemplate {
   output_schema?: OutputSchema | null
   created_at?: string
 }
-
-// ===== 执行相关 =====
 
 export interface StepEvent {
   event_type: 'column_start' | 'block_start' | 'block_done' | 'column_done' | 'flow_done' | 'error'
@@ -110,8 +95,6 @@ export interface RunResult {
   total_elapsed: number
   error?: string
 }
-
-// ===== 插件 =====
 
 export interface PluginParam {
   name: string

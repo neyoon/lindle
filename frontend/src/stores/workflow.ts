@@ -1,12 +1,3 @@
-/**
- * 工作流状态管理 (Zustand)
- *
- * 管理:
- * - 当前工作流数据
- * - 选中的块
- * - 端口连接交互状态
- * - 执行状态
- */
 import { create } from 'zustand'
 import type {
   Block,
@@ -101,7 +92,6 @@ interface ConnectingState {
 }
 
 interface WorkflowState {
-  // 数据
   workflow: Workflow
   selectedBlockId: string | null
   runResult: RunResult | null
@@ -111,23 +101,18 @@ interface WorkflowState {
   isRunning: boolean
   userInputs: Record<string, string>
 
-  // 端口连接交互
   connectingFrom: ConnectingState | null
 
-  // 编辑 diff 高亮
   blockDiffMap: Record<string, 'added' | 'modified'> | null
   setBlockDiffMap: (map: Record<string, 'added' | 'modified'> | null) => void
 
-  // 工作流操作
   setWorkflow: (workflow: Workflow) => void
   updateWorkflowMeta: (name: string, description: string) => void
 
-  // 栏操作
   addColumn: (afterOrder?: number) => void
   removeColumn: (columnId: string) => void
   setColumnRepeat: (columnId: string, repeat: number) => void
 
-  // 块操作
   addBlock: (columnId: string, type: BlockType, name: string, pluginId?: string) => void
   addBlockFromTemplate: (columnId: string, template: BlockTemplate) => void
   moveBlock: (blockId: string, fromColumnId: string, toColumnId: string, insertIndex: number) => void
@@ -137,7 +122,6 @@ interface WorkflowState {
   renameInputReference: (oldName: string, newName: string) => void
   selectBlock: (blockId: string | null) => void
 
-  // 连接操作
   addConnection: (blockId: string, fromBlockId: string, fromKey?: string) => void
   removeConnection: (blockId: string, fromBlockId: string) => void
   updateConnectionKey: (blockId: string, fromBlockId: string, fromKey: string | null) => void
@@ -145,7 +129,6 @@ interface WorkflowState {
   finishConnecting: (targetBlockId: string) => void
   cancelConnecting: () => void
 
-  // 执行 & 用户输入
   resetRunState: () => void
   appendRunEvent: (event: StepEvent) => void
   setLiveOutput: (output: unknown | null) => void
@@ -448,9 +431,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         })),
       },
     })),
-
-  // ===== 端口连接交互 =====
-
   startConnecting: (blockId, columnOrder) =>
     set({ connectingFrom: { blockId, columnOrder } }),
 
@@ -460,7 +440,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({ connectingFrom: null })
       return
     }
-    // 验证: 只允许从前列连接到后列（由 Block 组件的端口可见性保证）
     get().addConnection(targetBlockId, connectingFrom.blockId)
     set({ connectingFrom: null })
   },

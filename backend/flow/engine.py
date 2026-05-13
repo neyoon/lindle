@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class StepEvent:
     """执行事件 - 用于实时推送执行状态"""
 
-    event_type: str  # "column_start" | "block_start" | "block_done" | "column_done" | "flow_done" | "error"
+    event_type: str
     column_id: str = ""
     column_order: int = 0
     block_id: str = ""
@@ -70,7 +70,6 @@ class Engine:
         async for event in self.run_stream(user_inputs):
             events.append(event)
 
-        # 找到最终结果
         last_event = events[-1] if events else None
         if last_event and last_event.event_type == "flow_done":
             return ExecutionResult(
@@ -108,7 +107,6 @@ class Engine:
             for col_idx, column in enumerate(columns):
                 repeat = max(column.repeat, 1)
 
-                # 检查下一栏是否有插件块，设置下游格式提示
                 context.downstream_plugin_hints = self._collect_downstream_plugin_hints(
                     columns, col_idx
                 )
@@ -134,13 +132,8 @@ class Engine:
                             elapsed=time.time() - start_time,
                         )
 
-                    # 栏内所有块并行执行
                     results = await self._execute_column(column, context)
-
-                    # 将结果存入上下文
                     context.add_column_results(column_iter_id, results)
-
-                    # 逐个推送块完成事件
                     for result in results:
                         yield StepEvent(
                             event_type="block_done",
@@ -159,7 +152,6 @@ class Engine:
                         elapsed=time.time() - start_time,
                     )
 
-            # 完成
             yield StepEvent(
                 event_type="flow_done",
                 data=context.get_final_output(),
@@ -191,7 +183,6 @@ class Engine:
             block = executable.block
             if block.type != BlockType.TOOL or not block.config.plugin_id:
                 continue
-            # 如果工具步骤已经配置了 prompt 模板，说明用户手动处理了格式转换
             if block.config.prompt:
                 continue
             plugin = get_plugin(block.config.plugin_id)
@@ -209,11 +200,9 @@ class Engine:
             return []
 
         if len(column.blocks) == 1:
-            # 单块，直接执行
             result = await BlockExecutor.execute(column.blocks[0].block, context)
             return [result]
 
-        # 多块并行
         tasks = [BlockExecutor.execute(executable.block, context) for executable in column.blocks]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -221,10 +210,8 @@ class Engine:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error("块 [%s] 执行失败: %s", column.blocks[i].block.name, result)
-                # 如果启用了 stop_on_error，立即抛出异常
                 if self.plan.stop_on_error:
                     raise result
-                # 否则将错误包装为 BlockResult
                 final_results.append(
                     BlockResult(
                         block_id=column.blocks[i].block.id,

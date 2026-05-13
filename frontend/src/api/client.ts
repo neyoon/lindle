@@ -1,6 +1,3 @@
-/**
- * API 客户端
- */
 import type {
   BlockTemplate,
   EnabledPlugin,
@@ -50,8 +47,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 }
 
-// ===== Workflow (Pipeline) =====
-
 export async function listWorkflows() {
   return request<WorkflowSummary[]>('/workflows/')
 }
@@ -77,8 +72,6 @@ export async function updateWorkflow(id: string, workflow: Workflow) {
 export async function deleteWorkflow(id: string) {
   return request(`/workflows/${id}`, { method: 'DELETE' })
 }
-
-// ===== Execution =====
 
 export async function runWorkflow(id: string, inputs: Record<string, unknown>) {
   return request<RunResult>(`/run/${id}`, {
@@ -135,8 +128,6 @@ export async function* runWorkflowStream(id: string, inputs: Record<string, unkn
   }
 }
 
-// ===== Code Generation =====
-
 export async function downloadCode(id: string) {
   const response = await fetch(`${BASE}/codegen/${id}/download`, {
     method: 'POST',
@@ -168,8 +159,6 @@ export async function downloadWorkflowManifest(id: string) {
   return downloadJsonFile(`/workflows/${id}/export`, `workflow_${id}.json`)
 }
 
-// ===== Plugins =====
-
 export async function listPlugins() {
   return request<PluginInfo[]>('/plugins/')
 }
@@ -196,9 +185,6 @@ export async function updatePluginConfig(pluginId: string, config: Record<string
   })
 }
 
-// ===== Settings (LLM Provider 管理) =====
-
-/** 启动检查用：是否有已配置的 Provider */
 export interface SettingsSummary {
   api_key_set: boolean
   api_key_masked: string
@@ -271,8 +257,6 @@ export async function testConnection(params: { api_key?: string; base_url: strin
   })
 }
 
-// ===== Workspace (块模板) =====
-
 export async function listTemplates() {
   return request<BlockTemplate[]>('/workspace/')
 }
@@ -294,8 +278,6 @@ export async function updateTemplate(id: string, template: BlockTemplate) {
 export async function deleteTemplate(id: string) {
   return request<{ ok: boolean }>(`/workspace/${id}`, { method: 'DELETE' })
 }
-
-// ===== Agents =====
 
 export async function listAgents() {
   return request<{ id: string; name: string; description: string; skill_count: number; created_at: string; updated_at: string }[]>('/agents/')
@@ -404,8 +386,6 @@ export async function* chatWithAgentStream(
     reader.releaseLock()
   }
 }
-
-// ===== Custom Skills =====
 
 export async function listCustomSkills() {
   return request<any[]>('/plugins/custom-skills')

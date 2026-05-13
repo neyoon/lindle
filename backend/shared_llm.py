@@ -29,10 +29,8 @@ class LLMConfig:
     timeout: float = 600.0
 
 
-# 全局配置（通过 configure() 设置）
 _config = LLMConfig()
 
-# 全局 httpx 客户端（复用连接，避免嵌套创建）
 _global_client: httpx.AsyncClient | None = None
 
 
@@ -90,7 +88,6 @@ async def call_llm(
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
 
-    # 构建系统提示词
     system_parts = ["你是一个专业的 AI 助手。请根据用户的指令完成任务。"]
 
     if output_keys:
@@ -102,7 +99,6 @@ async def call_llm(
 
     system_prompt = "\n".join(system_parts)
 
-    # 构建用户消息
     user_parts = [prompt]
     if context:
         user_parts.append(f"\n---以下是上游数据---\n{context}")
@@ -185,7 +181,6 @@ async def _call_api_with_tools(
     if tool_choice != "auto":
         payload["tool_choice"] = tool_choice
 
-    # 阿里云 Qwen 模型支持思考模式
     if "qwen" in model.lower() and "dashscope.aliyuncs.com" in effective_url:
         payload["enable_thinking"] = True
 
@@ -224,17 +219,16 @@ async def call_llm_with_messages_stream(
     """流式调用 LLM（用于 Agent 多轮对话）
 
     Yields:
-        {"type": "reasoning", "data": str}  # 思考内容
-        {"type": "content", "data": str}    # 回复内容（逐字）
-        {"type": "tool_calls", "data": list}  # 工具调用
-        {"type": "done", "data": dict}      # 完成，返回完整结果
+        {"type": "reasoning", "data": str}
+        {"type": "content", "data": str}
+        {"type": "tool_calls", "data": list}
+        {"type": "done", "data": dict}
     """
     effective_model = model or _config.default_model
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
 
     try:
-        # 暂时不使用全局客户端，每次创建新的，避免连接池问题
         client = httpx.AsyncClient(timeout=_config.timeout)
         payload = {
             "model": effective_model,
@@ -248,11 +242,7 @@ async def call_llm_with_messages_stream(
             if tool_choice != "auto":
                 payload["tool_choice"] = tool_choice
 
-        # 阿里云 Qwen 模型支持思考模式（但会导致 content 为空，暂时禁用）
-        # if "qwen" in effective_model.lower() and "dashscope.aliyuncs.com" in effective_url:
-        #     payload["enable_thinking"] = True
-
-        async with client:  # 确保客户端会被正确关闭
+        async with client:
             stream_context = client.stream(
                 "POST",
                 f"{effective_url}/chat/completions",
@@ -268,7 +258,7 @@ async def call_llm_with_messages_stream(
 
                 full_content = ""
                 full_reasoning = ""
-                tool_calls_accumulator = {}  # 用字典累积 tool_calls，key 是 index
+                tool_calls_accumulator = {}
                 done_emitted = False
                 got_done_signal = False
 
@@ -299,21 +289,17 @@ async def call_llm_with_messages_stream(
 
                         delta = choices[0].get("delta", {})
 
-                        # 打印前几个 delta 看看结构
                         if line_count <= 5:
                             logger.debug("stream delta #%d: %s", line_count, delta)
 
-                        # 处理 reasoning
                         if reasoning := delta.get("reasoning_content"):
                             full_reasoning += reasoning
                             yield {"type": "reasoning", "data": reasoning}
 
-                        # 处理 content
                         if content := delta.get("content"):
                             full_content += content
                             yield {"type": "content", "data": content}
 
-                        # 处理 tool_calls（增量累积）
                         if tool_calls_delta := delta.get("tool_calls"):
                             for tc_delta in tool_calls_delta:
                                 index = tc_delta.get("index", 0)
@@ -324,7 +310,6 @@ async def call_llm_with_messages_stream(
                                         "function": {"name": "", "arguments": ""}
                                     }
 
-                                # 累积各个字段
                                 if "id" in tc_delta:
                                     tool_calls_accumulator[index]["id"] += tc_delta["id"]
                                 if "type" in tc_delta:
@@ -340,7 +325,6 @@ async def call_llm_with_messages_stream(
                         logger.debug("解析流式行失败: %s, line=%s", e, line[:100])
                         continue
 
-                # 转换累积的 tool_calls 为列表
                 tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
 
                 # 防止把空响应误当成功，导致前端表现为“无回复”
@@ -352,7 +336,6 @@ async def call_llm_with_messages_stream(
                 ):
                     raise RuntimeError("LLM 流式响应提前结束且无有效内容")
 
-                # 返回完整结果（防重：done 只发送一次）
                 if not done_emitted:
                     done_emitted = True
                     yield {
@@ -408,17 +391,14 @@ def _parse_json_output(text: str) -> dict[str, Any]:
     """尝试从 LLM 输出中解析 JSON"""
     text = text.strip()
 
-    # 处理 markdown 代码块包裹的情况
     if text.startswith("```"):
         lines = text.split("\n")
-        # 去掉首尾的 ``` 行
         lines = [l for l in lines if not l.strip().startswith("```")]
         text = "\n".join(lines)
 
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        # 尝试找到 JSON 部分
         start = text.find("{")
         end = text.rfind("}") + 1
         if start != -1 and end > start:
@@ -427,6 +407,5 @@ def _parse_json_output(text: str) -> dict[str, Any]:
             except json.JSONDecodeError:
                 pass
 
-        # 解析失败，返回原始文本
         logger.warning("Failed to parse JSON output, returning raw text: %s", text[:200])
         return {"raw_output": text}

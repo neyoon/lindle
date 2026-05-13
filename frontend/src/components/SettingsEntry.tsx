@@ -1,6 +1,3 @@
-/**
- * 顶栏右侧的设置入口
- */
 import { useEffect, useRef, useState } from 'react'
 import { Settings2, SlidersHorizontal, Cable } from 'lucide-react'
 

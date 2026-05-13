@@ -63,7 +63,6 @@ class WorkflowDesignerSkill(BasePlugin):
         Returns:
             包含创建结果的字典
         """
-        # 使用流式版本，但只返回最终结果
         result = None
         async for event in self.execute_stream(input_data, config):
             if event["type"] == "result":
@@ -74,8 +73,8 @@ class WorkflowDesignerSkill(BasePlugin):
         """创建 Flow（流式版本，支持进度回调）
 
         Yields:
-            {"type": "progress", "data": str}  # 进度消息
-            {"type": "result", "data": dict}   # 最终结果
+            {"type": "progress", "data": str}
+            {"type": "result", "data": dict}
         """
         try:
             data = json.loads(input_data)
@@ -97,12 +96,10 @@ class WorkflowDesignerSkill(BasePlugin):
             yield {"type": "progress", "data": "正在创建工作流..."}
             print(f"[workflow_designer] 正在创建工作流...")
 
-            # 导入工作流相关模块
             from datetime import datetime
             from storage.file_store import save_workflow
             from flow.flowspec import FlowSpec
 
-            # 创建空白工作流
             workflow_id = f"wf_{int(datetime.now().timestamp() * 1000)}_{id(self) % 1000000}"
             spec = FlowSpec(
                 workflow_id=workflow_id,
@@ -118,12 +115,9 @@ class WorkflowDesignerSkill(BasePlugin):
             yield {"type": "progress", "data": "正在调用 AI 生成工作流内容..."}
             print(f"[workflow_designer] 正在调用 AI 生成工作流内容...")
 
-            # 使用 编辑功能生成工作流内容
-            # 导入 编辑相关模块
             from api.routes.settings import get_edit_provider
             from shared_llm import _config
 
-            # 获取 LLM 配置
             provider = get_edit_provider()
             if provider and provider.get("api_key"):
                 api_key = provider["api_key"]
@@ -145,13 +139,11 @@ class WorkflowDesignerSkill(BasePlugin):
                 }
                 return
 
-            # 构建 编辑的 prompt
             from api.routes.workflow_edit import _EDIT_SYSTEM_PROMPT, _build_plugins_info
 
             plugins_info = _build_plugins_info()
             flowspec_json = spec.model_dump_json(indent=2)
 
-            # 强制要求 JSON 输出
             system_prompt = _EDIT_SYSTEM_PROMPT + plugins_info + "\n\n**重要：你必须只返回有效的 JSON 对象，不要包含任何其他内容。**"
 
             messages = [
@@ -162,13 +154,11 @@ class WorkflowDesignerSkill(BasePlugin):
                 },
             ]
 
-            # 调用 LLM 生成工作流（使用流式调用，显示进度）
             from shared_llm import call_llm_with_messages_stream
 
             full_text = ""
             last_progress_length = 0
             try:
-                # 使用流式调用，每 1000 字符显示一次进度
                 async for chunk in call_llm_with_messages_stream(
                     messages=messages,
                     model=model,
@@ -180,14 +170,12 @@ class WorkflowDesignerSkill(BasePlugin):
                         content = chunk["data"]
                         full_text += content
 
-                        # 每 1000 字符发送一次进度
                         if len(full_text) - last_progress_length >= 1000:
                             progress_msg = f"正在生成工作流... ({len(full_text)} 字符)"
                             print(f"[workflow_designer] {progress_msg}")
                             yield {"type": "progress", "data": progress_msg}
                             last_progress_length = len(full_text)
                     elif chunk["type"] == "done":
-                        # 流式完成
                         print(f"[workflow_designer] LLM 流式调用完成，共生成 {len(full_text)} 字符")
                         break
             except Exception as e:

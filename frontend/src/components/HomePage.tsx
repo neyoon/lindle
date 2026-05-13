@@ -1,12 +1,3 @@
-/**
- * Lindle 首页 —— Paper & Ink 设计语言
- *
- * 叙事类比：把任务组织成结构，像搭积木 — 一块一块落位、咬合成形。
- * 视觉动效沿用纸墨语言（stamp-land / ink-bleed / thread-draw）。
- *
- * stage = 'overview'  : 卷首（介绍 + Flow / Agent 两端 + 连接 timeline）
- * stage = 'entry'     : 入场（Settings / Flow / Agent 三个入口卡）
- */
 import { ArrowLeft, ArrowRight, Settings, Sparkles, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
@@ -39,7 +30,6 @@ const STRUCTURE_STAGES = [
   { idx: 'iv.',  name: 'Canonical Flow', desc: '抽象 · 可复用',  state: 'wait' as const },
 ]
 
-/** Hook: IntersectionObserver to add `.in` to elements with `.reveal` */
 function useReveal(deps: unknown[] = []) {
   const containerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -60,7 +50,6 @@ function useReveal(deps: unknown[] = []) {
   return containerRef
 }
 
-/** 把一段中文逐字包成 span，配合 .anim-press 做活字排印动画 */
 function PressTitle({ text, base = 0.18, step = 0.07 }: { text: string; base?: number; step?: number }) {
   return (
     <span className="anim-press">
@@ -98,9 +87,6 @@ export function HomePage({
   />
 }
 
-/* ============================================================
-   Overview — 卷首
-   ============================================================ */
 function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEntry: () => void; onSelectAgent: () => void; headerActions?: ReactNode }) {
   const containerRef = useReveal([])
 
@@ -123,7 +109,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
       </header>
 
       <main className="app-page py-12 md:py-16 lg:py-20">
-        {/* ===== HERO ===== */}
         <section className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-center">
           <div>
             <span className="app-kicker anim-ink" style={{ animationDelay: '0.1s' }}>
@@ -152,7 +137,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
             </div>
           </div>
 
-          {/* Structure card — 从需求到结构化工作流的预览 */}
           <aside className="app-card stitched anim-loom relative p-7 pt-8">
             <span className="stamp-corner">Canvas · 01 / 04</span>
             <div className="font-serif italic text-lg" style={{ fontFamily: 'Fraunces, serif' }}>需求 → 结构化工作流</div>
@@ -181,7 +165,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                 </li>
               ))}
             </ul>
-            {/* 连接预览 — thread-draw 首次绘出两段连接线，中间一个落位点 */}
             <div className="mt-5 pt-4 border-t border-dashed border-[var(--line)] flex items-center gap-3">
               <span className="italic text-[0.82rem] text-[var(--ink-soft)]" style={{ fontFamily: 'Fraunces, serif' }}>Block</span>
               <svg className="loom-thread" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
@@ -196,7 +179,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           </aside>
         </section>
 
-        {/* ===== CAPABILITIES ===== */}
         <section id="cap" className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
@@ -257,7 +239,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           </div>
         </section>
 
-        {/* ===== ONE STACK — 动效演示 ===== */}
         <section id="loop" className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
@@ -281,7 +262,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           </div>
         </section>
 
-        {/* ===== CONTINUOUS LOOP — 四节点循环 ===== */}
         <section className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
@@ -319,7 +299,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
           </div>
         </section>
 
-        {/* ===== Footer signature ===== */}
         <div className="mt-20 pt-10 border-t border-[var(--line)] flex items-center justify-between font-mono text-[0.7rem] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
           <span>Copyright © 2026 guanxingjian · Noncommercial Source Available</span>
           <span className="italic normal-case tracking-normal text-[var(--ink-mid)] inline-flex items-center gap-3 text-[0.86rem]"
@@ -337,9 +316,6 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
   )
 }
 
-/* ============================================================
-   Entry — 三入口卡（Settings · Flow · Agent）
-   ============================================================ */
 function EntryView({
   onShowOverview, onSelectFlow, onSelectAgent, onOpenSettings, headerActions,
 }: {
