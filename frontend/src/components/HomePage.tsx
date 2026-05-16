@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Settings, Sparkles, Workflow } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Sparkles, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
 import { BrandMark } from './ui/BrandMark'
@@ -68,7 +68,6 @@ export function HomePage({
   onShowEntry,
   onSelectFlow,
   onSelectAgent,
-  onOpenSettings,
   headerActions,
 }: Props) {
   if (stage === 'entry') {
@@ -76,7 +75,6 @@ export function HomePage({
       onShowOverview={onShowOverview}
       onSelectFlow={onSelectFlow}
       onSelectAgent={onSelectAgent}
-      onOpenSettings={onOpenSettings}
       headerActions={headerActions}
     />
   }
@@ -204,16 +202,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                 </span>
                 <span className="app-kicker no-rule font-mono">Deterministic</span>
               </div>
-              <div className="font-medium text-[1.6rem]" style={{ fontFamily: '"Noto Serif SC", serif' }}>进入 Flow</div>
-              <div className="italic text-[var(--ink-soft)] text-[0.92rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-                Transparent structure.
-              </div>
-              <p className="text-[var(--ink-mid)] text-[0.92rem] leading-relaxed">
-                节点、输入、输出和连接关系都在画布上展开。
-              </p>
-              <span className="self-start mt-2 inline-flex items-center gap-2 px-4 py-1.5 border border-[var(--ink)] rounded-sm font-mono text-[0.74rem] tracking-[0.14em] uppercase transition-colors duration-300 group-hover:bg-[var(--ink)] group-hover:text-[var(--paper)]">
-                workflows / new →
-              </span>
+              <div className="font-medium text-[1.6rem]" style={{ fontFamily: '"Noto Serif SC", serif' }}>Flow</div>
             </button>
 
             <button onClick={onSelectAgent} className="app-card-soft p-9 text-left flex flex-col gap-4 relative overflow-hidden group">
@@ -224,19 +213,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                 </span>
                 <span className="app-kicker no-rule font-mono">Dynamic</span>
               </div>
-              <div className="font-medium text-[1.6rem] flex items-center gap-2" style={{ fontFamily: '"Noto Serif SC", serif' }}>
-                进入 Agent
-                <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>BETA</span>
-              </div>
-              <div className="italic text-[var(--ink-soft)] text-[0.92rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-                Transparent architecture.
-              </div>
-              <p className="text-[var(--ink-mid)] text-[0.92rem] leading-relaxed">
-                Tool、Skill、Flow 与 Agent 的调用关系保持可追踪。
-              </p>
-              <span className="self-start mt-2 inline-flex items-center gap-2 px-4 py-1.5 border border-[var(--ink)] rounded-sm font-mono text-[0.74rem] tracking-[0.14em] uppercase transition-colors duration-300 group-hover:bg-[var(--rust)] group-hover:border-[var(--rust)] group-hover:text-[var(--paper)]">
-                agents / new →
-              </span>
+              <div className="font-medium text-[1.6rem]" style={{ fontFamily: '"Noto Serif SC", serif' }}>Agent</div>
             </button>
           </div>
         </section>
@@ -318,12 +295,11 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
 }
 
 function EntryView({
-  onShowOverview, onSelectFlow, onSelectAgent, onOpenSettings, headerActions,
+  onShowOverview, onSelectFlow, onSelectAgent, headerActions,
 }: {
   onShowOverview?: () => void
   onSelectFlow: () => void
   onSelectAgent: () => void
-  onOpenSettings?: () => void
   headerActions?: ReactNode
 }) {
   return (
@@ -356,28 +332,9 @@ function EntryView({
               <em><PressTitle text="起点" base={0.45} /></em>
               <PressTitle text="。" base={0.65} />
             </h1>
-            <p className="text-[var(--ink-mid)] mt-4 text-base leading-relaxed anim-ink" style={{ animationDelay: '0.85s' }}>
-              进入 Flow 查看结构，进入 Agent 查看调用架构；首次使用先配置 Provider。
-            </p>
           </div>
 
-          <div className={`mt-10 grid gap-3.5 ${onOpenSettings ? 'lg:grid-cols-[0.7fr_1fr_1fr]' : 'md:grid-cols-2'}`}>
-            {onOpenSettings && (
-              <button onClick={onOpenSettings} className="app-card-soft p-7 text-left flex flex-col gap-4 group relative overflow-hidden">
-                <span className="absolute -bottom-[55%] -right-[25%] w-4/5 aspect-square rounded-full border border-dashed border-[var(--line)] pointer-events-none transition-transform duration-700 group-hover:[transform:rotate(-10deg)_scale(1.05)]" />
-                <span className="w-12 h-12 rounded-full border-[1.5px] border-[var(--ink)] inline-flex items-center justify-center text-[var(--ink)] transition-transform duration-500 group-hover:rotate-[18deg]">
-                  <Settings size={18} />
-                </span>
-                <div>
-                  <div className="app-kicker no-rule mb-2">System Setup</div>
-                  <h2 className="app-section-title text-2xl">设置</h2>
-                  <p className="text-[var(--ink-mid)] mt-2 text-sm leading-relaxed">
-                    配置模型源与默认 Provider。
-                  </p>
-                </div>
-              </button>
-            )}
-
+          <div className="mt-10 grid gap-3.5 md:grid-cols-2">
             <button onClick={onSelectFlow} className="app-card-soft p-7 text-left flex flex-col gap-4 group relative overflow-hidden">
               <span className="absolute -bottom-[55%] -right-[25%] w-4/5 aspect-square rounded-full border border-dashed border-[var(--line)] pointer-events-none transition-transform duration-700 group-hover:[transform:rotate(-10deg)_scale(1.05)]" />
               <div className="flex items-center justify-between">
@@ -387,10 +344,7 @@ function EntryView({
                 <span className="app-kicker no-rule font-mono">Deterministic</span>
               </div>
               <div>
-                <h2 className="app-section-title text-3xl">进入 Flow</h2>
-                <p className="text-[var(--ink-mid)] mt-3 text-sm leading-relaxed">
-                  查看节点结构、连接路径和运行位置。
-                </p>
+                <h2 className="app-section-title text-3xl">Flow</h2>
               </div>
             </button>
 
@@ -403,13 +357,7 @@ function EntryView({
                 <span className="app-kicker no-rule font-mono">Dynamic</span>
               </div>
               <div>
-                <h2 className="app-section-title text-3xl flex items-center gap-2">
-                  进入 Agent
-                  <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>BETA</span>
-                </h2>
-                <p className="text-[var(--ink-mid)] mt-3 text-sm leading-relaxed">
-                  查看 Tool、Skill、Flow 的调用关系。
-                </p>
+                <h2 className="app-section-title text-3xl">Agent</h2>
               </div>
             </button>
           </div>

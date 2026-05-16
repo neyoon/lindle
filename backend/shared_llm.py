@@ -33,20 +33,6 @@ class LLMConfig:
 
 _config = LLMConfig()
 
-_global_client: httpx.AsyncClient | None = None
-
-
-def _get_client() -> httpx.AsyncClient:
-    """获取全局 httpx 客户端（懒加载）"""
-    global _global_client
-    if _global_client is None:
-        _global_client = httpx.AsyncClient(
-            timeout=_config.timeout,
-            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
-        )
-    return _global_client
-
-
 def configure(
     api_key: str = "",
     base_url: str = "https://api.openai.com/v1",
@@ -164,34 +150,16 @@ async def _call_api(
     effective_url = base_url or _config.base_url
     effective_protocol = protocol or _config.protocol
 
-    if _should_use_proxy(effective_protocol):
-        result = await _call_proxy_chat(
-            messages,
-            model,
-            temperature,
-            api_key=effective_key,
-            base_url=effective_url,
-            protocol=effective_protocol,
-            api_version=api_version if api_version is not None else _config.api_version,
-        )
-        return str(result.get("content") or "")
-
-    client = _get_client()
-    response = await client.post(
-        f"{effective_url}/chat/completions",
-        json={
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-        },
-        headers={
-            "Authorization": f"Bearer {effective_key}",
-            "Content-Type": "application/json",
-        },
+    result = await _call_proxy_chat(
+        messages,
+        model,
+        temperature,
+        api_key=effective_key,
+        base_url=effective_url,
+        protocol=effective_protocol,
+        api_version=api_version if api_version is not None else _config.api_version,
     )
-    response.raise_for_status()
-    data = response.json()
-    return data["choices"][0]["message"]["content"]
+    return str(result.get("content") or "")
 
 
 async def _call_api_with_tools(
@@ -211,58 +179,22 @@ async def _call_api_with_tools(
     effective_url = base_url or _config.base_url
     effective_protocol = protocol or _config.protocol
 
-    if _should_use_proxy(effective_protocol):
-        result = await _call_proxy_chat(
-            messages,
-            model,
-            temperature,
-            api_key=effective_key,
-            base_url=effective_url,
-            protocol=effective_protocol,
-            api_version=api_version if api_version is not None else _config.api_version,
-            tools=tools,
-            tool_choice=tool_choice,
-        )
-        return {
-            "content": result.get("content"),
-            "tool_calls": result.get("tool_calls"),
-            "reasoning": result.get("reasoning"),
-        }
-
-    client = _get_client()
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "tools": tools,
-    }
-
-    if tool_choice != "auto":
-        payload["tool_choice"] = tool_choice
-
-    if "qwen" in model.lower() and "dashscope.aliyuncs.com" in effective_url:
-        payload["enable_thinking"] = True
-
-    response = await client.post(
-        f"{effective_url}/chat/completions",
-        json=payload,
-        headers={
-            "Authorization": f"Bearer {effective_key}",
-            "Content-Type": "application/json",
-        },
+    result = await _call_proxy_chat(
+        messages,
+        model,
+        temperature,
+        api_key=effective_key,
+        base_url=effective_url,
+        protocol=effective_protocol,
+        api_version=api_version if api_version is not None else _config.api_version,
+        tools=tools,
+        tool_choice=tool_choice,
     )
-    response.raise_for_status()
-    data = response.json()
-
-    message = data["choices"][0]["message"]
-
-    result = {
-        "content": message.get("content"),
-        "tool_calls": message.get("tool_calls"),
-        "reasoning": message.get("reasoning_content"),
+    return {
+        "content": result.get("content"),
+        "tool_calls": result.get("tool_calls"),
+        "reasoning": result.get("reasoning"),
     }
-
-    return result
 
 
 async def call_llm_with_messages_stream(
@@ -292,139 +224,18 @@ async def call_llm_with_messages_stream(
     effective_api_version = api_version if api_version is not None else _config.api_version
 
     try:
-        if _should_use_proxy(effective_protocol):
-            async for chunk in _call_proxy_stream(
-                messages,
-                effective_model,
-                temperature,
-                api_key=effective_key,
-                base_url=effective_url,
-                protocol=effective_protocol,
-                api_version=effective_api_version,
-                tools=tools,
-                tool_choice=tool_choice,
-            ):
-                yield chunk
-            return
-
-        client = httpx.AsyncClient(timeout=_config.timeout)
-        payload = {
-            "model": effective_model,
-            "messages": messages,
-            "temperature": temperature,
-            "stream": True,
-        }
-
-        if tools:
-            payload["tools"] = tools
-            if tool_choice != "auto":
-                payload["tool_choice"] = tool_choice
-
-        async with client:
-            stream_context = client.stream(
-                "POST",
-                f"{effective_url}/chat/completions",
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {effective_key}",
-                    "Content-Type": "application/json",
-                },
-            )
-
-            async with stream_context as response:
-                response.raise_for_status()
-
-                full_content = ""
-                full_reasoning = ""
-                tool_calls_accumulator = {}
-                done_emitted = False
-                got_done_signal = False
-
-                line_count = 0
-                async for line in response.aiter_lines():
-                    line_count += 1
-
-                    if not line.startswith("data: "):
-                        continue
-                    if line == "data: [DONE]":
-                        got_done_signal = True
-                        break
-
-                    try:
-                        data = json.loads(line[6:])
-
-                        # Provider 流式错误帧（例如 DashScope 会返回 {"error": {...}}）
-                        if isinstance(data, dict) and data.get("error"):
-                            err = data["error"] or {}
-                            code = err.get("code", "provider_error")
-                            msg = err.get("message", "未知错误")
-                            raise RuntimeError(f"LLM provider error ({code}): {msg}")
-
-                        choices = data.get("choices") if isinstance(data, dict) else None
-                        if not choices or not isinstance(choices, list):
-                            logger.debug("忽略非标准流式帧: %s", line[:120])
-                            continue
-
-                        delta = choices[0].get("delta", {})
-
-                        if line_count <= 5:
-                            logger.debug("stream delta #%d: %s", line_count, delta)
-
-                        if reasoning := delta.get("reasoning_content"):
-                            full_reasoning += reasoning
-                            yield {"type": "reasoning", "data": reasoning}
-
-                        if content := delta.get("content"):
-                            full_content += content
-                            yield {"type": "content", "data": content}
-
-                        if tool_calls_delta := delta.get("tool_calls"):
-                            for tc_delta in tool_calls_delta:
-                                index = tc_delta.get("index", 0)
-                                if index not in tool_calls_accumulator:
-                                    tool_calls_accumulator[index] = {
-                                        "id": "",
-                                        "type": "function",
-                                        "function": {"name": "", "arguments": ""}
-                                    }
-
-                                if "id" in tc_delta:
-                                    tool_calls_accumulator[index]["id"] += tc_delta["id"]
-                                if "type" in tc_delta:
-                                    tool_calls_accumulator[index]["type"] = tc_delta["type"]
-                                if "function" in tc_delta:
-                                    func_delta = tc_delta["function"]
-                                    if "name" in func_delta:
-                                        tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
-                                    if "arguments" in func_delta:
-                                        tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
-
-                    except json.JSONDecodeError as e:
-                        logger.debug("解析流式行失败: %s, line=%s", e, line[:100])
-                        continue
-
-                tool_calls_data = [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())] if tool_calls_accumulator else None
-
-                # 防止把空响应误当成功，导致前端表现为“无回复”
-                if (
-                    not got_done_signal
-                    and not full_content
-                    and not full_reasoning
-                    and not tool_calls_data
-                ):
-                    raise RuntimeError("LLM 流式响应提前结束且无有效内容")
-
-                if not done_emitted:
-                    done_emitted = True
-                    yield {
-                        "type": "done",
-                        "data": {
-                            "content": full_content,
-                            "reasoning": full_reasoning or None,
-                            "tool_calls": tool_calls_data or None,
-                        },
-                    }
-
+        async for chunk in _call_proxy_stream(
+            messages,
+            effective_model,
+            temperature,
+            api_key=effective_key,
+            base_url=effective_url,
+            protocol=effective_protocol,
+            api_version=effective_api_version,
+            tools=tools,
+            tool_choice=tool_choice,
+        ):
+            yield chunk
     except httpx.HTTPError as e:
         logger.exception("shared_llm HTTP error: %s", e)
         raise
@@ -483,10 +294,6 @@ def _normalize_protocol(protocol: str | None) -> str:
         "google": "gemini",
     }
     return aliases.get(normalized, normalized)
-
-
-def _should_use_proxy(protocol: str | None) -> bool:
-    return _normalize_protocol(protocol) != "openai"
 
 
 async def _call_proxy_chat(

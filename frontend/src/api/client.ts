@@ -242,6 +242,7 @@ export interface ResolvedProxyConfig {
   base_url: string
   model: string
   provider_id: string
+  endpoint: string
 }
 
 export async function getSettings() {
@@ -455,6 +456,20 @@ export async function createCustomSkill(skill: any) {
   return request<{ ok: boolean; skill: any }>('/plugins/custom-skills', {
     method: 'POST',
     body: JSON.stringify(skill),
+  })
+}
+
+export async function previewGitHubSkill(source: string, name?: string, description?: string) {
+  return request<{ ok: boolean; skill: any }>('/plugins/custom-skills/github/preview', {
+    method: 'POST',
+    body: JSON.stringify({ source, name, description }),
+  })
+}
+
+export async function importGitHubSkill(source: string, name?: string, description?: string) {
+  return request<{ ok: boolean; skill: any }>('/plugins/custom-skills/github/import', {
+    method: 'POST',
+    body: JSON.stringify({ source, name, description }),
   })
 }
 

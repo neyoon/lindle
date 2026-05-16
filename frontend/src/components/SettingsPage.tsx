@@ -20,12 +20,14 @@ import {
   getEditProvider,
   listProxyProtocols,
   listProviders,
+  resolveProxyProtocol,
   setEditProvider,
   setDefaultProvider,
   testConnection,
   updateProvider,
   type ProxyProtocol,
   type ProviderResponse,
+  type ResolvedProxyConfig,
 } from '@/api/client'
 
 export type SettingsSection = 'general' | 'provider'
@@ -38,9 +40,9 @@ interface Props {
 
 const FALLBACK_PROTOCOLS: ProxyProtocol[] = [
   { id: 'openai', name: 'OpenAI 兼容', status: 'active', description: '' },
-  { id: 'anthropic', name: 'Anthropic', status: 'active', description: '' },
-  { id: 'gemini', name: 'Google Gemini', status: 'active', description: '' },
-  { id: 'azure', name: 'Azure OpenAI', status: 'active', description: '' },
+  { id: 'anthropic', name: 'Anthropic', status: 'experimental', description: '' },
+  { id: 'gemini', name: 'Google Gemini', status: 'experimental', description: '' },
+  { id: 'azure', name: 'Azure OpenAI', status: 'experimental', description: '' },
 ]
 
 const PRESETS = [
@@ -412,6 +414,7 @@ function ProviderSettingsSection({
           <ProviderForm
             title="添加新 Provider"
             proxyProtocols={proxyProtocols}
+            providerId=""
             formName={formName}
             formProtocol={formProtocol}
             formKey={formKey}
@@ -451,6 +454,7 @@ function ProviderSettingsSection({
                 key={provider.id}
                 title={`编辑: ${provider.name}`}
                 proxyProtocols={proxyProtocols}
+                providerId={provider.id}
                 formName={formName}
                 formProtocol={formProtocol}
                 formKey={formKey}
@@ -628,9 +632,20 @@ function ProviderCard({
   )
 }
 
+function compactEndpoint(endpoint: string) {
+  if (!endpoint) return '-'
+  try {
+    const url = new URL(endpoint)
+    return `${url.host}${url.pathname}${url.search}`
+  } catch {
+    return endpoint
+  }
+}
+
 function ProviderForm({
   title,
   proxyProtocols,
+  providerId,
   formName,
   formProtocol,
   formKey,
@@ -657,6 +672,7 @@ function ProviderForm({
 }: {
   title: string
   proxyProtocols: ProxyProtocol[]
+  providerId: string
   formName: string
   formProtocol: string
   formKey: string
@@ -681,6 +697,46 @@ function ProviderForm({
   onTest: () => void
   onPreset: (preset: (typeof PRESETS)[0]) => void
 }) {
+  const [routePreview, setRoutePreview] = useState<ResolvedProxyConfig | null>(null)
+  const [routePreviewError, setRoutePreviewError] = useState('')
+
+  useEffect(() => {
+    const canResolve = Boolean(formProtocol && formUrl && formModel && (formKey || providerId))
+    if (!canResolve) {
+      setRoutePreview(null)
+      setRoutePreviewError('')
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      try {
+        const preview = await resolveProxyProtocol(formProtocol, {
+          provider_id: providerId,
+          api_key: formKey,
+          base_url: formUrl,
+          model: formModel,
+          api_version: formApiVersion,
+          messages: [{ role: 'user', content: 'Hi' }],
+        })
+        if (!cancelled) {
+          setRoutePreview(preview)
+          setRoutePreviewError('')
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRoutePreview(null)
+          setRoutePreviewError(error instanceof Error ? error.message : String(error))
+        }
+      }
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [formProtocol, formKey, formUrl, formModel, formApiVersion, providerId])
+
   return (
     <div className="app-card p-6 md:p-8">
       <div className="mb-6">
@@ -743,6 +799,26 @@ function ProviderForm({
           <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">API Base URL</label>
           <input className="app-input" value={formUrl} onChange={(e) => onUrlChange(e.target.value)} placeholder="https://api.openai.com/v1" />
         </div>
+      </div>
+
+      <div className="mt-5 rounded-sm border border-[var(--app-border)] bg-[var(--app-panel)] p-4">
+        <div className="app-kicker no-rule mb-3">Router preview</div>
+        {routePreview ? (
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--app-text)]">
+              <span>{protocolLabel(proxyProtocols, routePreview.protocol)}</span>
+              <span className="text-[var(--app-text-muted)]">/</span>
+              <span className="font-mono text-xs">{routePreview.model}</span>
+            </div>
+            <div className="mt-2 break-all font-mono text-xs text-[var(--app-text-soft)]">
+              {compactEndpoint(routePreview.endpoint)}
+            </div>
+          </div>
+        ) : (
+          <p className={`text-sm ${routePreviewError ? 'text-[var(--app-danger)]' : 'text-[var(--app-text-soft)]'}`}>
+            {routePreviewError || '填写模型、Base URL 和 API Key 后显示路由。'}
+          </p>
+        )}
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--app-border)] pt-5">
