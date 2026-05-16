@@ -250,13 +250,13 @@ export function AgentTestChat({ agentId, agentName }: Props) {
       </div>
 
       <div className="px-4 py-2 bg-[var(--rust-soft)] border-b border-[var(--line)] text-xs text-[var(--app-warning)]">
-        这是测试环境，用于验证 Agent 配置
+        测试对话
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
           <div className="text-center text-[var(--app-text-muted)] text-sm py-8" style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic' }}>
-            开始对话测试你的 Agent
+            暂无消息
           </div>
         ) : (
           messages.map((msg, i) => (

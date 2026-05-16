@@ -35,7 +35,6 @@ export function ExportMenu({
               <FileText size={15} className="text-[var(--app-accent)]" />
               <div>
                 <span className="font-medium text-[var(--app-text)]">导出结构化 Flow</span>
-                <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">JSON 清单，便于复用和模型理解</p>
               </div>
             </button>
             <button

@@ -135,8 +135,8 @@ result = {
               Python 代码 *
             </label>
             <div className="text-xs text-[var(--app-text-muted)] mb-2">
-              提示：使用 <code className="bg-[var(--paper-warm)] border border-[var(--line)] px-1 rounded-sm font-mono">input_data</code> 获取输入，
-              设置 <code className="bg-[var(--paper-warm)] border border-[var(--line)] px-1 rounded-sm font-mono">result</code> 变量作为输出
+              输入 <code className="bg-[var(--paper-warm)] border border-[var(--line)] px-1 rounded-sm font-mono">input_data</code>
+              ，输出 <code className="bg-[var(--paper-warm)] border border-[var(--line)] px-1 rounded-sm font-mono">result</code>
             </div>
             <textarea
               value={skill.code}

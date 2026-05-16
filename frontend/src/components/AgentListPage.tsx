@@ -94,10 +94,7 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
           <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
             <div>
               <div className="app-kicker mb-3">Agent runtime</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">让对话端去消费你制造出来的能力</h2>
-              <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-                Agent 侧的特殊性不在聊天本身，而在它能把 Skill、Flow 执行器和系统提示词组合成运行时决策层。
-              </p>
+              <h2 className="app-section-title text-3xl md:text-4xl">Agent</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="app-stat">
@@ -108,7 +105,7 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
               <div className="app-stat">
                 <div className="app-kicker mb-2">Focus</div>
                 <div className="text-3xl font-semibold text-[var(--app-text)]">Skills</div>
-                <p className="app-muted mt-2 text-sm">Agent 的能力来自 Skill 和 Flow 绑定</p>
+                <p className="app-muted mt-2 text-sm">已绑定能力</p>
               </div>
             </div>
           </div>
@@ -121,9 +118,6 @@ export function AgentListPage({ onOpen, onCreateNew, onBack, onOpenSkillLibrary,
             <div className="app-card p-12 text-center">
               <Sparkles size={52} className="mx-auto text-[var(--app-text-muted)]" />
               <h3 className="app-section-title mt-5 text-3xl">还没有创建任何 Agent</h3>
-              <p className="app-muted mx-auto mt-4 max-w-xl text-sm leading-8">
-                先把 Flow 跑通，再把它绑定给 Agent。这里是 Flow 能力被动态消费、开始自动化的地方。
-              </p>
               <button onClick={onCreateNew} className="app-button app-button-primary mt-6">
                 <Plus size={16} />
                 创建第一个 Agent

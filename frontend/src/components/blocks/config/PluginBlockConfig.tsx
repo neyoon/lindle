@@ -89,9 +89,6 @@ export function PluginBlockConfig({ block }: { block: Block }) {
         <p className="text-xs text-[var(--app-text)]">
           工具 ID: <span className="font-mono">{block.config.plugin_id || '未配置'}</span>
         </p>
-        <p className="text-xs text-[var(--app-text-soft)] mt-2">
-          工具的参数（如 Token）在「插件管理」页面中配置。
-        </p>
       </div>
 
       {inputPropertyKeys.length > 0 && (
@@ -158,9 +155,6 @@ export function PluginBlockConfig({ block }: { block: Block }) {
                 </div>
               )
             })}
-            <p className="text-[10px] text-[var(--app-text-muted)]">
-              优先使用字段映射完成工具输入配置；只有需要复杂结构重组时再使用模板。
-            </p>
           </div>
         </Field>
       )}
@@ -204,20 +198,11 @@ export function PluginBlockConfig({ block }: { block: Block }) {
           )}
           {showAdvancedTemplate && showVariables && availableVariables.length === 0 && (
             <p className="text-xs text-[var(--app-text-muted)] p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm">
-              当前没有可用的上游变量（需要在前面的阶段中添加收集步骤或其他步骤）
+              暂无上游变量
             </p>
           )}
         </div>
       </Field>
-
-      <div className="text-xs text-[var(--app-text-soft)] p-2 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm">
-        <p className="font-medium mb-1">说明：</p>
-        <ul className="list-disc list-inside space-y-0.5">
-          <li>优先：使用字段映射选择变量来源或常量值</li>
-          <li>留空：工具自动接收上游数据（JSON 或文本格式）</li>
-          <li>高级模板：只有在需要复杂 JSON 重组时才使用</li>
-        </ul>
-      </div>
 
       {pluginSchema && (pluginSchema.input_schema || pluginSchema.output_schema) && (
         <div className="space-y-3">

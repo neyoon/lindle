@@ -111,10 +111,7 @@ export function SkillLibraryPage({ onBack, headerActions }: Props) {
           <div className="grid gap-6 md:grid-cols-[1.15fr_0.85fr]">
             <div>
               <div className="app-kicker mb-3">Custom skills</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">把代码能力整理成 Agent 可调用的标准接口</h2>
-              <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-                Skill 库和 Flow 库互相补充。Flow 更偏结构化执行，Skill 更偏能力接口。两者最后都会回到 Agent 的可调用能力列表。
-              </p>
+              <h2 className="app-section-title text-3xl md:text-4xl">自定义 Skill</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="app-stat">
@@ -125,7 +122,7 @@ export function SkillLibraryPage({ onBack, headerActions }: Props) {
               <div className="app-stat">
                 <div className="app-kicker mb-2">Role</div>
                 <div className="text-3xl font-semibold text-[var(--app-text)]">Agents</div>
-                <p className="app-muted mt-2 text-sm">最终会出现在 Agent 编辑页</p>
+                <p className="app-muted mt-2 text-sm">Agent 可用</p>
               </div>
             </div>
           </div>
@@ -138,9 +135,6 @@ export function SkillLibraryPage({ onBack, headerActions }: Props) {
             <div className="app-card p-12 text-center">
               <Wrench size={54} className="mx-auto text-[var(--app-text-muted)]" />
               <h3 className="app-section-title mt-5 text-3xl">暂无自定义 Skill</h3>
-              <p className="app-muted mt-4 text-sm leading-8">
-                可以直接新建 Skill，也可以先在工作流列表页把多个 Flow 导出成 Skill，再回到这里统一管理。
-              </p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

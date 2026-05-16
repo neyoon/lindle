@@ -145,9 +145,6 @@ export function AIConfig({ block }: { block: Block }) {
 
         {showAdvanced && (
           <div className="mt-2 p-3 bg-[var(--paper-warm)] border border-[var(--line)] rounded-sm space-y-2">
-            <p className="text-xs text-[var(--app-text-soft)]">
-              定义输出的 JSON key，让下游步骤可以精确引用。
-            </p>
             <OutputSchemaEditor
               schema={block.output_schema || null}
               onChange={(schema) => updateBlock(block.id, { output_schema: schema })}

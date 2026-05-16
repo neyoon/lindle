@@ -238,14 +238,14 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
     const newAgent = {
       ...agent,
       name: '智能助手',
-      description: '可以执行和创建工作流的智能助手',
+      description: '工作流助手',
       skills,
     }
 
     setAgent(newAgent)
     await autoGeneratePrompt(newAgent)
     setSkillsDirty(false)
-    alert('已快速创建智能助手！你可以在 Flow 执行器中绑定已有的 Flow，或直接保存。')
+    alert('已创建 Agent')
   }
 
   const handleSave = async () => {
@@ -672,7 +672,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
             <button
               onClick={handleQuickCreate}
               className="app-button border border-[var(--app-warm)] bg-[var(--rust-soft)] text-[var(--app-warning)]"
-              title="快速创建一个预配置的 Agent"
+              title="快速创建"
             >
               <Zap size={14} />
               快速创建
@@ -742,10 +742,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                         </option>
                       ))}
                     </select>
-                    <p className="mt-1.5 flex items-center gap-1 text-xs text-[var(--app-text-soft)]">
-                      <Zap size={12} className="text-[var(--app-warning)]" />
-                      建议使用支持 function calling 的模型（如 GPT-4、Claude 3.5 等）以获得更好的 Skill 调用效果
-                    </p>
                   </div>
 
                   <div>
@@ -850,7 +846,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
           <div className="flex-1 overflow-y-auto p-6">
             <div className="mx-auto mb-4 flex max-w-3xl items-center justify-between">
               <div className="text-xs text-[var(--app-text-soft)]">
-                已保存对话会在重新进入 Agent 时自动恢复
+                已保存对话
               </div>
               <button
                 onClick={handleClearConversation}
@@ -865,7 +861,6 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                 <div className="text-center text-[var(--app-text-soft)]">
                   <Sparkles size={48} className="mx-auto mb-3 text-[var(--app-text-muted)]" />
                   <p className="text-sm">开始与 Agent 对话</p>
-                  <p className="text-xs mt-1">测试你配置的 Skills 和系统提示词</p>
                 </div>
               </div>
             ) : (

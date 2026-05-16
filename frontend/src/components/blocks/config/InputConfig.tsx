@@ -59,7 +59,7 @@ export function InputConfig({ block }: { block: Block }) {
             <p className="mt-1 text-xs text-[var(--app-text-soft)]">
               {fields.length > 0
                 ? `已配置 ${fields.length} 个字段`
-                : '默认使用一个简单输入框；需要多个字段时再展开高级配置。'}
+                : '未配置字段'}
             </p>
           </div>
           <button
@@ -77,7 +77,7 @@ export function InputConfig({ block }: { block: Block }) {
         <>
           {fields.length === 0 ? (
             <div className="py-4 text-center">
-              <p className="text-sm text-[var(--app-text-muted)] mb-3">当前没有自定义字段</p>
+              <p className="text-sm text-[var(--app-text-muted)] mb-3">暂无字段</p>
             </div>
           ) : (
             <div className="space-y-2">

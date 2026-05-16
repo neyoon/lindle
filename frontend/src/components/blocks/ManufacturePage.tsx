@@ -97,21 +97,18 @@ export function ManufacturePage({ onBack, headerActions }: Props) {
           <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
             <div>
               <div className="app-kicker mb-3">Step manufacture</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">把临时步骤变成可复用结构件</h2>
-              <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-                这一步决定 Flow 为什么不是一次性拖拽。模板制造完成后，会重新进入编辑器添加菜单，变成稳定的生产材料。
-              </p>
+              <h2 className="app-section-title text-3xl md:text-4xl">步骤模板</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="app-stat">
                 <div className="app-kicker mb-2">Templates</div>
                 <div className="text-3xl font-semibold text-[var(--app-text)]">{templates.length}</div>
-                <p className="app-muted mt-2 text-sm">可复用步骤模板</p>
+                <p className="app-muted mt-2 text-sm">模板数量</p>
               </div>
               <div className="app-stat">
-                <div className="app-kicker mb-2">Role</div>
-                <div className="text-3xl font-semibold text-[var(--app-text)]">Reuse</div>
-                <p className="app-muted mt-2 text-sm">让工作流结构可沉淀、可复用</p>
+                <div className="app-kicker mb-2">Type</div>
+                <div className="text-3xl font-semibold text-[var(--app-text)]">Step</div>
+                <p className="app-muted mt-2 text-sm">步骤</p>
               </div>
             </div>
           </div>
@@ -137,7 +134,6 @@ export function ManufacturePage({ onBack, headerActions }: Props) {
             <div className="app-card p-12 text-center">
               <div className="app-kicker mb-3">No templates yet</div>
               <h3 className="app-section-title text-3xl">暂无模板</h3>
-              <p className="app-muted mt-4 text-sm leading-8">从常用的收集、处理、结果步骤开始，把它们制造成可反复调用的结构件。</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

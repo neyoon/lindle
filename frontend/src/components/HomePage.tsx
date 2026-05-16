@@ -24,10 +24,10 @@ const LOOP = [
 ]
 
 const STRUCTURE_STAGES = [
-  { idx: 'i.',   name: '目标理解',     desc: '识别任务边界',     state: 'done' as const },
-  { idx: 'ii.',  name: '阶段组织',     desc: '拆分执行阶段',     state: 'done' as const },
-  { idx: 'iii.', name: '节点连接',     desc: '组织处理路径',     state: 'now'  as const },
-  { idx: 'iv.',  name: 'Canonical Flow', desc: '抽象 · 可复用',  state: 'wait' as const },
+  { idx: 'i.',   name: '需求解析',     desc: '明确输入',        state: 'done' as const },
+  { idx: 'ii.',  name: '结构拆分',     desc: '生成阶段',        state: 'done' as const },
+  { idx: 'iii.', name: '节点连接',     desc: '编排路径',        state: 'now'  as const },
+  { idx: 'iv.',  name: 'Flow 固化',    desc: '可调用 · 可导出',  state: 'wait' as const },
 ]
 
 function useReveal(deps: unknown[] = []) {

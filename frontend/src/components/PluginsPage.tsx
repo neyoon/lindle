@@ -63,10 +63,7 @@ export function PluginsPage({ onBack, headerActions }: Props) {
       <main className="app-page py-8">
         <section className="app-card p-6 md:p-8">
           <div className="app-kicker mb-3">Extension surface</div>
-          <h2 className="app-section-title text-3xl md:text-4xl">启用插件，让工作流获得新的块类型</h2>
-          <p className="app-muted mt-4 max-w-3xl text-sm leading-8">
-            插件页决定 Flow 编辑器里能出现哪些扩展块。它们和制造模板不同，模板沉淀的是结构，插件引入的是新能力。
-          </p>
+          <h2 className="app-section-title text-3xl md:text-4xl">插件</h2>
         </section>
 
         <section className="mt-6">

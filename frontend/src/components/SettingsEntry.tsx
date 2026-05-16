@@ -54,7 +54,6 @@ export function SettingsEntry({ onOpenGeneral, onOpenProvider }: Props) {
             <SlidersHorizontal size={15} className="text-[var(--app-accent)]" />
             <div>
               <span className="font-medium text-[var(--app-text)]">设置</span>
-              <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">界面、显示、默认执行策略</p>
             </div>
           </button>
           <button
@@ -65,7 +64,6 @@ export function SettingsEntry({ onOpenGeneral, onOpenProvider }: Props) {
             <Cable size={15} className="text-[var(--app-accent)]" />
             <div>
               <span className="font-medium text-[var(--app-text)]">Provider</span>
-              <p className="mt-0.5 text-[10px] text-[var(--app-text-muted)]">模型来源、默认 Provider、编辑</p>
             </div>
           </button>
         </div>

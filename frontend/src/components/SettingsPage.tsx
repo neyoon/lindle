@@ -293,9 +293,6 @@ function GeneralSettingsSection({
     <section className="app-card p-6 md:p-8">
       <div className="app-kicker mb-3">General settings</div>
       <h2 className="app-section-title text-3xl md:text-4xl">总体设置</h2>
-      <p className="app-muted mt-4 text-sm leading-8">
-        管理当前工作区的基础体验与默认执行策略。
-      </p>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <ReadonlyPreference label="界面语言" value="简体中文" />
@@ -305,7 +302,7 @@ function GeneralSettingsSection({
       <div className="mt-6 space-y-3">
         <PreferenceToggle
           title="默认失败即停"
-          description="新建 Flow 默认在任一步骤报错时停止执行。当前默认开启。"
+          description="步骤报错时停止"
           checked={preferences.defaultStopOnError}
           onChange={(checked) => updatePreference('defaultStopOnError', checked)}
         />
@@ -393,10 +390,7 @@ function ProviderSettingsSection({
         <div className="grid gap-6 md:grid-cols-[1.15fr_0.85fr]">
           <div>
             <div className="app-kicker mb-3">Provider</div>
-            <h2 className="app-section-title text-3xl md:text-4xl">管理所有模型 Provider</h2>
-            <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-              Lindle 的 Flow、Agent 和编辑能力都依赖这里的 Provider。
-            </p>
+            <h2 className="app-section-title text-3xl md:text-4xl">Provider</h2>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="app-stat">
@@ -407,7 +401,7 @@ function ProviderSettingsSection({
             <div className="app-stat">
               <div className="app-kicker mb-2">Edit</div>
               <div className="text-lg font-semibold text-[var(--app-text)]">{editProviderId ? '独立指定' : '跟随默认'}</div>
-              <p className="app-muted mt-2 text-sm">编辑可使用单独 Provider</p>
+              <p className="app-muted mt-2 text-sm">编辑模型</p>
             </div>
           </div>
         </div>
@@ -449,7 +443,6 @@ function ProviderSettingsSection({
           <div className="app-card p-12 text-center">
             <div className="app-kicker mb-3">No providers yet</div>
             <h3 className="app-section-title text-3xl">还没有配置 Provider</h3>
-            <p className="app-muted mt-4 text-sm leading-8">先接入一个模型服务，整套 Flow / Agent 系统才能开始工作。</p>
           </div>
         ) : (
           providers.map((provider) => (
@@ -503,7 +496,6 @@ function ProviderSettingsSection({
         <section className="app-card-soft mt-6 p-5">
           <div className="app-kicker mb-2">Edit provider</div>
           <h3 className="text-xl font-semibold text-[var(--app-text)]">给编辑单独指定模型</h3>
-          <p className="app-muted mt-3 text-sm leading-7">建议给编辑分配能力更强的模型，避免和日常运行模型混用。</p>
           <select
             className="app-input mt-4"
             value={editProviderId}

@@ -179,10 +179,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
           <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
             <div>
               <div className="app-kicker mb-3">Workflow inventory</div>
-              <h2 className="app-section-title text-3xl md:text-4xl">从这里进入流程工厂</h2>
-              <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
-                Flow 页负责管理可重复执行的结构化流程。它们既可以被人工打开继续编辑，也可以被导出为 Skill，进入 Agent 侧继续被调用。
-              </p>
+              <h2 className="app-section-title text-3xl md:text-4xl">工作流</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="app-stat">
@@ -193,7 +190,7 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
               <div className="app-stat">
                 <div className="app-kicker mb-2">Selection</div>
                 <div className="text-3xl font-semibold text-[var(--app-text)]">{selectedIds.size}</div>
-                <p className="app-muted mt-2 text-sm">当前选中，可导出为 Skill</p>
+                <p className="app-muted mt-2 text-sm">当前选中</p>
               </div>
             </div>
           </div>
@@ -276,9 +273,6 @@ export function WorkflowListPage({ onOpen, onCreateNew, onOpenPlugins, onOpenMan
             <div className="app-card p-12 text-center">
               <div className="app-kicker mb-3">No workflows yet</div>
               <h3 className="app-section-title text-3xl">还没有工作流</h3>
-              <p className="app-muted mx-auto mt-4 max-w-xl text-sm leading-8">
-                从一个空白 Flow 开始，或先进入制造页沉淀可复用模板。这里最终会成为 Agent 可以消费的能力资产库。
-              </p>
               <button onClick={onCreateNew} className="app-button app-button-primary mt-6">
                 <Plus size={16} />
                 新建工作流
