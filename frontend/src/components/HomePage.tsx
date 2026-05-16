@@ -14,20 +14,20 @@ interface Props {
   headerActions?: ReactNode
 }
 
-const HERO_TITLE = '把任务，像搭积木一样落位成结构。'
+const HERO_TITLE = '结构透明，架构透明，运行也透明。'
 
 const LOOP = [
-  { num: 'i.',   title: '编排', desc: '把任务组织成可见阶段。' },
-  { num: 'ii.',  title: '制造', desc: '高频节点沉淀成模板。' },
-  { num: 'iii.', title: '封装', desc: '导出为可调用的 Skill。' },
-  { num: 'iv.',  title: '调度', desc: 'Agent 按上下文调用。' },
+  { num: 'i.',   title: '结构', desc: '节点、输入、输出可见。' },
+  { num: 'ii.',  title: '架构', desc: 'Tool、Skill、Agent 分层。' },
+  { num: 'iii.', title: '追踪', desc: '运行状态实时落点。' },
+  { num: 'iv.',  title: '沉淀', desc: 'Flow 可调用、可导出。' },
 ]
 
 const STRUCTURE_STAGES = [
-  { idx: 'i.',   name: '需求解析',     desc: '明确输入',        state: 'done' as const },
-  { idx: 'ii.',  name: '结构拆分',     desc: '生成阶段',        state: 'done' as const },
-  { idx: 'iii.', name: '节点连接',     desc: '编排路径',        state: 'now'  as const },
-  { idx: 'iv.',  name: 'Flow 固化',    desc: '可调用 · 可导出',  state: 'wait' as const },
+  { idx: 'i.',   name: '输入识别',     desc: '字段已锁定',      state: 'done' as const },
+  { idx: 'ii.',  name: '结构展开',     desc: '节点已生成',      state: 'done' as const },
+  { idx: 'iii.', name: '运行追踪',     desc: '当前步骤',        state: 'now'  as const },
+  { idx: 'iv.',  name: '结果固化',     desc: '等待导出',        state: 'wait' as const },
 ]
 
 function useReveal(deps: unknown[] = []) {
@@ -100,7 +100,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
             <div className="leading-tight">
               <div className="app-brand-mark">Lindle</div>
               <div className="text-[0.62rem] uppercase tracking-[0.22em] text-[var(--ink-soft)] mt-0.5 font-mono">
-                blocks · joints
+                transparent stack
               </div>
             </div>
           </div>
@@ -112,36 +112,38 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
         <section className="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-center">
           <div>
             <span className="app-kicker anim-ink" style={{ animationDelay: '0.1s' }}>
-              Chapter I · Blocks &amp; Joints
+              Chapter I · Transparent Stack
             </span>
             <h1 className="app-section-title mt-6 text-4xl leading-[1.18] md:text-5xl lg:text-[3.6rem]"
+                aria-label={HERO_TITLE}
                 style={{ fontWeight: 500 }}>
-              <PressTitle text="把任务，" base={0.20} />
+              <PressTitle text="结构" base={0.20} />
+              <em><PressTitle text="透明，" base={0.36} /></em>
               <br />
-              <PressTitle text="像" base={0.52} />
-              <em><PressTitle text="搭积木" base={0.60} /></em>
-              <PressTitle text="一样" base={0.81} />
+              <PressTitle text="架构" base={0.62} />
+              <em><PressTitle text="透明，" base={0.78} /></em>
               <br />
-              <PressTitle text="落位成结构。" base={0.95} />
+              <PressTitle text="运行也" base={1.02} />
+              <em><PressTitle text="透明。" base={1.22} /></em>
             </h1>
             <p className="anim-ink mt-5 italic text-[var(--ink-soft)] text-lg"
                style={{ fontFamily: 'Fraunces, serif', animationDelay: '1.5s' }}>
-              To stack capability, to converge intent.
+              Every node, layer, and runtime state stays visible.
             </p>
             <div className="anim-ink mt-9 flex flex-wrap gap-3" style={{ animationDelay: '1.75s' }}>
               <button onClick={onShowEntry} className="app-button app-button-primary">
-                走进工坊
+                进入工作台
                 <ArrowRight size={16} />
               </button>
-              <a href="#loop" className="app-button app-button-secondary">读一读原理</a>
+              <a href="#loop" className="app-button app-button-secondary">查看运行追踪</a>
             </div>
           </div>
 
           <aside className="app-card stitched anim-loom relative p-7 pt-8">
-            <span className="stamp-corner">Canvas · 01 / 04</span>
-            <div className="font-serif italic text-lg" style={{ fontFamily: 'Fraunces, serif' }}>需求 → 结构化工作流</div>
+            <span className="stamp-corner">Trace · live / 04</span>
+            <div className="font-serif italic text-lg" style={{ fontFamily: 'Fraunces, serif' }}>任务 → 结构 → 运行状态</div>
             <div className="mt-1 mb-5 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-[var(--ink-soft)]">
-              workflow preview · 4 stages
+              visible workflow · current node
             </div>
             <ul className="flex flex-col">
               {STRUCTURE_STAGES.map((s) => (
@@ -156,7 +158,7 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                     s.state === 'now'  ? 'text-[var(--rust)] relative pr-3.5' :
                     'text-[var(--ink-faint)]'
                   }`}>
-                    {s.state === 'done' ? 'done' : s.state === 'now' ? 'run' : 'wait'}
+                    {s.state === 'done' ? 'done' : s.state === 'now' ? 'running' : 'wait'}
                     {s.state === 'now' && (
                       <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--rust)]"
                             style={{ animation: 'ink-pulse 1.6s ease-in-out infinite' }} />
@@ -182,14 +184,14 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
         <section id="cap" className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
-              <span className="app-kicker">Chapter II · Two Ends</span>
+              <span className="app-kicker">Chapter II · Visible Layers</span>
               <p className="italic text-[var(--ink-soft)] text-[0.96rem] leading-relaxed" style={{ fontFamily: 'Fraunces, serif' }}>
-                Structure, then skill —<br />Flow on one end, Agent on the other.
+                Structure is visible.<br />Architecture is visible.
               </p>
             </div>
             <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
-              一端<em>编排</em>结构，
-              <br />另一端<em>调度</em>能力。
+              看得见<em>结构</em>，
+              <br />也看得见<em>架构</em>。
             </h2>
           </div>
 
@@ -204,10 +206,10 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
               </div>
               <div className="font-medium text-[1.6rem]" style={{ fontFamily: '"Noto Serif SC", serif' }}>进入 Flow</div>
               <div className="italic text-[var(--ink-soft)] text-[0.92rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-                Where each stage is visible.
+                Transparent structure.
               </div>
               <p className="text-[var(--ink-mid)] text-[0.92rem] leading-relaxed">
-                把任务拆成可见的阶段，定义输入、处理与输出，沉淀为可复用的结构。
+                节点、输入、输出和连接关系都在画布上展开。
               </p>
               <span className="self-start mt-2 inline-flex items-center gap-2 px-4 py-1.5 border border-[var(--ink)] rounded-sm font-mono text-[0.74rem] tracking-[0.14em] uppercase transition-colors duration-300 group-hover:bg-[var(--ink)] group-hover:text-[var(--paper)]">
                 workflows / new →
@@ -227,10 +229,10 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
                 <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>BETA</span>
               </div>
               <div className="italic text-[var(--ink-soft)] text-[0.92rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-                A conversation that performs.
+                Transparent architecture.
               </div>
               <p className="text-[var(--ink-mid)] text-[0.92rem] leading-relaxed">
-                在对话里按上下文调度 Skills 与 Flows，把运行时意图组织成一次执行。
+                Tool、Skill、Flow 与 Agent 的调用关系保持可追踪。
               </p>
               <span className="self-start mt-2 inline-flex items-center gap-2 px-4 py-1.5 border border-[var(--ink)] rounded-sm font-mono text-[0.74rem] tracking-[0.14em] uppercase transition-colors duration-300 group-hover:bg-[var(--rust)] group-hover:border-[var(--rust)] group-hover:text-[var(--paper)]">
                 agents / new →
@@ -242,22 +244,21 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
         <section id="loop" className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
-              <span className="app-kicker">Chapter III · One Stack</span>
+              <span className="app-kicker">Chapter III · Run Trace</span>
               <p className="italic text-[var(--ink-soft)] text-[0.96rem] leading-relaxed" style={{ fontFamily: 'Fraunces, serif' }}>
-                Watch it stack, once.
+                Know where the run is.
               </p>
             </div>
             <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
-              一次<em>编排</em>，
-              <br />一次<em>运行</em>，
-              <br />一条可复用的 Flow。
+              不只看见<em>结果</em>，
+              <br />也看见运行到<em>哪一步</em>。
             </h2>
           </div>
 
           <div className="reveal">
             <WeaveDemo />
             <p className="mt-6 text-center italic text-[var(--ink-soft)] text-[0.9rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-              一块一块落位，一步一步运行 —— 编排即结构，运行即显影。
+              每个节点都能被定位，每次执行都能被追踪。
             </p>
           </div>
         </section>
@@ -265,14 +266,14 @@ function OverviewView({ onShowEntry, onSelectAgent, headerActions }: { onShowEnt
         <section className="mt-32">
           <div className="reveal grid gap-8 lg:grid-cols-[1fr_2fr] mb-12">
             <div className="flex flex-col gap-3">
-              <span className="app-kicker">Chapter IV · Continuous Loop</span>
+              <span className="app-kicker">Chapter IV · Transparent Loop</span>
               <p className="italic text-[var(--ink-soft)] text-[0.96rem]" style={{ fontFamily: 'Fraunces, serif' }}>
-                One loop, stacked continuously.
+                Structure, architecture, runtime.
               </p>
             </div>
             <h2 className="app-section-title text-3xl md:text-[2.4rem] leading-[1.25]">
-              搭建不是一次，
-              <br />是<em>持续</em>的沉淀。
+              从结构到架构，
+              <br />再到<em>运行现场</em>。
             </h2>
           </div>
 
@@ -356,7 +357,7 @@ function EntryView({
               <PressTitle text="。" base={0.65} />
             </h1>
             <p className="text-[var(--ink-mid)] mt-4 text-base leading-relaxed anim-ink" style={{ animationDelay: '0.85s' }}>
-              进入 Flow 或 Agent；如果是首次使用，先去配置一次 Provider。
+              进入 Flow 查看结构，进入 Agent 查看调用架构；首次使用先配置 Provider。
             </p>
           </div>
 
@@ -371,7 +372,7 @@ function EntryView({
                   <div className="app-kicker no-rule mb-2">System Setup</div>
                   <h2 className="app-section-title text-2xl">设置</h2>
                   <p className="text-[var(--ink-mid)] mt-2 text-sm leading-relaxed">
-                    配置模型源、默认 Provider 与 编辑能力。
+                    配置模型源与默认 Provider。
                   </p>
                 </div>
               </button>
@@ -388,7 +389,7 @@ function EntryView({
               <div>
                 <h2 className="app-section-title text-3xl">进入 Flow</h2>
                 <p className="text-[var(--ink-mid)] mt-3 text-sm leading-relaxed">
-                  开始可视化流程编排，组织结构、执行路径与复用方式。
+                  查看节点结构、连接路径和运行位置。
                 </p>
               </div>
             </button>
@@ -407,7 +408,7 @@ function EntryView({
                   <span className="app-pill" style={{ background: 'var(--rust)', color: 'var(--paper)', borderColor: 'var(--rust)' }}>BETA</span>
                 </h2>
                 <p className="text-[var(--ink-mid)] mt-3 text-sm leading-relaxed">
-                  开始对话式能力调用，组合 Skills 与 Flows 执行任务。
+                  查看 Tool、Skill、Flow 的调用关系。
                 </p>
               </div>
             </button>
