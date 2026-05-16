@@ -16,6 +16,7 @@ from api.routes.proxy import (
     _sse,
     _validate_base_url,
     _validate_base_url_resolved,
+    resolve_protocol,
 )
 
 
@@ -56,6 +57,21 @@ def test_build_payload_uses_resolved_provider_model(monkeypatch):
     payload = _build_payload(resolved, req, stream=False)
 
     assert payload["model"] == "gpt-test"
+
+
+def test_build_payload_preserves_dashscope_qwen_thinking(monkeypatch):
+    monkeypatch.setattr("api.routes.proxy.get_default_provider", lambda: None)
+
+    req = ProxyChatRequest(
+        messages=[{"role": "user", "content": "Hi"}],
+        api_key="sk-test",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        model="qwen-plus",
+    )
+    resolved = _resolve_proxy_config("openai", req)
+    payload = _build_payload(resolved, req, stream=False)
+
+    assert payload["enable_thinking"] is True
 
 
 def test_resolve_proxy_config_accepts_anthropic_protocol(monkeypatch):
@@ -108,6 +124,25 @@ def test_sse_emits_event_name_and_typed_payload():
     assert frame.startswith("event: delta\n")
     assert '"type": "delta"' in frame
     assert '"content": "hi"' in frame
+
+
+@pytest.mark.asyncio
+async def test_resolve_protocol_returns_masked_endpoint_preview(monkeypatch):
+    monkeypatch.setattr("api.routes.proxy.get_default_provider", lambda: None)
+
+    resolved = await resolve_protocol(
+        "openai-compatible",
+        ProxyChatRequest(
+            messages=[{"role": "user", "content": "Hi"}],
+            api_key="sk-test",
+            base_url="https://example.com/v1",
+            model="gpt-test",
+        ),
+    )
+
+    assert resolved.api_key == "***"
+    assert resolved.protocol == "openai"
+    assert resolved.endpoint == "https://example.com/v1/chat/completions"
 
 
 def test_extract_delta_supports_gemini_chunks():

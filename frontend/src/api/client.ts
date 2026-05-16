@@ -242,6 +242,7 @@ export interface ResolvedProxyConfig {
   base_url: string
   model: string
   provider_id: string
+  endpoint: string
 }
 
 export async function getSettings() {

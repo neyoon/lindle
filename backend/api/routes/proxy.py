@@ -52,6 +52,7 @@ class ResolvedProxyConfig(BaseModel):
     base_url: str
     model: str
     provider_id: str = ""
+    endpoint: str = ""
 
 
 _PROTOCOLS: dict[str, ProtocolInfo] = {
@@ -64,19 +65,19 @@ _PROTOCOLS: dict[str, ProtocolInfo] = {
     "anthropic": ProtocolInfo(
         id="anthropic",
         name="Anthropic",
-        status="active",
+        status="experimental",
         description="Claude Messages 协议。",
     ),
     "gemini": ProtocolInfo(
         id="gemini",
         name="Google Gemini",
-        status="active",
+        status="experimental",
         description="Gemini streamGenerateContent 协议。",
     ),
     "azure": ProtocolInfo(
         id="azure",
         name="Azure OpenAI",
-        status="active",
+        status="experimental",
         description="Azure OpenAI deployment + api-version 协议。",
     ),
 }
@@ -98,7 +99,10 @@ async def list_protocols() -> list[ProtocolInfo]:
 async def resolve_protocol(protocol: str, body: ProxyChatRequest) -> ResolvedProxyConfig:
     """只解析路由配置，不发起上游请求，用于前端预检。"""
     config = _resolve_proxy_config(protocol, body)
-    return config.model_copy(update={"api_key": "***"})
+    return config.model_copy(update={
+        "api_key": "***",
+        "endpoint": _build_endpoint(config, body, stream=False),
+    })
 
 
 @router.post("/{protocol}/chat")
@@ -182,11 +186,11 @@ async def proxy_stream(protocol: str, body: ProxyChatRequest) -> StreamingRespon
 
 
 def _resolve_proxy_config(protocol: str, body: ProxyChatRequest) -> ResolvedProxyConfig:
-    normalized_protocol = _PROTOCOL_ALIASES.get(protocol, protocol)
+    normalized_protocol = _PROTOCOL_ALIASES.get(protocol.strip().lower(), protocol.strip().lower())
     protocol_info = _PROTOCOLS.get(normalized_protocol)
     if protocol_info is None:
         raise HTTPException(status_code=404, detail=f"不支持的协议: {protocol}")
-    if protocol_info.status != "active":
+    if protocol_info.status not in {"active", "experimental"}:
         raise HTTPException(status_code=400, detail=f"{protocol_info.name} 协议接入尚未启用")
 
     provider = get_provider_by_id(body.provider_id) if body.provider_id else get_default_provider()
@@ -259,6 +263,8 @@ def _build_payload(config: ResolvedProxyConfig, body: ProxyChatRequest, *, strea
         payload["tools"] = body.tools
         if body.tool_choice != "auto":
             payload["tool_choice"] = body.tool_choice
+    if "qwen" in config.model.lower() and "dashscope.aliyuncs.com" in config.base_url:
+        payload.setdefault("enable_thinking", True)
     payload.update(body.extra_body)
     return payload
 
