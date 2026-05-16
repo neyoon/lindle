@@ -13,7 +13,6 @@ from dataclasses import asdict
 from typing import Any
 
 from plugins.base import BasePlugin, PluginMeta
-from plugins.analyst_soul import AnalystSoulSkill
 from plugins.custom_skills import CustomSkill, load_custom_skill
 from plugins.mock_tool import MockToolPlugin
 from plugins.workflow_executor import WorkflowExecutorSkill
@@ -168,7 +167,6 @@ async def execute_plugin(plugin_id: str, input_data: str) -> Any:
 
 
 def _register_builtin_plugins() -> None:
-    register_plugin(AnalystSoulSkill())
     register_plugin(MockToolPlugin())
     register_plugin(WorkflowExecutorSkill())
     register_plugin(WorkflowDesignerSkill())

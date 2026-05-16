@@ -527,13 +527,6 @@ function ProviderSettingsSection({
         </section>
       )}
 
-      <section className="app-card-soft mt-6 p-5">
-        <div className="app-kicker mb-2">Compatibility note</div>
-        <p className="app-muted text-sm leading-7">
-          Lindle 支持 OpenAI 兼容、Anthropic、Gemini 与 Azure OpenAI 协议。你可以同时添加多个不同来源的 Provider，
-          在工作流 AI 块和 Agent 中分别选择。
-        </p>
-      </section>
     </>
   )
 }
