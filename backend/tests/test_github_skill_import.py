@@ -9,22 +9,27 @@ from api.routes import plugins
 from api.routes.plugins import GitHubSkillImportRequest, _build_github_skill, _parse_github_source
 
 
-def test_parse_github_tree_source():
-    ref = _parse_github_source("https://github.com/openai/skills/tree/main/writing/editor")
+def test_parse_github_repo_source():
+    ref = _parse_github_source("https://github.com/openai/skills")
 
     assert ref["owner"] == "openai"
     assert ref["repo"] == "skills"
     assert ref["branch"] == "main"
-    assert ref["path"] == "writing/editor"
-    assert ref["url"] == "https://github.com/openai/skills/tree/main/writing/editor"
+    assert ref["path"] == ""
+    assert ref["url"] == "https://github.com/openai/skills/tree/main"
 
 
-def test_parse_owner_repo_path_source():
-    ref = _parse_github_source("openai/skills/writing/editor/SKILL.md")
+def test_parse_owner_repo_source():
+    ref = _parse_github_source("openai/skills")
 
     assert ref["owner"] == "openai"
     assert ref["repo"] == "skills"
-    assert ref["path"] == "writing/editor"
+    assert ref["path"] == ""
+
+
+def test_parse_rejects_repo_subdirectory():
+    with pytest.raises(Exception):
+        _parse_github_source("openai/skills/writing/editor")
 
 
 @pytest.mark.asyncio
@@ -39,7 +44,7 @@ async def test_build_github_skill_uses_skill_py(monkeypatch):
     monkeypatch.setattr(plugins, "_fetch_github_text", fake_fetch_text)
     monkeypatch.setattr(plugins, "_fetch_optional_code", fake_fetch_code)
 
-    skill = await _build_github_skill(GitHubSkillImportRequest(source="openai/skills/writing/editor"))
+    skill = await _build_github_skill(GitHubSkillImportRequest(source="openai/skills"))
 
     assert skill["id"].startswith("github_openai_skills_")
     assert skill["name"] == "Editor"
@@ -59,7 +64,7 @@ async def test_build_github_skill_without_code_returns_instruction_skill(monkeyp
     monkeypatch.setattr(plugins, "_fetch_github_text", fake_fetch_text)
     monkeypatch.setattr(plugins, "_fetch_optional_code", fake_fetch_code)
 
-    skill = await _build_github_skill(GitHubSkillImportRequest(source="openai/skills/research"))
+    skill = await _build_github_skill(GitHubSkillImportRequest(source="openai/skills"))
 
     assert "instructions" in skill["code"]
     assert "Use these instructions." in skill["code"]

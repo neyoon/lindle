@@ -267,7 +267,7 @@ function GitHubSkillImportDialog({
                   setPreview(null)
                   setError('')
                 }}
-                placeholder="owner/repo/path 或 GitHub URL"
+                placeholder="owner/repo 或 GitHub 仓库 URL"
               />
               <button onClick={handlePreview} disabled={loadingPreview} className="app-button app-button-secondary disabled:opacity-50">
                 {loadingPreview ? <Loader2 size={14} className="animate-spin" /> : null}

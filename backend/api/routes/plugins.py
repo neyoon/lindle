@@ -227,7 +227,7 @@ async def remove_custom_skill(skill_id: str):
 async def _build_github_skill(body: GitHubSkillImportRequest) -> dict:
     source = body.source.strip()
     if not source:
-        raise HTTPException(400, "请填写 GitHub Skill 地址")
+        raise HTTPException(400, "请填写 GitHub 仓库地址")
 
     ref = _parse_github_source(source)
     skill_md = await _fetch_github_text(ref, "SKILL.md")
@@ -238,7 +238,7 @@ async def _build_github_skill(body: GitHubSkillImportRequest) -> dict:
     if not code:
         code = _instruction_skill_code(skill_md)
 
-    stable_key = f"{ref['owner']}/{ref['repo']}/{ref['path']}"
+    stable_key = f"{ref['owner']}/{ref['repo']}/{ref['branch']}"
     digest = hashlib.sha1(stable_key.encode("utf-8")).hexdigest()[:10]
     skill_id = f"github_{_slug(ref['owner'])}_{_slug(ref['repo'])}_{digest}"
 
@@ -268,7 +268,7 @@ async def _build_github_skill(body: GitHubSkillImportRequest) -> dict:
 
 def _parse_github_source(source: str) -> dict[str, str]:
     parsed = urlparse(source)
-    owner = repo = path = ""
+    owner = repo = ""
     branch = "main"
 
     if parsed.netloc in {"github.com", "www.github.com"}:
@@ -276,38 +276,29 @@ def _parse_github_source(source: str) -> dict[str, str]:
         if len(parts) < 2:
             raise HTTPException(400, "GitHub 地址格式不正确")
         owner, repo = parts[0], parts[1].removesuffix(".git")
-        if len(parts) >= 5 and parts[2] in {"tree", "blob"}:
+        if len(parts) == 4 and parts[2] == "tree":
             branch = parts[3]
-            path = "/".join(parts[4:])
         elif len(parts) > 2:
-            path = "/".join(parts[2:])
+            raise HTTPException(400, "只支持仓库根目录的 Skill")
     elif parsed.netloc == "raw.githubusercontent.com":
         parts = [part for part in parsed.path.strip("/").split("/") if part]
-        if len(parts) < 4:
+        if len(parts) != 4 or parts[3] != "SKILL.md":
             raise HTTPException(400, "GitHub raw 地址格式不正确")
         owner, repo, branch = parts[0], parts[1], parts[2]
-        path = "/".join(parts[3:])
     else:
         parts = [part for part in source.strip("/").split("/") if part]
-        if len(parts) < 2:
-            raise HTTPException(400, "请使用 GitHub URL 或 owner/repo/path")
+        if len(parts) != 2:
+            raise HTTPException(400, "请使用 GitHub 仓库 URL 或 owner/repo")
         owner, repo = parts[0], parts[1].removesuffix(".git")
-        if len(parts) > 2:
-            path = "/".join(parts[2:])
 
-    path = path.removesuffix("/")
-    if path.endswith("SKILL.md"):
-        path = path.rsplit("/", 1)[0] if "/" in path else ""
-
-    name = path.rstrip("/").split("/")[-1] or repo
-    url_path = f"/tree/{branch}/{path}" if path else f"/tree/{branch}"
+    name = repo
     return {
         "owner": owner,
         "repo": repo,
         "branch": branch,
-        "path": path,
+        "path": "",
         "name": name,
-        "url": f"https://github.com/{owner}/{repo}{url_path}",
+        "url": f"https://github.com/{owner}/{repo}/tree/{branch}",
     }
 
 
