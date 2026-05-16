@@ -459,6 +459,20 @@ export async function createCustomSkill(skill: any) {
   })
 }
 
+export async function previewGitHubSkill(source: string, name?: string, description?: string) {
+  return request<{ ok: boolean; skill: any }>('/plugins/custom-skills/github/preview', {
+    method: 'POST',
+    body: JSON.stringify({ source, name, description }),
+  })
+}
+
+export async function importGitHubSkill(source: string, name?: string, description?: string) {
+  return request<{ ok: boolean; skill: any }>('/plugins/custom-skills/github/import', {
+    method: 'POST',
+    body: JSON.stringify({ source, name, description }),
+  })
+}
+
 export async function getCustomSkill(skillId: string) {
   return request<any>(`/plugins/custom-skills/${skillId}`)
 }

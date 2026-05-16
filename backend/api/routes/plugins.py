@@ -4,6 +4,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
+from urllib.parse import urlparse
+
+import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -41,6 +46,14 @@ class CustomSkillRequest(BaseModel):
     code: str
     input_schema: dict = {}
     output_schema: dict = {}
+    source: str = "local"
+    source_url: str = ""
+
+
+class GitHubSkillImportRequest(BaseModel):
+    source: str
+    name: str | None = None
+    description: str | None = None
 
 
 class GenerateFlowSkillRequest(BaseModel):
@@ -178,6 +191,21 @@ async def create_custom_skill(body: CustomSkillRequest):
     return {"ok": True, "skill": skill_data}
 
 
+@router.post("/custom-skills/github/preview")
+async def preview_github_skill(body: GitHubSkillImportRequest):
+    skill_data = await _build_github_skill(body)
+    return {"ok": True, "skill": skill_data}
+
+
+@router.post("/custom-skills/github/import")
+async def import_github_skill(body: GitHubSkillImportRequest):
+    skill_data = await _build_github_skill(body)
+    ok = save_custom_skill(skill_data)
+    if not ok:
+        raise HTTPException(500, "保存失败")
+    return {"ok": True, "skill": skill_data}
+
+
 @router.get("/custom-skills/{skill_id}")
 async def get_custom_skill(skill_id: str):
     """获取单个自定义 Skill"""
@@ -194,6 +222,166 @@ async def remove_custom_skill(skill_id: str):
     if not ok:
         raise HTTPException(404, "Skill 不存在")
     return {"ok": True}
+
+
+async def _build_github_skill(body: GitHubSkillImportRequest) -> dict:
+    source = body.source.strip()
+    if not source:
+        raise HTTPException(400, "请填写 GitHub Skill 地址")
+
+    ref = _parse_github_source(source)
+    skill_md = await _fetch_github_text(ref, "SKILL.md")
+    code = await _fetch_optional_code(ref)
+
+    name = body.name or _extract_skill_name(skill_md) or ref["name"]
+    description = body.description or _extract_skill_description(skill_md)
+    if not code:
+        code = _instruction_skill_code(skill_md)
+
+    stable_key = f"{ref['owner']}/{ref['repo']}/{ref['path']}"
+    digest = hashlib.sha1(stable_key.encode("utf-8")).hexdigest()[:10]
+    skill_id = f"github_{_slug(ref['owner'])}_{_slug(ref['repo'])}_{digest}"
+
+    return {
+        "id": skill_id,
+        "name": name,
+        "description": description,
+        "icon": "",
+        "code": code,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "input": {"type": "string", "description": "传给 Skill 的输入"},
+            },
+        },
+        "output_schema": {
+            "type": "object",
+            "properties": {
+                "success": {"type": "boolean"},
+                "output": {"type": "object"},
+            },
+        },
+        "source": "github",
+        "source_url": ref["url"],
+    }
+
+
+def _parse_github_source(source: str) -> dict[str, str]:
+    parsed = urlparse(source)
+    owner = repo = path = ""
+    branch = "main"
+
+    if parsed.netloc in {"github.com", "www.github.com"}:
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+        if len(parts) < 2:
+            raise HTTPException(400, "GitHub 地址格式不正确")
+        owner, repo = parts[0], parts[1].removesuffix(".git")
+        if len(parts) >= 5 and parts[2] in {"tree", "blob"}:
+            branch = parts[3]
+            path = "/".join(parts[4:])
+        elif len(parts) > 2:
+            path = "/".join(parts[2:])
+    elif parsed.netloc == "raw.githubusercontent.com":
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+        if len(parts) < 4:
+            raise HTTPException(400, "GitHub raw 地址格式不正确")
+        owner, repo, branch = parts[0], parts[1], parts[2]
+        path = "/".join(parts[3:])
+    else:
+        parts = [part for part in source.strip("/").split("/") if part]
+        if len(parts) < 2:
+            raise HTTPException(400, "请使用 GitHub URL 或 owner/repo/path")
+        owner, repo = parts[0], parts[1].removesuffix(".git")
+        if len(parts) > 2:
+            path = "/".join(parts[2:])
+
+    path = path.removesuffix("/")
+    if path.endswith("SKILL.md"):
+        path = path.rsplit("/", 1)[0] if "/" in path else ""
+
+    name = path.rstrip("/").split("/")[-1] or repo
+    url_path = f"/tree/{branch}/{path}" if path else f"/tree/{branch}"
+    return {
+        "owner": owner,
+        "repo": repo,
+        "branch": branch,
+        "path": path,
+        "name": name,
+        "url": f"https://github.com/{owner}/{repo}{url_path}",
+    }
+
+
+async def _fetch_github_text(ref: dict[str, str], filename: str) -> str:
+    candidates = [ref["branch"]]
+    if ref["branch"] == "main":
+        candidates.append("master")
+    base_path = ref["path"].strip("/")
+    raw_path = f"{base_path}/{filename}" if base_path else filename
+
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=False) as client:
+        for branch in candidates:
+            url = f"https://raw.githubusercontent.com/{ref['owner']}/{ref['repo']}/{branch}/{raw_path}"
+            response = await client.get(url)
+            if response.status_code == 200:
+                return response.text
+            if response.status_code not in {404, 400}:
+                raise HTTPException(response.status_code, response.text[:300])
+
+    raise HTTPException(404, f"未找到 {filename}")
+
+
+async def _fetch_optional_code(ref: dict[str, str]) -> str:
+    for filename in ("skill.py", "main.py"):
+        try:
+            return await _fetch_github_text(ref, filename)
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+    return ""
+
+
+def _extract_skill_name(markdown: str) -> str:
+    for line in markdown.splitlines():
+        line = line.strip()
+        if line.startswith("# "):
+            return line[2:].strip()
+    return ""
+
+
+def _extract_skill_description(markdown: str) -> str:
+    seen_title = False
+    for line in markdown.splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        if text.startswith("#"):
+            seen_title = True
+            continue
+        if seen_title:
+            return text[:240]
+    return ""
+
+
+def _instruction_skill_code(markdown: str) -> str:
+    instructions = repr(markdown)
+    return (
+        "import json\n"
+        "\n"
+        "data = json.loads(input_data) if input_data else {}\n"
+        f"instructions = {instructions}\n"
+        "result = {\n"
+        '    "success": True,\n'
+        '    "output": {\n'
+        '        "instructions": instructions,\n'
+        '        "input": data,\n'
+        "    },\n"
+        "}\n"
+    )
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_").lower()
+    return slug or "skill"
 
 
 @router.get("/{plugin_id}")
