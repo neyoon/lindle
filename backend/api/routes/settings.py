@@ -33,26 +33,32 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 class ProviderInput(BaseModel):
     name: str = ""
+    protocol: str = "openai"
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
+    api_version: str = ""
 
 
 class ProviderResponse(BaseModel):
     id: str
     name: str
+    protocol: str = "openai"
     api_key_masked: str
     api_key_set: bool
     base_url: str
     model: str
+    api_version: str = ""
     is_default: bool
 
 
 class TestInput(BaseModel):
+    protocol: str = "openai"
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
     provider_id: str = ""
+    api_version: str = ""
 
 
 def _settings_file() -> Path:
@@ -88,6 +94,14 @@ def _load_raw() -> dict[str, Any]:
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("读取配置文件失败: %s", e)
         return {"providers": []}
+
+
+def _provider_protocol(provider: dict[str, Any]) -> str:
+    return provider.get("protocol") or "openai"
+
+
+def _provider_api_version(provider: dict[str, Any]) -> str:
+    return provider.get("api_version") or ""
 
 
 def _save_raw(data: dict[str, Any]) -> None:
@@ -147,10 +161,12 @@ async def list_providers() -> list[ProviderResponse]:
         ProviderResponse(
             id=p["id"],
             name=p.get("name", ""),
+            protocol=_provider_protocol(p),
             api_key_masked=_mask_key(p.get("api_key", "")),
             api_key_set=bool(p.get("api_key")),
             base_url=p.get("base_url", ""),
             model=p.get("model", ""),
+            api_version=_provider_api_version(p),
             is_default=p.get("is_default", False),
         )
         for p in providers
@@ -169,9 +185,11 @@ async def add_provider(body: ProviderInput) -> ProviderResponse:
     new_provider = {
         "id": new_id,
         "name": body.name or body.model,
+        "protocol": body.protocol or "openai",
         "api_key": body.api_key,
         "base_url": body.base_url,
         "model": body.model,
+        "api_version": body.api_version,
         "is_default": is_default,
     }
     providers.append(new_provider)
@@ -184,10 +202,12 @@ async def add_provider(body: ProviderInput) -> ProviderResponse:
     return ProviderResponse(
         id=new_id,
         name=new_provider["name"],
+        protocol=_provider_protocol(new_provider),
         api_key_masked=_mask_key(body.api_key),
         api_key_set=bool(body.api_key),
         base_url=body.base_url,
         model=body.model,
+        api_version=_provider_api_version(new_provider),
         is_default=is_default,
     )
 
@@ -208,10 +228,12 @@ async def update_provider(provider_id: str, body: ProviderInput) -> ProviderResp
         raise HTTPException(status_code=404, detail="Provider 不存在")
 
     target["name"] = body.name or body.model
+    target["protocol"] = body.protocol or "openai"
     if body.api_key:
         target["api_key"] = body.api_key
     target["base_url"] = body.base_url
     target["model"] = body.model
+    target["api_version"] = body.api_version
 
     data["providers"] = providers
     _save_raw(data)
@@ -222,10 +244,12 @@ async def update_provider(provider_id: str, body: ProviderInput) -> ProviderResp
     return ProviderResponse(
         id=provider_id,
         name=target["name"],
+        protocol=_provider_protocol(target),
         api_key_masked=_mask_key(target.get("api_key", "")),
         api_key_set=bool(target.get("api_key")),
         base_url=target["base_url"],
         model=target["model"],
+        api_version=_provider_api_version(target),
         is_default=target.get("is_default", False),
     )
 
@@ -295,23 +319,27 @@ async def set_default_provider(provider_id: str) -> dict[str, str]:
 
 @router.post("/test")
 async def test_connection(body: TestInput) -> dict[str, Any]:
-    """测试 LLM 连接
+    """测试 LLM 连接。
 
-    会发送一条 "Hi" 消息并限制返回 max_tokens=5，
-    消耗约 5 个 token（几乎无成本），用于验证 API Key + Base URL + 模型 三者是否正确。
+    通过统一 proxy 发送一条 "Hi" 消息，验证协议、API Key、Base URL 与模型是否匹配。
     """
+    protocol = body.protocol or "openai"
     api_key = body.api_key
     base_url = body.base_url
     model = body.model
+    api_version = body.api_version
 
     if not api_key and body.provider_id:
         p = get_provider_by_id(body.provider_id)
         if p:
+            protocol = _provider_protocol(p)
             api_key = p.get("api_key", "")
             if not base_url:
                 base_url = p.get("base_url", "")
             if not model:
                 model = p.get("model", "")
+            if not api_version:
+                api_version = _provider_api_version(p)
 
     if not api_key:
         return {"success": False, "message": "未提供 API Key"}
@@ -320,27 +348,22 @@ async def test_connection(body: TestInput) -> dict[str, Any]:
     model = model or "gpt-4o-mini"
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(
-                f"{base_url}/chat/completions",
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": "Hi"}],
-                    "max_tokens": 5,
-                },
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
+        from api.routes.proxy import ProxyChatRequest, proxy_chat
+
+        await proxy_chat(
+            protocol,
+            ProxyChatRequest(
+                messages=[{"role": "user", "content": "Hi"}],
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                api_version=api_version,
+                max_tokens=5,
             )
-            if resp.status_code == 200:
-                return {"success": True, "message": f"连接成功！模型: {model}"}
-            else:
-                error_text = resp.text[:200]
-                return {
-                    "success": False,
-                    "message": f"API 返回 {resp.status_code}: {error_text}",
-                }
+        )
+        return {"success": True, "message": f"连接成功！协议: {protocol}，模型: {model}"}
+    except HTTPException as e:
+        return {"success": False, "message": f"API 返回 {e.status_code}: {e.detail}"}
     except httpx.TimeoutException:
         return {"success": False, "message": "连接超时，请检查 Base URL 是否正确"}
     except Exception as e:
@@ -355,12 +378,14 @@ async def get_settings_summary() -> dict[str, Any]:
         return {
             "api_key_masked": _mask_key(default.get("api_key", "")),
             "api_key_set": bool(default.get("api_key")),
+            "protocol": _provider_protocol(default),
             "base_url": default.get("base_url", ""),
             "default_model": default.get("model", ""),
         }
     return {
         "api_key_masked": "",
         "api_key_set": False,
+        "protocol": "openai",
         "base_url": "",
         "default_model": "",
     }
@@ -372,6 +397,8 @@ def _apply_provider(provider: dict[str, Any]) -> None:
         api_key=provider.get("api_key", ""),
         base_url=provider.get("base_url", "https://api.openai.com/v1"),
         default_model=provider.get("model", "gpt-4o-mini"),
+        protocol=_provider_protocol(provider),
+        api_version=_provider_api_version(provider),
     )
 
 

@@ -407,6 +407,8 @@ class AgentEngine:
             "model": provider.get("model"),
             "api_key": provider.get("api_key"),
             "base_url": provider.get("base_url"),
+            "protocol": provider.get("protocol") or "openai",
+            "api_version": provider.get("api_version") or "",
         }
 
     def _build_messages(

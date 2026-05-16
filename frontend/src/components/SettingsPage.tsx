@@ -18,11 +18,13 @@ import {
   addProvider,
   deleteProvider,
   getEditProvider,
+  listProxyProtocols,
   listProviders,
   setEditProvider,
   setDefaultProvider,
   testConnection,
   updateProvider,
+  type ProxyProtocol,
   type ProviderResponse,
 } from '@/api/client'
 
@@ -34,15 +36,30 @@ interface Props {
   headerActions?: ReactNode
 }
 
-const PRESETS = [
-  { name: 'OpenAI', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  { name: 'DeepSeek', base_url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-  { name: '通义千问', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  { name: 'Ollama (本地)', base_url: 'http://localhost:11434/v1', model: 'llama3' },
+const FALLBACK_PROTOCOLS: ProxyProtocol[] = [
+  { id: 'openai', name: 'OpenAI 兼容', status: 'active', description: '' },
+  { id: 'anthropic', name: 'Anthropic', status: 'active', description: '' },
+  { id: 'gemini', name: 'Google Gemini', status: 'active', description: '' },
+  { id: 'azure', name: 'Azure OpenAI', status: 'active', description: '' },
 ]
+
+const PRESETS = [
+  { name: 'OpenAI', protocol: 'openai', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', api_version: '' },
+  { name: 'DeepSeek', protocol: 'openai', base_url: 'https://api.deepseek.com/v1', model: 'deepseek-chat', api_version: '' },
+  { name: '通义千问', protocol: 'openai', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', api_version: '' },
+  { name: 'Claude', protocol: 'anthropic', base_url: 'https://api.anthropic.com', model: 'claude-3-5-sonnet-latest', api_version: '' },
+  { name: 'Gemini', protocol: 'gemini', base_url: 'https://generativelanguage.googleapis.com', model: 'gemini-1.5-pro', api_version: '' },
+  { name: 'Azure OpenAI', protocol: 'azure', base_url: 'https://YOUR-RESOURCE.openai.azure.com', model: 'deployment-name', api_version: '2024-10-21' },
+  { name: 'Ollama (本地)', protocol: 'openai', base_url: 'http://localhost:11434/v1', model: 'llama3', api_version: '' },
+]
+
+function protocolLabel(protocols: ProxyProtocol[], protocol: string) {
+  return protocols.find((option) => option.id === protocol)?.name || protocol || 'OpenAI 兼容'
+}
 
 export function SettingsPage({ section, onBack, headerActions }: Props) {
   const [providers, setProviders] = useState<ProviderResponse[]>([])
+  const [proxyProtocols, setProxyProtocols] = useState<ProxyProtocol[]>(FALLBACK_PROTOCOLS)
   const [preferences, setPreferences] = useState<AppPreferences>(() => getAppPreferences())
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -50,9 +67,11 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string } | null>(null)
   const [editProviderId, setEditProviderId] = useState('')
   const [formName, setFormName] = useState('')
+  const [formProtocol, setFormProtocol] = useState('openai')
   const [formKey, setFormKey] = useState('')
   const [formUrl, setFormUrl] = useState('https://api.openai.com/v1')
   const [formModel, setFormModel] = useState('gpt-4o-mini')
+  const [formApiVersion, setFormApiVersion] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -72,8 +91,12 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
 
   const loadProviders = async () => {
     try {
-      const data = await listProviders()
+      const [data, protocols] = await Promise.all([
+        listProviders(),
+        listProxyProtocols().catch(() => FALLBACK_PROTOCOLS),
+      ])
       setProviders(data)
+      setProxyProtocols(protocols.length ? protocols : FALLBACK_PROTOCOLS)
     } catch (e) {
       console.error('加载 Provider 列表失败:', e)
     } finally {
@@ -84,9 +107,11 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
   const startAdd = () => {
     setEditingId('new')
     setFormName('')
+    setFormProtocol('openai')
     setFormKey('')
     setFormUrl('https://api.openai.com/v1')
     setFormModel('gpt-4o-mini')
+    setFormApiVersion('')
     setShowKey(false)
     setTestResult(null)
   }
@@ -94,17 +119,21 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
   const startEdit = (provider: ProviderResponse) => {
     setEditingId(provider.id)
     setFormName(provider.name)
+    setFormProtocol(provider.protocol || 'openai')
     setFormKey('')
     setFormUrl(provider.base_url)
     setFormModel(provider.model)
+    setFormApiVersion(provider.api_version || '')
     setShowKey(false)
     setTestResult(null)
   }
 
   const applyPreset = (preset: (typeof PRESETS)[0]) => {
     setFormName(preset.name)
+    setFormProtocol(preset.protocol)
     setFormUrl(preset.base_url)
     setFormModel(preset.model)
+    setFormApiVersion(preset.api_version)
   }
 
   const updatePreference = <K extends keyof AppPreferences,>(key: K, value: AppPreferences[K]) => {
@@ -124,9 +153,9 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
           setSaving(false)
           return
         }
-        await addProvider({ name: formName, api_key: formKey, base_url: formUrl, model: formModel })
+        await addProvider({ name: formName, protocol: formProtocol, api_key: formKey, base_url: formUrl, model: formModel, api_version: formApiVersion })
       } else {
-        await updateProvider(editingId!, { name: formName, api_key: formKey, base_url: formUrl, model: formModel })
+        await updateProvider(editingId!, { name: formName, protocol: formProtocol, api_key: formKey, base_url: formUrl, model: formModel, api_version: formApiVersion })
       }
       setEditingId(null)
       await loadProviders()
@@ -164,7 +193,7 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
     try {
       const result = await testConnection(
         isEditingThis
-          ? { api_key: formKey || '', base_url: formUrl, model: formModel, provider_id: providerId === 'new' ? '' : providerId }
+          ? { protocol: formProtocol, api_key: formKey || '', base_url: formUrl, model: formModel, provider_id: providerId === 'new' ? '' : providerId, api_version: formApiVersion }
           : { base_url: '', model: '', provider_id: providerId },
       )
       setTestResult({ id: providerId, success: result.success, message: result.message })
@@ -218,22 +247,27 @@ export function SettingsPage({ section, onBack, headerActions }: Props) {
         ) : (
           <ProviderSettingsSection
             providers={providers}
+            proxyProtocols={proxyProtocols}
             editProviderId={editProviderId}
             setEditProviderId={setEditProviderId}
             editingId={editingId}
             setEditingId={setEditingId}
             formName={formName}
+            formProtocol={formProtocol}
             formKey={formKey}
             formUrl={formUrl}
             formModel={formModel}
+            formApiVersion={formApiVersion}
             showKey={showKey}
             saving={saving}
             testingId={testingId}
             testResult={testResult}
             setFormName={setFormName}
+            setFormProtocol={setFormProtocol}
             setFormKey={setFormKey}
             setFormUrl={setFormUrl}
             setFormModel={setFormModel}
+            setFormApiVersion={setFormApiVersion}
             setShowKey={setShowKey}
             handleSave={handleSave}
             handleDelete={handleDelete}
@@ -294,22 +328,27 @@ function ReadonlyPreference({ label, value }: { label: string; value: string }) 
 
 function ProviderSettingsSection({
   providers,
+  proxyProtocols,
   editProviderId,
   setEditProviderId,
   editingId,
   setEditingId,
   formName,
+  formProtocol,
   formKey,
   formUrl,
   formModel,
+  formApiVersion,
   showKey,
   saving,
   testingId,
   testResult,
   setFormName,
+  setFormProtocol,
   setFormKey,
   setFormUrl,
   setFormModel,
+  setFormApiVersion,
   setShowKey,
   handleSave,
   handleDelete,
@@ -319,22 +358,27 @@ function ProviderSettingsSection({
   applyPreset,
 }: {
   providers: ProviderResponse[]
+  proxyProtocols: ProxyProtocol[]
   editProviderId: string
   setEditProviderId: (value: string) => void
   editingId: string | null
   setEditingId: (value: string | null) => void
   formName: string
+  formProtocol: string
   formKey: string
   formUrl: string
   formModel: string
+  formApiVersion: string
   showKey: boolean
   saving: boolean
   testingId: string | null
   testResult: { id: string; success: boolean; message: string } | null
   setFormName: (value: string) => void
+  setFormProtocol: (value: string) => void
   setFormKey: (value: string) => void
   setFormUrl: (value: string) => void
   setFormModel: (value: string) => void
+  setFormApiVersion: (value: string) => void
   setShowKey: (fn: (prev: boolean) => boolean) => void
   handleSave: () => Promise<void>
   handleDelete: (id: string, name: string) => Promise<void>
@@ -349,7 +393,7 @@ function ProviderSettingsSection({
         <div className="grid gap-6 md:grid-cols-[1.15fr_0.85fr]">
           <div>
             <div className="app-kicker mb-3">Provider</div>
-            <h2 className="app-section-title text-3xl md:text-4xl">管理所有 OpenAI 兼容 Provider</h2>
+            <h2 className="app-section-title text-3xl md:text-4xl">管理所有模型 Provider</h2>
             <p className="app-muted mt-4 max-w-2xl text-sm leading-8">
               Lindle 的 Flow、Agent 和编辑能力都依赖这里的 Provider。
             </p>
@@ -373,19 +417,24 @@ function ProviderSettingsSection({
         <section className="mt-6">
           <ProviderForm
             title="添加新 Provider"
+            proxyProtocols={proxyProtocols}
             formName={formName}
+            formProtocol={formProtocol}
             formKey={formKey}
             formUrl={formUrl}
             formModel={formModel}
+            formApiVersion={formApiVersion}
             showKey={showKey}
             saving={saving}
             isNew
             testingId={testingId}
             testResult={testResult?.id === 'new' ? testResult : null}
             onNameChange={setFormName}
+            onProtocolChange={setFormProtocol}
             onKeyChange={setFormKey}
             onUrlChange={setFormUrl}
             onModelChange={setFormModel}
+            onApiVersionChange={setFormApiVersion}
             onToggleKey={() => setShowKey((prev) => !prev)}
             onSave={handleSave}
             onCancel={() => setEditingId(null)}
@@ -408,19 +457,24 @@ function ProviderSettingsSection({
               <ProviderForm
                 key={provider.id}
                 title={`编辑: ${provider.name}`}
+                proxyProtocols={proxyProtocols}
                 formName={formName}
+                formProtocol={formProtocol}
                 formKey={formKey}
                 formUrl={formUrl}
                 formModel={formModel}
+                formApiVersion={formApiVersion}
                 showKey={showKey}
                 saving={saving}
                 isNew={false}
                 testingId={testingId}
                 testResult={testResult?.id === provider.id ? testResult : null}
                 onNameChange={setFormName}
+                onProtocolChange={setFormProtocol}
                 onKeyChange={setFormKey}
                 onUrlChange={setFormUrl}
                 onModelChange={setFormModel}
+                onApiVersionChange={setFormApiVersion}
                 onToggleKey={() => setShowKey((prev) => !prev)}
                 onSave={handleSave}
                 onCancel={() => setEditingId(null)}
@@ -432,6 +486,7 @@ function ProviderSettingsSection({
               <ProviderCard
                 key={provider.id}
                 provider={provider}
+                proxyProtocols={proxyProtocols}
                 testingId={testingId}
                 testResult={testResult?.id === provider.id ? testResult : null}
                 onEdit={() => startEdit(provider)}
@@ -475,8 +530,8 @@ function ProviderSettingsSection({
       <section className="app-card-soft mt-6 p-5">
         <div className="app-kicker mb-2">Compatibility note</div>
         <p className="app-muted text-sm leading-7">
-          Lindle 支持所有兼容 OpenAI API 格式的服务商，包括 DeepSeek、通义千问、智谱、月之暗面和 Ollama 本地部署。
-          你可以同时添加多个不同来源的Provider，在工作流 AI 块和 Agent 中分别选择。
+          Lindle 支持 OpenAI 兼容、Anthropic、Gemini 与 Azure OpenAI 协议。你可以同时添加多个不同来源的 Provider，
+          在工作流 AI 块和 Agent 中分别选择。
         </p>
       </section>
     </>
@@ -512,6 +567,7 @@ function PreferenceToggle({
 
 function ProviderCard({
   provider,
+  proxyProtocols,
   testingId,
   testResult,
   onEdit,
@@ -520,6 +576,7 @@ function ProviderCard({
   onTest,
 }: {
   provider: ProviderResponse
+  proxyProtocols: ProxyProtocol[]
   testingId: string | null
   testResult: { success: boolean; message: string } | null
   onEdit: () => void
@@ -542,7 +599,10 @@ function ProviderCard({
               </span>
             )}
           </div>
-          <p className="app-muted mt-2 text-sm leading-7">{provider.model} · {provider.base_url}</p>
+          <p className="app-muted mt-2 text-sm leading-7">
+            {protocolLabel(proxyProtocols, provider.protocol)} · {provider.model} · {provider.base_url}
+            {provider.api_version ? ` · ${provider.api_version}` : ''}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -585,10 +645,13 @@ function ProviderCard({
 
 function ProviderForm({
   title,
+  proxyProtocols,
   formName,
+  formProtocol,
   formKey,
   formUrl,
   formModel,
+  formApiVersion,
   showKey,
   saving,
   isNew,
@@ -596,9 +659,11 @@ function ProviderForm({
   testResult,
   existingKeyHint,
   onNameChange,
+  onProtocolChange,
   onKeyChange,
   onUrlChange,
   onModelChange,
+  onApiVersionChange,
   onToggleKey,
   onSave,
   onCancel,
@@ -606,10 +671,13 @@ function ProviderForm({
   onPreset,
 }: {
   title: string
+  proxyProtocols: ProxyProtocol[]
   formName: string
+  formProtocol: string
   formKey: string
   formUrl: string
   formModel: string
+  formApiVersion: string
   showKey: boolean
   saving: boolean
   isNew: boolean
@@ -617,9 +685,11 @@ function ProviderForm({
   testResult: { success: boolean; message: string } | null
   existingKeyHint?: boolean
   onNameChange: (value: string) => void
+  onProtocolChange: (value: string) => void
   onKeyChange: (value: string) => void
   onUrlChange: (value: string) => void
   onModelChange: (value: string) => void
+  onApiVersionChange: (value: string) => void
   onToggleKey: () => void
   onSave: () => void
   onCancel: () => void
@@ -654,8 +724,20 @@ function ProviderForm({
           <input className="app-input" value={formName} onChange={(e) => onNameChange(e.target.value)} placeholder="例如 GPT-4o-mini" />
         </div>
         <div>
+          <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">协议</label>
+          <select className="app-input" value={formProtocol} onChange={(e) => onProtocolChange(e.target.value)}>
+            {proxyProtocols.map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">模型名称</label>
           <input className="app-input" value={formModel} onChange={(e) => onModelChange(e.target.value)} placeholder="gpt-4o-mini" />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">API Version</label>
+          <input className="app-input" value={formApiVersion} onChange={(e) => onApiVersionChange(e.target.value)} placeholder={formProtocol === 'azure' ? '2024-10-21' : '可留空'} />
         </div>
         <div className="md:col-span-2">
           <label className="mb-2 block text-sm font-medium text-[var(--app-text-soft)]">API Key</label>

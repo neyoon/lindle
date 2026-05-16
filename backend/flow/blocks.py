@@ -81,6 +81,8 @@ def _resolve_provider(provider_id: str | None) -> dict[str, Any]:
         "model": provider.get("model"),
         "api_key": provider.get("api_key"),
         "base_url": provider.get("base_url"),
+        "protocol": provider.get("protocol") or "openai",
+        "api_version": provider.get("api_version") or "",
     }
 
 

@@ -26,6 +26,8 @@ class LLMConfig:
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     default_model: str = "gpt-4o-mini"
+    protocol: str = "openai"
+    api_version: str = ""
     timeout: float = 600.0
 
 
@@ -49,10 +51,18 @@ def configure(
     api_key: str = "",
     base_url: str = "https://api.openai.com/v1",
     default_model: str = "gpt-4o-mini",
+    protocol: str = "openai",
+    api_version: str = "",
 ) -> None:
     """配置 LLM 连接"""
     global _config
-    _config = LLMConfig(api_key=api_key, base_url=base_url, default_model=default_model)
+    _config = LLMConfig(
+        api_key=api_key,
+        base_url=base_url,
+        default_model=default_model,
+        protocol=protocol or "openai",
+        api_version=api_version,
+    )
 
 
 async def call_llm(
@@ -64,6 +74,8 @@ async def call_llm(
     *,
     api_key: str | None = None,
     base_url: str | None = None,
+    protocol: str | None = None,
+    api_version: str | None = None,
     tools: list[dict] | None = None,
     tool_choice: str = "auto",
 ) -> Any:
@@ -87,6 +99,8 @@ async def call_llm(
     effective_model = model or _config.default_model
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
+    effective_protocol = protocol or _config.protocol
+    effective_api_version = api_version if api_version is not None else _config.api_version
 
     system_parts = ["你是一个专业的 AI 助手。请根据用户的指令完成任务。"]
 
@@ -113,12 +127,21 @@ async def call_llm(
     if tools:
         result = await _call_api_with_tools(
             messages, effective_model, temperature, tools, tool_choice,
-            api_key=effective_key, base_url=effective_url
+            api_key=effective_key,
+            base_url=effective_url,
+            protocol=effective_protocol,
+            api_version=effective_api_version,
         )
         return result
 
     result_text = await _call_api(
-        messages, effective_model, temperature, api_key=effective_key, base_url=effective_url
+        messages,
+        effective_model,
+        temperature,
+        api_key=effective_key,
+        base_url=effective_url,
+        protocol=effective_protocol,
+        api_version=effective_api_version,
     )
 
     if output_keys:
@@ -133,10 +156,25 @@ async def _call_api(
     *,
     api_key: str | None = None,
     base_url: str | None = None,
+    protocol: str | None = None,
+    api_version: str | None = None,
 ) -> str:
     """调用 OpenAI 兼容 API"""
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
+    effective_protocol = protocol or _config.protocol
+
+    if _should_use_proxy(effective_protocol):
+        result = await _call_proxy_chat(
+            messages,
+            model,
+            temperature,
+            api_key=effective_key,
+            base_url=effective_url,
+            protocol=effective_protocol,
+            api_version=api_version if api_version is not None else _config.api_version,
+        )
+        return str(result.get("content") or "")
 
     client = _get_client()
     response = await client.post(
@@ -165,10 +203,31 @@ async def _call_api_with_tools(
     *,
     api_key: str | None = None,
     base_url: str | None = None,
+    protocol: str | None = None,
+    api_version: str | None = None,
 ) -> dict:
     """调用 OpenAI 兼容 API（带 function calling）"""
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
+    effective_protocol = protocol or _config.protocol
+
+    if _should_use_proxy(effective_protocol):
+        result = await _call_proxy_chat(
+            messages,
+            model,
+            temperature,
+            api_key=effective_key,
+            base_url=effective_url,
+            protocol=effective_protocol,
+            api_version=api_version if api_version is not None else _config.api_version,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+        return {
+            "content": result.get("content"),
+            "tool_calls": result.get("tool_calls"),
+            "reasoning": result.get("reasoning"),
+        }
 
     client = _get_client()
     payload = {
@@ -215,6 +274,8 @@ async def call_llm_with_messages_stream(
     *,
     api_key: str | None = None,
     base_url: str | None = None,
+    protocol: str | None = None,
+    api_version: str | None = None,
 ):
     """流式调用 LLM（用于 Agent 多轮对话）
 
@@ -227,8 +288,25 @@ async def call_llm_with_messages_stream(
     effective_model = model or _config.default_model
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
+    effective_protocol = protocol or _config.protocol
+    effective_api_version = api_version if api_version is not None else _config.api_version
 
     try:
+        if _should_use_proxy(effective_protocol):
+            async for chunk in _call_proxy_stream(
+                messages,
+                effective_model,
+                temperature,
+                api_key=effective_key,
+                base_url=effective_url,
+                protocol=effective_protocol,
+                api_version=effective_api_version,
+                tools=tools,
+                tool_choice=tool_choice,
+            ):
+                yield chunk
+            return
+
         client = httpx.AsyncClient(timeout=_config.timeout)
         payload = {
             "model": effective_model,
@@ -364,26 +442,202 @@ async def call_llm_with_messages(
     *,
     api_key: str | None = None,
     base_url: str | None = None,
+    protocol: str | None = None,
+    api_version: str | None = None,
 ) -> dict:
     """直接使用消息列表调用 LLM（用于 Agent 多轮对话）"""
     effective_model = model or _config.default_model
     effective_key = api_key or _config.api_key
     effective_url = base_url or _config.base_url
+    effective_protocol = protocol or _config.protocol
+    effective_api_version = api_version if api_version is not None else _config.api_version
 
     if tools:
         return await _call_api_with_tools(
             messages, effective_model, temperature, tools, tool_choice,
-            api_key=effective_key, base_url=effective_url
+            api_key=effective_key,
+            base_url=effective_url,
+            protocol=effective_protocol,
+            api_version=effective_api_version,
         )
 
     result_text = await _call_api(
         messages, effective_model, temperature,
-        api_key=effective_key, base_url=effective_url
+        api_key=effective_key,
+        base_url=effective_url,
+        protocol=effective_protocol,
+        api_version=effective_api_version,
     )
     return {
         "content": result_text,
         "tool_calls": None,
         "reasoning": None,
+    }
+
+
+def _normalize_protocol(protocol: str | None) -> str:
+    normalized = (protocol or "openai").strip().lower()
+    aliases = {
+        "openai-compatible": "openai",
+        "openai_compatible": "openai",
+        "google": "gemini",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _should_use_proxy(protocol: str | None) -> bool:
+    return _normalize_protocol(protocol) != "openai"
+
+
+async def _call_proxy_chat(
+    messages: list[dict],
+    model: str,
+    temperature: float,
+    *,
+    api_key: str,
+    base_url: str,
+    protocol: str,
+    api_version: str = "",
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
+) -> dict[str, Any]:
+    from api.routes.proxy import ProxyChatRequest, proxy_chat
+
+    return await proxy_chat(
+        protocol,
+        ProxyChatRequest(
+            messages=messages,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            temperature=temperature,
+            api_version=api_version,
+            tools=tools,
+            tool_choice=tool_choice,
+        ),
+    )
+
+
+async def _call_proxy_stream(
+    messages: list[dict],
+    model: str,
+    temperature: float,
+    *,
+    api_key: str,
+    base_url: str,
+    protocol: str,
+    api_version: str = "",
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
+):
+    from api.routes.proxy import (
+        ProxyChatRequest,
+        _build_endpoint,
+        _build_payload,
+        _extract_delta,
+        _extract_stream_error,
+        _headers,
+        _resolve_proxy_config,
+    )
+
+    body = ProxyChatRequest(
+        messages=messages,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        temperature=temperature,
+        api_version=api_version,
+        tools=tools,
+        tool_choice=tool_choice,
+    )
+    config = _resolve_proxy_config(protocol, body)
+    payload = _build_payload(config, body, stream=True)
+
+    full_content = ""
+    full_reasoning = ""
+    tool_calls_accumulator: dict[int, dict[str, Any]] = {}
+    finished = False
+
+    async with httpx.AsyncClient(timeout=_config.timeout, follow_redirects=False) as client:
+        async with client.stream(
+            "POST",
+            _build_endpoint(config, body, stream=True),
+            json=payload,
+            headers=_headers(config.protocol, config.api_key),
+        ) as response:
+            if response.status_code >= 400:
+                text = await response.aread()
+                raise RuntimeError(f"LLM provider error ({response.status_code}): {text.decode('utf-8', errors='ignore')[:500]}")
+
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                payload_text = line[5:].strip()
+                if not payload_text:
+                    continue
+                if payload_text == "[DONE]":
+                    finished = True
+                    break
+
+                try:
+                    data = json.loads(payload_text)
+                except json.JSONDecodeError:
+                    logger.debug("解析 proxy 流式行失败: %s", payload_text[:100])
+                    continue
+
+                error = _extract_stream_error(data, config.protocol)
+                if error:
+                    raise RuntimeError(error)
+
+                delta = _extract_delta(data, config.protocol)
+
+                if reasoning := delta.get("reasoning"):
+                    full_reasoning += reasoning
+                    yield {"type": "reasoning", "data": reasoning}
+
+                if content := delta.get("content"):
+                    full_content += content
+                    yield {"type": "content", "data": content}
+
+                if tool_calls_delta := delta.get("tool_calls"):
+                    for tc_delta in tool_calls_delta:
+                        index = tc_delta.get("index", 0)
+                        if index not in tool_calls_accumulator:
+                            tool_calls_accumulator[index] = {
+                                "id": "",
+                                "type": "function",
+                                "function": {"name": "", "arguments": ""},
+                            }
+                        if "id" in tc_delta:
+                            tool_calls_accumulator[index]["id"] += tc_delta["id"]
+                        if "type" in tc_delta:
+                            tool_calls_accumulator[index]["type"] = tc_delta["type"]
+                        if "function" in tc_delta:
+                            func_delta = tc_delta["function"]
+                            if "name" in func_delta:
+                                tool_calls_accumulator[index]["function"]["name"] += func_delta["name"]
+                            if "arguments" in func_delta:
+                                tool_calls_accumulator[index]["function"]["arguments"] += func_delta["arguments"]
+
+                if delta.get("finished"):
+                    finished = True
+                    break
+
+    tool_calls_data = (
+        [tool_calls_accumulator[i] for i in sorted(tool_calls_accumulator.keys())]
+        if tool_calls_accumulator
+        else None
+    )
+    if not finished and not full_content and not full_reasoning and not tool_calls_data:
+        raise RuntimeError("LLM 流式响应提前结束且无有效内容")
+
+    yield {
+        "type": "done",
+        "data": {
+            "content": full_content,
+            "reasoning": full_reasoning or None,
+            "tool_calls": tool_calls_data,
+        },
     }
 
 

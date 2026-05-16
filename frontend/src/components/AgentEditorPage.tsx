@@ -10,6 +10,7 @@ import type { PluginInfo, WorkflowSummary } from '@/types/workflow'
 interface Provider {
   id: string
   name: string
+  protocol: string
   model: string
   is_default: boolean
 }
@@ -737,7 +738,7 @@ export function AgentEditorPage({ agentId, onBack, onManualSave, headerActions }
                       <option value="">使用默认模型</option>
                       {providers.map((provider) => (
                         <option key={provider.id} value={provider.id}>
-                          {provider.name} ({provider.model})
+                          {provider.name} ({provider.protocol || 'openai'} / {provider.model})
                         </option>
                       ))}
                     </select>

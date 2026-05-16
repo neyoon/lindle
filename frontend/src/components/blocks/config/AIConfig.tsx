@@ -123,7 +123,7 @@ export function AIConfig({ block }: { block: Block }) {
           <option value="">默认 Provider</option>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} ({p.model}){p.is_default ? ' (默认)' : ''}
+              {p.name} ({p.protocol || 'openai'} / {p.model}){p.is_default ? ' (默认)' : ''}
             </option>
           ))}
         </select>

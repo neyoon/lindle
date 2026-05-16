@@ -188,6 +188,7 @@ export async function updatePluginConfig(pluginId: string, config: Record<string
 export interface SettingsSummary {
   api_key_set: boolean
   api_key_masked: string
+  protocol: string
   base_url: string
   default_model: string
 }
@@ -195,22 +196,74 @@ export interface SettingsSummary {
 export interface ProviderResponse {
   id: string
   name: string
+  protocol: string
   api_key_masked: string
   api_key_set: boolean
   base_url: string
   model: string
+  api_version: string
   is_default: boolean
 }
 
 export interface ProviderInput {
   name: string
+  protocol: string
   api_key: string
   base_url: string
   model: string
+  api_version: string
+}
+
+export interface ProxyProtocol {
+  id: string
+  name: string
+  status: string
+  description: string
+}
+
+export interface ProxyChatRequest {
+  messages: Record<string, any>[]
+  provider_id?: string
+  api_key?: string
+  base_url?: string
+  model?: string
+  system_prompt?: string
+  temperature?: number
+  max_tokens?: number | null
+  api_version?: string
+  tools?: Record<string, any>[] | null
+  tool_choice?: string
+  extra_body?: Record<string, any>
+}
+
+export interface ResolvedProxyConfig {
+  protocol: string
+  api_key: string
+  base_url: string
+  model: string
+  provider_id: string
 }
 
 export async function getSettings() {
   return request<SettingsSummary>('/settings/')
+}
+
+export async function listProxyProtocols() {
+  return request<ProxyProtocol[]>('/proxy/protocols')
+}
+
+export async function resolveProxyProtocol(protocol: string, body: ProxyChatRequest) {
+  return request<ResolvedProxyConfig>(`/proxy/${protocol}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function proxyChat(protocol: string, body: ProxyChatRequest) {
+  return request<Record<string, any>>(`/proxy/${protocol}/chat`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function listProviders() {
@@ -250,7 +303,14 @@ export async function setEditProvider(providerId: string) {
   })
 }
 
-export async function testConnection(params: { api_key?: string; base_url: string; model: string; provider_id?: string }) {
+export async function testConnection(params: {
+  protocol?: string
+  api_key?: string
+  base_url: string
+  model: string
+  provider_id?: string
+  api_version?: string
+}) {
   return request<{ success: boolean; message: string }>('/settings/test', {
     method: 'POST',
     body: JSON.stringify(params),

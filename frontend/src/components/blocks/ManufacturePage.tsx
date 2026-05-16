@@ -288,7 +288,7 @@ function TemplateForm({
                 <option value="">默认 Provider</option>
                 {providers.map((provider) => (
                   <option key={provider.id} value={provider.id}>
-                    {provider.name} ({provider.model}){provider.is_default ? ' (默认)' : ''}
+                    {provider.name} ({provider.protocol || 'openai'} / {provider.model}){provider.is_default ? ' (默认)' : ''}
                   </option>
                 ))}
               </select>

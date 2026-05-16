@@ -196,6 +196,8 @@ Agent 名称：{req.agent_name}
                 "model": provider.get("model"),
                 "api_key": provider.get("api_key"),
                 "base_url": provider.get("base_url"),
+                "protocol": provider.get("protocol") or "openai",
+                "api_version": provider.get("api_version") or "",
             }
         result = await call_llm(prompt=prompt, context="", **provider_config)
         return GeneratePromptResponse(system_prompt=result.strip())

@@ -123,10 +123,14 @@ class WorkflowDesignerSkill(BasePlugin):
                 api_key = provider["api_key"]
                 base_url = provider.get("base_url", "https://api.openai.com/v1")
                 model = provider.get("model", "gpt-4o-mini")
+                protocol = provider.get("protocol") or "openai"
+                api_version = provider.get("api_version") or ""
             elif _config.api_key:
                 api_key = _config.api_key
                 base_url = _config.base_url
                 model = _config.default_model
+                protocol = _config.protocol
+                api_version = _config.api_version
             else:
                 yield {
                     "type": "result",
@@ -165,6 +169,8 @@ class WorkflowDesignerSkill(BasePlugin):
                     temperature=0.3,
                     api_key=api_key,
                     base_url=base_url,
+                    protocol=protocol,
+                    api_version=api_version,
                 ):
                     if chunk["type"] == "content":
                         content = chunk["data"]
